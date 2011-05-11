@@ -83,7 +83,7 @@ class SharedMemInfo(object):
             self.base = base
             self.delta = self.start - base
 
-def attachTo(memInfo):
+def attach(memInfo):
     return SharedMemReader(memInfo)
 
 class SharedMemReader( MemReaderInterface, GUIDisplayInterface ):
@@ -157,5 +157,55 @@ class SharedMemReader( MemReaderInterface, GUIDisplayInterface ):
             else:
                 return result
 
+         def _hexDisplay(self, address, length=0x1000, showOffsets=False, size=4):
+        if showOffsets:
+            newWindow = HexView(self.readMemory(address, length), start_address=0, item_size=size)
+        else:
+            newWindow = HexView(self.readMemory(address, length), start_address=address, item_size=size)
+        newWindow.show()
+        return newWindow
 
+    def resolveOffsetsList( self, start, l, isVerbos=False ):
+        result = [start]
+        for i in l:
+            result.append(self.readAddr(result[-1]+i))
+        if True == isVerbos:
+            if None != self.solveAddr:
+                outputString = '['
+                for i in xrange(len(result)):
+                    addr = result[i]
+                    addrName = self.solveAddr(addr)
+                    if None != addrName:
+                        outputString += addrName
+                    else:
+                        outputString += hex(addr)
+                    if i != (len(result) - 1):
+                        outputString += ', '
+                outputString += ']'
+                print outputString
+            else:
+                print map(hex, result)
+        return result
+
+    def _mapDisplay(self, address, length=0x1000, colorMap=None, itemsPerRow=MemoryMap.DEFAULT_LINE_SIZE):
+        newWindow = MemoryMap(self.readMemory(address, length), colorMap, itemsPerRow)
+        newWindow.show()
+        return newWindow
+
+    def _unsupported(self, *args, **kw):
+        raise NotImplementedError("Unsupported function")
+
+    def mapDisplay(self, *args, **kw):
+        if IS_GUI_FOUND:
+            self.mapDisplay = self._mapDisplay
+        else:
+            self.mapDisplay = self._unsupported
+        self.mapDisplay(*args, **kw)
+
+    def hexDisplay(self, *args, **kw):
+        if IS_GUI_FOUND:
+            self.hexDisplay = self._hexDisplay
+        else:
+            self.hexDisplay = self._unsupported
+        self.hexDisplay(*args, **kw)
 

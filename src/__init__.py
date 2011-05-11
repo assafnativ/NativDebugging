@@ -6,7 +6,7 @@ __all__ = [
 import sys
 if sys.platform.lower().startswith('win'):
     import Win32
-    __all__.extend(Win32.__all__)
+    __all__.extend('Win32')
 else:
     import Linux
-    __all__.extend(Linux.__all__)
+    __all__.append('Linux')

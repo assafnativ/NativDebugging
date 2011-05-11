@@ -819,10 +819,6 @@ class MemoryReader( MemReaderInterface, MemWriterInterface, GUIDisplayInterface 
             self.hexDisplay = self._unsupported
         self.hexDisplay(*args, **kw)
 
-    readNPrintBin      = readNPrintBin
-    readNPrintDwords   = readNPrintDwords
-    readNPrintWords    = readNPrintWords
-    readNPrintQwords   = readNPrintQwords
     solveAddr      = None
     findInSymbols  = None
     findSymbol     = None
