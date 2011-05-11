@@ -3,5 +3,10 @@ __all__ = [
         "QtWidgets",
         "Utile" ]
 
-import Win32
-__all__.extend(Win32.__all__)
+import sys
+if sys.platfomr.lower().startswith('win'):
+    import Win32
+    __all__.extend(Win32.__all__)
+else:
+    import Linux
+    __all__.extend(Linux.__all__)
