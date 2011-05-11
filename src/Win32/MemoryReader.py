@@ -1,7 +1,7 @@
 #
-#   ProcessInspector.py
+#   MemoryReader.py
 #
-#   ProcessInspector - Remote process memory inspection python module
+#   MemoryReader - Remote process memory inspection python module
 #   https://svn3.xp-dev.com/svn/nativDebugging/
 #   Nativ.Assaf+debugging@gmail.com
 #   Copyright (C) 2011  Assaf Nativ
@@ -38,9 +38,9 @@ except ImportError, e:
     IS_GUI_FOUND = False
 
 def attach(targetProcessId):
-    return ProcessInspector(targetProcessId)
+    return MemoryReader(targetProcessId)
 
-class ProcessInspector( MemReaderInterface, MemWriterInterface, GUIDisplayInterface ):
+class MemoryReader( MemReaderInterface, MemWriterInterface, GUIDisplayInterface ):
     def __init__( self, target_process_id ):
         adjustDebugPrivileges()
         self._processId = target_process_id
