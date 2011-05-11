@@ -1,4 +1,12 @@
 
+import sys
+if sys.platform.lower().startswith('win'):
+    packagesNames = ['NativDebugging', 'NativDebugging/Win32']
+    packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Win32' : 'src/Win32'}
+elif sys.platform.lower().startswith('linux'):
+    packagesNames = ['NativDebugging', 'NativDebugging/Linux']
+    packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Linux' : 'src/Linux'}
+
 from distutils.core import setup
 setup(
 	name = 'NativDebugging',
@@ -6,8 +14,8 @@ setup(
 	description = 'Debugging tools for many platforms',
 	author = 'Assaf Nativ',
 	author_email = 'Nativ.Assaf@gmail.com',
-	packages = ['NativDebugging', 'NativDebugging/Win32', 'NativDebugging/Linux'],
-    package_dir = {'NativDebugging' : 'src', 'NativDebugging/Win32' : 'src/Win32', 'NativDebugging/Linux' : 'src/Linux'},
+	packages = packagesNames,
+    package_dir = packagesDirs,
 	data_files = [('Lib\\\site-packages', ('NativDebugging.pth',))]
 	)
 
