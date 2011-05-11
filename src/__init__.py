@@ -4,7 +4,7 @@ __all__ = [
         "Utile" ]
 
 import sys
-if sys.platfomr.lower().startswith('win'):
+if sys.platform.lower().startswith('win'):
     import Win32
     __all__.extend(Win32.__all__)
 else:
