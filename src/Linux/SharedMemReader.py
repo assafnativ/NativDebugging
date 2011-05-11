@@ -64,7 +64,7 @@ def getShmids(shmidIndex=1,keyIndex=0,shSizeIndex=4):
     memInfo = getAllShmidInfo(shmidIndex,keyIndex,shSizeIndex)
     return map(lambda x:x[1], memInfo)
 
-class SharedMemInfo(Object):
+class SharedMemInfo(object):
     def __init__(self, id, start, end=None, size=None, base=None):
         self.id = id
         self.start = start
