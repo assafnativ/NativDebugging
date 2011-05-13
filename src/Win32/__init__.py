@@ -1,9 +1,5 @@
 __all__ = [
-        "BreakPoint",
-        "Deubgger",
-        "DllInfo",
-        "ProcessInspector",
+        "Debugger",
+        "MemoryReader",
         "Symbols",
-        "Win32Structs",
-        "Win32Utile",
-        "Win64Structs" ]
+        "Win32Utile" ]
