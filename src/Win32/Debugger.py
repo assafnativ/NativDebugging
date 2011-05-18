@@ -1,7 +1,7 @@
 #
-#   win32Debugger.py
+#   Debugger.py
 #
-#   win32Debugger - Win32 debugger python module
+#   Debugger - Win32 debugger python module
 #   https://svn3.xp-dev.com/svn/nativDebugging/
 #   Nativ.Assaf+debugging@gmail.com
 #   Copyright (C) 2011  Assaf Nativ

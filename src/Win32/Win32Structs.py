@@ -34,6 +34,8 @@ win32con.PROCESS_VM_READ                = 16
 win32con.PROCESS_VM_WRITE               = 32
 win32con.PROCESS_DUP_HANDLE             = 64
 win32con.PROCESS_QUERY_INFORMATION      = 1024
+win32con.PROCESS_ALL_ACCESS             = 0x1f0fff
+win32con.MEM_COMMIT                     = 0x1000
 win32con.PAGE_EXECUTE_READWRITE         = 0x40
 win32con.ObjectBasicInformation         = 0
 win32con.ObjectNameInformation          = 1
@@ -275,7 +277,27 @@ VirtualQueryEx.argtypes = [
     c_void_p,   # PMEMORY_BASIC_INFORMATION lpBuffer
     c_longlong ] # SIZE_T dwLength
 VirtualQueryEx.restype = ErrorIfZero
-    
+
+# VirtualAllocEx
+VirtualAllocEx = windll.kernel32.VirtualAllocEx
+VirtualAllocEx.argtypes = [
+        c_uint,         # HANDLE hProcess
+        c_void_p,       # LPVOID lpAddress
+        c_uint,         # SIZE_T dwSize
+        c_uint,         # DWORD flAllocationType
+        c_uint ]        # DWORD flProtect
+VirtualAllocEx.restype = ErrorIfZero
+
+# WriteProcessMemory
+WriteProcessMemory = windll.kernel32.WriteProcessMemory
+WriteProcessMemory.argtypes = [
+        c_uint,         # HANDLE hProcess
+        c_uint,         # LPVOID lpBaseAddress
+        c_char_p,       # LPCVOID lpBuffer
+        c_uint,         # SIZE_T nSize
+        c_void_p ]      # SIZE_T* lpNumberOfBytesWritten
+WriteProcessMemory.restype = ErrorIfZero
+
 CloseHandle = windll.kernel32.CloseHandle
 CloseHandle.argtypes = [ c_int ]
 CloseHandle.restype = ErrorIfZero
@@ -526,6 +548,21 @@ CreateProcess.argtypes = [
     c_void_p ]  # lpProcessInformation  // process information
 CreateProcess.restype = ErrorIfZero
 
+ResumeThread = windll.kernel32.ResumeThread
+ResumeThread.argtypes = [c_uint]
+ResumeThread.restype = c_uint
+
+CreateRemoteThread = windll.kernel32.CreateRemoteThread
+CreateRemoteThread.argtypes = [
+        c_uint,         # HANDLE hProcess
+        c_void_p,       # LPSECURITY_ATTRIBUTES lpThreadAttributes
+        c_uint,         # SIZE_T dwStackSize
+        c_void_p,       # LPTHREAD_START_ROUTINE lpStartAddress
+        c_void_p,       # LPVOID lpParameter
+        c_uint,         # DWORD dwCreationFlags
+        c_void_p ]      # LPDWORD lpThreadId        
+CreateRemoteThread.restype = ErrorIfZero
+
 class EXCEPTION_RECORD( Structure ):
     _fields_ = [
         ('ExceptionCode',           c_int ),
@@ -559,6 +596,20 @@ class CREATE_PROCESS_DEBUG_INFO( Structure ):
         ('lpImageName',             c_uint ),
         ('fUnicode',                c_ushort ) ]
         
+class MEMORY_BASIC_INFORMATION(Structure):
+    _fields_ = [("BaseAddress", c_void_p),
+                ("AllocationBase", c_void_p),
+                ("AllocationProtect", c_uint),
+                ("RegionSize", c_longlong),
+                ("State", c_uint),
+                ("Protect", c_uint),
+                ("Type", c_uint),]
+
+class SECURITY_ATTRIBUTES(Structure):
+    _fields_ = [("Length", c_uint),
+                ("SecDescriptor", c_void_p),
+                ("InheritHandle", c_uint)]
+    
 class EXIT_THREAD_DEBUG_INFO( Structure ):
     _fields_ = [
         ('dwExitCode',  c_uint ) ]
@@ -682,6 +733,10 @@ GetModuleHandle = windll.kernel32.GetModuleHandleA
 GetModuleHandle.argtypes = [
     c_char_p ]  # lpModuleName // module name
 GetModuleHandle.restype = ErrorIfZero
+
+LoadLibrary = windll.kernel32.LoadLibraryA
+LoadLibrary.argtypes = [ c_char_p ]
+LoadLibrary.restype = ErrorIfZero
 
 GetProcAddress = windll.kernel32.GetProcAddress
 GetProcAddress.argtypes = [
