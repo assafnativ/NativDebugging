@@ -1,4 +1,5 @@
 __all__ = [
+        "Patterns",
         "Interfaces",
         "QtWidgets",
         "Utile" ]

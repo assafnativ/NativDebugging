@@ -23,7 +23,7 @@
 
 # Imports
 from ..Interfaces import DebuggerInterface
-from .ProcessInspector import ProcessInspector
+from .MemoryReader import MemoryReader
 
 from .BreakPoint import *
 from .DllInfo import *
@@ -67,7 +67,7 @@ def attach(targetProcessId):
 def create(processName):
     return Win32Debugger(str(processName))
 
-class Win32Debugger( DebuggerInterface, ProcessInspector ):
+class Win32Debugger( DebuggerInterface, MemoryReader ):
     def __init__(self, process = None):
         """ 
         Constructor of the Win32Debugger class.
@@ -548,8 +548,8 @@ class Win32Debugger( DebuggerInterface, ProcessInspector ):
                 FlushInstructionCache(self._process, None, 0)
                 self._isDirty = False
 
-    d   = ProcessInspector.readNPrintBin
-    dd  = ProcessInspector.readNPrintDwords
+    d   = MemoryReader.readNPrintBin
+    dd  = MemoryReader.readNPrintDwords
 
     def u( self, address = None, lines = None ):
         """
@@ -837,6 +837,3 @@ class Win32Debugger( DebuggerInterface, ProcessInspector ):
         else:
             print "Unknown state"
             raise( Excpetion("Error") )
-
-
-

@@ -23,6 +23,7 @@
 from ..Interfaces import MemReaderInterface, MemWriterInterface, GUIDisplayInterface
 
 from .Win32Structs import *
+from .Win32Utile import *
 import sys
 import struct
 from pefile import *
@@ -48,6 +49,11 @@ class MemoryReader( MemReaderInterface, MemWriterInterface, GUIDisplayInterface 
         temp_void_p = c_void_p(1)
         temp_void_p.value -= 2
         self._is_win64 = (temp_void_p.value > (2**32))
+        if self._is_win64:
+            self._POINTER_SIZE = 8
+        else:
+            self._POINTER_SIZE = 4
+        self._DEFAULT_DATA_SIZE = 4
         self._mem_map = None
         self._READ_ATTRIBUTES       = [1, 2, 4, 6, 9, 11, 12, 14, 17, 19, 20, 22, 25, 27, 28, 30]
         self._WRITE_ATTRIBUTES      = [4, 5, 6, 7, 12, 13, 14, 15, 20, 21, 22, 23, 28, 29, 30, 31]
@@ -78,7 +84,7 @@ class MemoryReader( MemReaderInterface, MemWriterInterface, GUIDisplayInterface 
     def readAddr( self, addr ):
         result = c_void_p(0)
         bytes_read = c_uint(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), sizeof(result), byref(bytes_read) )
+        read_result = ReadProcessMemory( self._process, addr, byref(result), self._POINTER_SIZE, byref(bytes_read) )
         if 0 == read_result:
             raise WinError()
         if None == result.value:
@@ -125,26 +131,30 @@ class MemoryReader( MemReaderInterface, MemWriterInterface, GUIDisplayInterface 
             raise WinError()
         return result.raw
 
-    def readString( self, addr, isUnicode = False ):
+    def readString( self, addr, maxSize=None, isUnicode=False ):
         result = ''
         bytes_read = c_uint(0)
         char = c_uint(0)
+        bytesCounter = 0
+
         while True:
             if False == isUnicode:
                 try:
-                    ReadProcessMemory( self._process, addr, byref(char), 1, byref(bytes_read) )
+                    ReadProcessMemory( self._process, addr + bytesCounter, byref(char), 1, byref(bytes_read) )
                 except WindowsError:
                     return result
-                addr += 1
+                bytesCounter += 1
             else:
                 try:
-                    ReadProcessMemory( self._process, addr, byref(char), 2, byref(bytes_read) )
+                    ReadProcessMemory( self._process, addr + bytesCounter, byref(char), 2, byref(bytes_read) )
                 except WindowsError:
                     return result
-                addr += 2
+                bytesCounter += 2
             if 1 < char.value and char.value < 0x80:
                 result += chr(char.value)
             else:
+                return result
+            if None != maxSize and bytesCounter > maxSize:
                 return result
 
     def writeAddr( self, addr, data ):
@@ -818,6 +828,15 @@ class MemoryReader( MemReaderInterface, MemWriterInterface, GUIDisplayInterface 
         else:
             self.hexDisplay = self._unsupported
         self.hexDisplay(*args, **kw)
+
+    def getPointerSize(self):
+        return self._POINTER_SIZE
+
+    def getDefaultDataSize(self):
+        return self._DEFAULT_DATA_SIZE
+
+    def getEndianity(self):
+        return '<' # Intel is always Little-endian
 
     solveAddr      = None
     findInSymbols  = None

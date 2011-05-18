@@ -124,6 +124,22 @@ class MemReaderInterface( object ):
     def resolveOffsetsList(self, start, offsetsList):
         raise NotImplementedError("Pure function call")
 
+    @abstractmethod
+    def getPointerSize(self):
+        raise NotImplementedError("Pure function call")
+
+    @abstractmethod
+    def getDefaultDataSize(self):
+        raise NotImplementedError("Pure function call")
+
+    @abstractmethod
+    def getEndianity(self):
+        """ Returns either '<' or '>' (same format as in the struct module)
+        <: little-endian, std. size & alignment
+        >: big-endian, std. size & alignment
+        """
+        raise NotImplementedError("Pure function call")
+
 class MemWriterInterface( object ):
     """ Pure Interface for Debugger """
     __metaclass__ = ABCMeta
