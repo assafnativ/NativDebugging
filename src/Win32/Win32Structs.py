@@ -147,7 +147,7 @@ FALSE = c_char( chr( int( False ) ) )
 void_NULL = c_void_p( win32con.NULL )
 pchar_NULL = c_char_p( win32con.NULL )
 
-from win64structs import *
+from .Win64Structs import *
 
 OpenProcess = windll.kernel32.OpenProcess
 OpenProcess.argtypes = [
