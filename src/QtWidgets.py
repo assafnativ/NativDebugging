@@ -232,10 +232,10 @@ class MemoryMap(QtGui.QWidget):
     def __randomPalette(self):
         color_map = []
         for i in xrange(256):
-            color_map.append = (
+            color_map.append(
                     (random.randint(0, 255) << 16) |
                     (random.randint(0, 255) << 8) |
-                    (random.randint(0, 255)))
+                    (random.randint(0, 255)) )
         return color_map
 
     def __init__(self, data, color_map=None, parent=None):
