@@ -21,7 +21,7 @@
 #
 
 
-from symbols_win32structs import *
+from .Win32Structs import *
 
 collectedSymbols = []
 
