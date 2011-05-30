@@ -23,8 +23,11 @@
 import sys
 import struct
 from ctypes import *
+import subprocess
+from subprocess import Popen
 
-from ..Interfaces import MemReaderInterface, GUIDisplayInterface
+from ..MemReaderBase import *
+from ..GUIDisplayBase import *
 from ..Utile import *
 try:
     from ..QtWidgets import *
@@ -61,34 +64,30 @@ def getAllShmidsInfo(shmidIndex=1,keyIndex=0,shSizeIndex=4):
     return res
 
 def getShmids(shmidIndex=1,keyIndex=0,shSizeIndex=4):
-    memInfo = getAllShmidInfo(shmidIndex,keyIndex,shSizeIndex)
+    memInfo = getAllShmidsInfo(shmidIndex,keyIndex,shSizeIndex)
     return map(lambda x:x[1], memInfo)
 
 class SharedMemInfo(object):
-    def __init__(self, id, start, end=None, size=None, base=None):
+    def __init__(self, id, localAddress, base, size):
         self.id = id
-        self.start = start
-        if None == end and None == size:
-            raise Exception("Need either mem size or end address")
-        elif None == end:
-            self.end = start + size
-            self.size = size
-        else:
-            self.size = end - start
-            self.end = end
-        if None == base:
-            self.base = start
-            self.delta = 0
-        else:
-            self.base = base
-            self.delta = self.start - base
+        self.localAddress = localAddress 
+        self.localAddressEnd = localAddress + size
+        self.end = base + size 
+        self.size = size
+        self.base = base
+        self.delta = self.localAddress - base
+    def __repr__(self):
+        return "MemInfo:Id0x%x:Base0x%x:End0x%x:LocalAddress0x%x" % (self.id, self.base, self.end, self.localAddress)
 
 def attach(memInfo):
     return SharedMemReader(memInfo)
 
-class SharedMemReader( MemReaderInterface, GUIDisplayInterface ):
+class SharedMemReader( MemReaderBase, GUIDisplayBase ):
     def __init__(self, memInfos):
-        libc = cdll.LoadLibrary("libc.so.6")
+        self._POINTER_SIZE=sizeof(c_void_p)
+        self._DEFAULT_DATA_SIZE = 4
+        self._ENDIANITY = '='
+        self.libc = cdll.LoadLibrary("libc.so.6")
         # Support more than one shmid on input
         if list != type(memInfos):
             memInfos = [memInfos]
@@ -100,16 +99,33 @@ class SharedMemReader( MemReaderInterface, GUIDisplayInterface ):
             mem = self.libc.shmat(memInfo[0], 0, 010000) # 010000 == SHM_RDONLY
             if -1 == mem:
                 raise Exception("Attach to shared memory failed")
-            self.memMap.append(SharedMemInfo(memInfo[0], mem, size=memInfo[2], base=memInfo[1]))
-    def remoteAddressToLocalAddress(address):
-        for mem in memMap:
-            if address >= mem.start and mem < mem.end:
+            self.memMap.append(SharedMemInfo(memInfo[0], mem, memInfo[1], memInfo[2]))
+    def remoteAddressToLocalAddress(self, address):
+        for mem in self.memMap:
+            if address >= mem.base and address < mem.end:
                 return address + mem.delta
         raise Exception("Address not in any attached memory")
 
     def __del__(self):
-        for mem in memMap:
-            self.libx.shmdt(mem.start)
+        self.__detach()
+
+    def detach(self):
+        self.__detach()
+        del(self)
+
+    def __detach(self):
+        for mem in self.memMap:
+            self.libc.shmdt(mem.localAddress)
+        self.memMap = []
+
+    def getPointerSize(self):
+        return self._POINTER_SIZE
+
+    def getDefaultDataSize(self):
+        return self._DEFAULT_DATA_SIZE
+
+    def getEndianity(self):
+	    return self._ENDIANITY 
 
     def readMemory(self, address, length, isLocalAddress=False):
         if not isLocalAddress:
@@ -140,10 +156,13 @@ class SharedMemReader( MemReaderInterface, GUIDisplayInterface ):
         return c_void_p.from_address(address).value
     def isAddressValid(self, address, isLocalAddress=False):
         if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
-        for mem in self.memMap:
-            if address >= mem.start and address < mem.end:
-                return True
+            for mem in self.memMap:
+                if address >= mem.base and address < mem.end:
+                    return True
+        else:
+            for mem in self.memMap:
+                if address >= mem.localAddress and address < mem.localAddressEnd:
+                    return True
         return False
     def readString(self, address, isLocalAddress=False):
         if not isLocalAddress:
@@ -156,56 +175,3 @@ class SharedMemReader( MemReaderInterface, GUIDisplayInterface ):
                 result += chr(c)
             else:
                 return result
-
-         def _hexDisplay(self, address, length=0x1000, showOffsets=False, size=4):
-        if showOffsets:
-            newWindow = HexView(self.readMemory(address, length), start_address=0, item_size=size)
-        else:
-            newWindow = HexView(self.readMemory(address, length), start_address=address, item_size=size)
-        newWindow.show()
-        return newWindow
-
-    def resolveOffsetsList( self, start, l, isVerbos=False ):
-        result = [start]
-        for i in l:
-            result.append(self.readAddr(result[-1]+i))
-        if True == isVerbos:
-            if None != self.solveAddr:
-                outputString = '['
-                for i in xrange(len(result)):
-                    addr = result[i]
-                    addrName = self.solveAddr(addr)
-                    if None != addrName:
-                        outputString += addrName
-                    else:
-                        outputString += hex(addr)
-                    if i != (len(result) - 1):
-                        outputString += ', '
-                outputString += ']'
-                print outputString
-            else:
-                print map(hex, result)
-        return result
-
-    def _mapDisplay(self, address, length=0x1000, colorMap=None, itemsPerRow=MemoryMap.DEFAULT_LINE_SIZE):
-        newWindow = MemoryMap(self.readMemory(address, length), colorMap, itemsPerRow)
-        newWindow.show()
-        return newWindow
-
-    def _unsupported(self, *args, **kw):
-        raise NotImplementedError("Unsupported function")
-
-    def mapDisplay(self, *args, **kw):
-        if IS_GUI_FOUND:
-            self.mapDisplay = self._mapDisplay
-        else:
-            self.mapDisplay = self._unsupported
-        self.mapDisplay(*args, **kw)
-
-    def hexDisplay(self, *args, **kw):
-        if IS_GUI_FOUND:
-            self.hexDisplay = self._hexDisplay
-        else:
-            self.hexDisplay = self._unsupported
-        self.hexDisplay(*args, **kw)
-
