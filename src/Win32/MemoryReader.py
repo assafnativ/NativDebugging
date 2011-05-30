@@ -152,36 +152,36 @@ class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
                 return result
 
     def writeAddr( self, addr, data ):
-        raise Excpetion('Unsupported yet')
-        if type(0) == type(data) or type(0l) == type(data):
-            data = struct.pack('<l', data)
-        data_to_write = c_buffer(data, sizeof(c_void_p))
-        bytes_written = c_uint(0)
-        WriteProcessMemory( self._process, addr, data_to_write, sizeof(data_to_write), byref(bytes_written) )
+        if 4 == self._POINTER_SIZE:
+            self.writeDword(addr, data)
+        elif 8 == self._POINTER_SIZE:
+            self.writeQword(addr, data)
+        else:
+            raise Exception("Unknown pointer size")
 
     def writeQword( self, addr, data ):
-        if type(0) == type(data) or type(0l) == type(data):
+        if isinstance(data, int) or isinstance(data, long):
             data = struct.pack('<Q', data)
         data_to_write = c_buffer(data, 8)
         bytes_written = c_uint(0)
         WriteProcessMemory( self._process, addr, data_to_write, 8, byref(bytes_written) )
 
     def writeDword( self, addr, data ):
-        if type(0) == type(data) or type(0l) == type(data):
+        if isinstance(data, int) or isinstance(data, long):
             data = struct.pack('<L', data)
         data_to_write = c_buffer(data, 4)
         bytes_written = c_uint(0)
         WriteProcessMemory( self._process, addr, data_to_write, 4, byref(bytes_written) )
 
     def writeWord( self, addr, data ):
-        if type(0) == type(data) or type(0l) == type(data):
+        if isinstance(data, int) or isinstance(data, long):
             data = struct.pack('<H', data)
         data_to_write = c_buffer(data, 2)
         bytes_written = c_uint(0)
         WriteProcessMemory( self._process, addr, data_to_write, 2, byref(bytes_written) )
 
     def writeByte( self, addr, data ):
-        if type(0) == type(data) or type(0l) == type(data):
+        if isinstance(data, int) or isinstance(data, long):
             data = struct.pack('<B', data)
         data_to_write = c_buffer(data, 1)
         bytes_written = c_uint(0)
@@ -369,7 +369,7 @@ class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
 
         if False == isCaseSensitive:
             target = target.lower()
-        if type('') == type(target):
+        if isinstance(target, str):
             last_block = ''
             for block in searchRange:
                 try:
@@ -401,7 +401,7 @@ class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
                     result.append(pos + block[1] - len(last_block))
                     pos = data.find(target, pos+1)
                 last_block = data[-(len(target) - 1):]
-        elif type(0) == type(target):
+        elif isinstance(target, int) or isinstance(target, long):
             target = struct.pack('<L', target)
             for block in searchRange:
                 try:
@@ -453,7 +453,7 @@ class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
 
         results = []
 
-        if type(0) == type(target):
+        if isinstance(target, int) or isinstance(target, long):
             target = struct.pack('<L', target)
         elif False == isCaseSensitive:
             target = target.lower()
