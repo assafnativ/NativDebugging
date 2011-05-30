@@ -1,7 +1,9 @@
 __all__ = [
         "Patterns",
         "Interfaces",
+        "MemReaderBase",
         "QtWidgets",
+        "GUIDisplayBase",
         "Utile" ]
 
 import sys

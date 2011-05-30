@@ -20,7 +20,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-from ..Interfaces import MemReaderInterface, MemWriterInterface, GUIDisplayInterface
+from ..Interfaces import MemWriterInterface
+from ..MemReaderBase import *
+from ..GUIDisplayBase import *
 
 from .Win32Structs import *
 from .Win32Utile import *
@@ -30,18 +32,10 @@ from pefile import *
 
 PAGE_SIZE = 0x1000
 
-from ..Utile import *
-try:
-    from ..QtWidgets import *
-    IS_GUI_FOUND = True
-except ImportError, e:
-    #print("No GUI support")
-    IS_GUI_FOUND = False
-
 def attach(targetProcessId):
     return MemoryReader(targetProcessId)
 
-class MemoryReader( MemReaderInterface, MemWriterInterface, GUIDisplayInterface ):
+class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
     def __init__( self, target_process_id ):
         adjustDebugPrivileges()
         self._processId = target_process_id
@@ -482,160 +476,6 @@ class MemoryReader( MemReaderInterface, MemWriterInterface, GUIDisplayInterface 
 
         return results
 
-    def resolveOffsetsList( self, start, l, isVerbos = False ):
-        result = [start]
-        for i in l:
-            result.append(self.readAddr(result[-1]+i))
-        if True == isVerbos:
-            if None != self.solveAddr:
-                outputString = '['
-                for i in xrange(len(result)):
-                    addr = result[i]
-                    addrName = self.solveAddr(addr)
-                    if None != addrName:
-                        outputString += addrName
-                    else:
-                        outputString += hex(addr)
-                    if i != (len(result) - 1):
-                        outputString += ', '
-                outputString += ']'
-                print outputString
-            else:
-                print map(hex, result)
-        return result
-
-    def printRecursiveFindResult( self, result ):
-        outputString = hex(result[0]) + ' '
-        outputString += str(map(hex, result[1])) + ' '
-        outputString += str(result[2])
-        print outputString
-
-    def recursiveFind( self, target, start_address, length, hops = 1, delta = 0, must = None, isVerbos = False):
-        path = []
-        if start_address % 4 != 0:
-            raise Exception("Not aligned")
-        if type(must) == type([]):
-            if type(target) == type([]):
-                raise Exception('List target is not valid with must list')
-            for x in self._recursiveFindWithMust(target, start_address, must, length, hops, delta, path):
-                yield x
-        elif type(target) == type(0):
-            for x in self._recursiveFindInt(target, start_address, length, hops, delta, path, isVerbos):
-                yield x
-        elif type(target) == type(''):
-            for x in self._recursiveFindString(target, start_address, length, hops, delta, path, isVerbos):
-                yield x
-        elif type(target) == type([]):
-            for x in self._recursiveFindList(target, start_address, length, hops, delta, path, isVerbos):
-                yield x
-        else:
-            raise Exception("Invalid target")
-
-    def _recursiveFindInt( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbos = False):
-        try:
-            data = self.readMemory(start_address, length)
-        except WindowsError:
-            return
-        table_data = makeAddrList(data)
-        for i in xrange(len(table_data)):
-            if table_data[i] + delta >= target and table_data[i] - delta <= target:
-                result = (start_address + (i*4), path + [i*4], table_data[i])
-                yield result
-                if True == isVerbos:
-                    self.printRecursiveFindResult( result )
-            if hops > 0 and self.isAddressValid(table_data[i]):
-                for x in self._recursiveFindInt( target, table_data[i], length, hops - 1, delta, path + [i * 4], isVerbos ):
-                    yield x
-        return
-
-    def _recursiveFindString( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbos = False):
-        try:
-            data = self.readMemory(start_address, length)
-        except WindowsError:
-            return
-        table_data = makeAddrList(data)
-        pos = 0
-        lower_data = data.lower()
-        lower_target = target.lower()
-        while pos != -1:
-            pos = lower_data.find(lower_target, pos)
-            if -1 != pos:
-                result = (start_address + pos, path + [pos], self.readString(start_address+pos))
-                yield result
-                if True == isVerbos:
-                    self.printRecursiveFindResult(result)
-                pos += 1
-        pos = 0
-        lower_target = '\x00'.join(target.lower())
-        while pos != -1:
-            pos = lower_data.find(lower_target, pos)
-            if -1 != pos:
-                result = (start_address + pos, path + [pos], self.readString(start_address+pos, True))
-                if True == isVerbos:
-                    self.printRecursiveFindResult(result)
-                pos += 1
-        for i in xrange(len(table_data)):
-            if hops > 0 and self.isAddressValid(table_data[i]):
-                for x in self._recursiveFindString( target, table_data[i], length, hops - 1, delta, path + [i * 4], isVerbos ):
-                    yield x
-        return
-
-    def _recursiveFindList( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbos = False):
-        try:
-            data = self.readMemory(start_address, length)
-        except WindowsError:
-            return
-        table_data = makeAddrList(data)
-        for i in xrange(len(table_data)):
-            if table_data[i] in target:
-                result = (start_address + (i*4), path + [i*4], table_data[i])
-                yield result
-                if True == isVerbos:
-                    self.printRecursiveFindResult(result)
-            if hops > 0 and self.isAddressValid(table_data[i]):
-                for x in self._recursiveFindList( target, table_data[i], length, hops - 1, delta, path + [i * 4], isVerbos ):
-                    yield x
-        return
-
-    def _recursiveFindWithMust( self, target, start_address, must_jumps, length, hops = 1, delta = 0, path = []):
-        if start_address % 4 != 0:
-            raise Exception("Not aligned")
-        try:
-            data = self.readMemory(start_address, length)
-        except WindowsError:
-            return
-        table_data = makeAddrList(data)
-        if type('') == type(target):
-            try:
-                addr = self.resolveOffsetsList(start_address, must_jumps[:-1])[-1]
-                data = self.readMemory(addr + must_jumps[-1], len(target) * 2)
-            except WindowsError:
-                data = ''
-            if '' != data:
-                lower_data = data.lower()
-                lower_target = target.lower()
-                pos = lower_data.find(lower_target)
-                if -1 != pos:
-                    yield ((start_address + pos, path + must_jumps + [pos], self.readString(start_address+pos)))
-                    pos += 1
-                lower_target = '\x00'.join(target.lower())
-                pos = lower_data.find(lower_target)
-                if -1 != pos:
-                    yield ((start_address + pos, path + must_jumps + [pos], self.readString(start_address+pos, True)))
-                    pos += 1
-        for i in xrange(len(table_data)):
-            if type(0) == type(target):
-                try:
-                    addr = self.resolveOffsetsList( start_address, must_jumps[:-1] )[-1]
-                    data = m.readAddr(addr + must_jumps[-1])
-                    if data + delta >= target and data - delta <= target:
-                        yield ((start_address + (i*4), path + must_jumps + [i*4], table_data[i]))
-                except WindowsError:
-                    pass
-            if hops > 0 and self.isAddressValid(table_data[i]):
-                for x in self._recursiveFindWithMust( target, table_data[i], must_jumps, length, hops - 1, delta, path + [i * 4] ):
-                    yield x
-
     def findModule( self, target_module, isVerbos=False ):
         modules = ARRAY( c_void_p, 10000 )(0)
         module_name = ARRAY( c_char, 10000 )('\x00')
@@ -799,36 +639,6 @@ class MemoryReader( MemReaderInterface, MemWriterInterface, GUIDisplayInterface 
             if needToClose:
                 CloseHandle(objectHandle)
         
-    def _hexDisplay(self, address, length=0x1000, showOffsets=False, size=4):
-        if showOffsets:
-            newWindow = HexView(self.readMemory(address, length), start_address=0, item_size=size)
-        else:
-            newWindow = HexView(self.readMemory(address, length), start_address=address, item_size=size)
-        newWindow.show()
-        return newWindow
-
-    def _mapDisplay(self, address, length=0x1000, colorMap=None, itemsPerRow=MemoryMap.DEFAULT_LINE_SIZE):
-        newWindow = MemoryMap(self.readMemory(address, length), colorMap, itemsPerRow)
-        newWindow.show()
-        return newWindow
-
-    def _unsupported(self, *args, **kw):
-        raise NotImplementedError("Unsupported function")
-
-    def mapDisplay(self, *args, **kw):
-        if IS_GUI_FOUND:
-            self.mapDisplay = self._mapDisplay
-        else:
-            self.mapDisplay = self._unsupported
-        self.mapDisplay(*args, **kw)
-
-    def hexDisplay(self, *args, **kw):
-        if IS_GUI_FOUND:
-            self.hexDisplay = self._hexDisplay
-        else:
-            self.hexDisplay = self._unsupported
-        self.hexDisplay(*args, **kw)
-
     def getPointerSize(self):
         return self._POINTER_SIZE
 

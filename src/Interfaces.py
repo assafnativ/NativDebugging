@@ -21,6 +21,7 @@
 #
 
 from abc import ABCMeta, abstractmethod
+from .Utile import *
 
 class DebuggerInterface( object ):
     """ Pure Interface for Debugger """
@@ -69,10 +70,10 @@ class DebuggerInterface( object ):
     @abstractmethod
     def r(self):
         raise NotImplementedError("Pure function call")
-    
+
 
 class GUIDisplayInterface( object ):
-    """ Pure Interface for Debugger """
+    """ Pure Interface for GUI display """
     __metaclass__ = ABCMeta
 
     @abstractmethod

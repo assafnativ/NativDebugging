@@ -141,30 +141,6 @@ def data2hex( d ):
 def hex2dword(x):
     return struct.unpack('=L', hex2data(x))[0]
 
-def readNPrintQwords( self, addr, length = 0x100, isNoBase = True, itemsInRow=4 ):
-    if isNoBase:
-        printAsQwordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow)
-    else:
-        printAsQwordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow)
-
-def readNPrintDwords( self, addr, length = 0x100, isNoBase = True, itemsInRow=8 ):
-    if isNoBase:
-        printAsDwordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow)
-    else:
-        printAsDwordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow)
-
-def readNPrintWords( self, addr, length = 0x100, isNoBase = True, itemsInRow=0x10 ):
-    if isNoBase:
-        printAsWordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow)
-    else:
-        printAsWordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow)
-
-def readNPrintBin( self, addr, length = 0x100, isNoBase = True, itemsInRow=0x10 ):
-    if isNoBase:
-        print DATA(self.readMemory(addr, length), itemsInRow=itemsInRow)
-    else:
-        print DATA(self.readMemory(addr, length), addr, itemsInRow=itemsInRow)
-
 def buffDiff( buffers, chunk_size = 1 ):
     if type(buffers) != type([]):
         print 'Invalid type'
