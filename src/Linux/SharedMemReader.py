@@ -165,11 +165,9 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
                     return True
         return False
     def readString(self, address, isLocalAddress=False):
-        if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
         result = ''
         while True:
-            c = self.readByte(address)
+            c = self.readByte(address, isLocalAddress=isLocalAddress)
             address += 1
             if 0x20 <= c and c < 0x80:
                 result += chr(c)
