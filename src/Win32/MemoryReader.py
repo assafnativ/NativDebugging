@@ -476,32 +476,28 @@ class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
 
         return results
 
-    def findModule( self, target_module, isVerbos=False ):
+    def enumModules( self, isVerbos=False ):
         modules = ARRAY( c_void_p, 10000 )(0)
-        module_name = ARRAY( c_char, 10000 )('\x00')
         bytes_written = c_uint(0)
         EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
         num_modules = bytes_written.value / sizeof(c_void_p(0))
-        if isVerbos:
-            print 'Modules:'
-        is_module_found = False
         for module_iter in xrange(num_modules):
+            module_name = ARRAY( c_char, 10000 )('\x00')
             GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
+            module_name = module_name.raw.replace('\x00', '')
+            module_info = MODULEINFO(0)
+            GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
+            module_base = module_info.lpBaseOfDll
             if isVerbos:
-                print 'Module:', module_name.raw.replace('\x00', '')
-            if target_module.lower() in module_name.raw.replace('\x00' ,'').lower():
-                is_module_found = True
-                break
+                print "Module: (0x%x) %s" % (module_base, module_name)
+            yield (module_base, module_name)
 
-        if False == is_module_found:
-            raise Exception("Can't find module")
-
-        module_info = MODULEINFO(0)
-        GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
-        module_base = module_info.lpBaseOfDll
-
-        return module_base
-
+    def findModule( self, target_module, isVerbos=False ):
+        target_module = target_module.lower()
+        for base, name in self.enumModules(isVerbos):
+            if target_module in name.lower():
+                return base
+        raise Exception("Can't find module")
 
     def getAllSections( self, module_base, isVerbos=False ):
         PE_POINTER_OFFSET                   = 0x3c
