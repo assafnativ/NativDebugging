@@ -1,6 +1,7 @@
 
 from abc import ABCMeta
 from .Interfaces import MemReaderInterface
+from .Utile import makeAddrList
 
 class RecursiveFind( MemReaderInterface ):
     """ Search for offsets using a recurisve method """
