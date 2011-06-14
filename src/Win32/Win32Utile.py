@@ -64,8 +64,6 @@ def findProcessId(name):
     for process in processes:
         if process[0].lower().startswith(name):
             results.append(process)
-    if len(results) == 1:
-        return results[0][1]
     return results
 
 
