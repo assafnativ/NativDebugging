@@ -72,7 +72,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         """ 
         Constructor of the Win32Debugger class.
         """
-        
+
         # For talking with the control center
         self._command          = CTRL_CMD_NOP
         self._commandLock      = allocate_lock()
@@ -203,6 +203,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self._currentThread   = _processInfo.hThread
         self._processId       = _processInfo.dwProcessId
         self._currentThreadId = _processInfo.dwThreadId
+        MemoryReader.__init__(self, self._processId)
         print "Process (id %d, handle %08x) was created with main thread (id %d, handle %08x)" % \
                 (self._processId, self._process, self._currentThreadId, self._currentThread)
         
@@ -236,7 +237,8 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
 
         DebugActiveProcess( processId )
         
-        # Clear all
+        # Setup
+        MemoryReader.__init__(self, processId)
         self._processId = processId
         self._breakPoints = []
         self._dlls = []
@@ -252,13 +254,13 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         Detach from debuged process
         """
 
-        if (0 != self._process_id):
-            DebugActiveProcessStop( self._process_id )
+        if (0 != self._processId):
+            DebugActiveProcessStop( self._processId )
         else:
             print "No process to detach from"
 
         # Clear all
-        self._process_id = 0
+        self._processId = 0
         self._breakPoints = []
         self._dlls = []
         self._pause = False
@@ -268,8 +270,8 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self._areBreakPointsInstalled = True
         self._thread_dictionary = {}
 
-    def attach( self, process_id ):
-        self._setCommand( CTRL_CMD_ATTACH, (process_id,) )
+    def attach( self, processId ):
+        self._setCommand( CTRL_CMD_ATTACH, (processId,) )
         # Wait till loding is over, we know it's over when the lock is free.
         # TBD: need to think of a better way to do it...
         while( not self._commandLock.locked() ):
@@ -573,7 +575,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self._reinstallAllBreakPoints()
 
         # Now disassemble with distorm.
-        data = distorm.Decode( address, data, distorm.Decode32Bits )
+        data = distorm3.Decode( address, data, distorm3.Decode32Bits )
 
         # Print the result
         data[:lines]
@@ -638,7 +640,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         if( BREAK_POINT_ACTIVE | break_point.state ):
             current_byte = self.readByte( break_point.address )
             if( current_byte != break_point.original_byte ):
-                raise Excpetion('Somone overwritten the breakpoint!')
+                raise Exception('Somone overwritten the breakpoint!')
             self.writeByte( break_point.address, break_point.original_byte )
 
     def bpc( self, index ):
@@ -665,7 +667,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         if( True == self._areBreakPointsInstalled ):
             if( BREAK_POINT_BYTE != self.readByte( break_point.address ) ):
                 print "Program state =", self._state
-                raise Excpetion( 'Breakpoint had been overwrite by somthing' )
+                raise Exception( 'Breakpoint had been overwrite by somthing' )
             self.writeByte( break_point.address, break_point.original_byte )
         break_point.state &= ~BREAK_POINT_ACTIVE
 
@@ -810,7 +812,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
 
     def _makeProcessReadyToRun( self ):
         if( PROCESS_STATE_NO_PROCESS == self._state ):
-            raise( Excpetion("No process") )
+            raise( Exception("No process") )
             return
         elif( PROCESS_STATE_RUN == self._state ):
             # Nothing to be done...
@@ -836,4 +838,4 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
             return
         else:
             print "Unknown state"
-            raise( Excpetion("Error") )
+            raise( Exception("Error") )
