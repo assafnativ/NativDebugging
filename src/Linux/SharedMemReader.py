@@ -153,7 +153,10 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
     def readAddr(self, address, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)
-        return c_void_p.from_address(address).value
+        if 4 == self._POINTER_SIZE:
+            return c_uint32.from_address(address).value
+        else:
+            return c_uint64.from_address(address).value
     def isAddressValid(self, address, isLocalAddress=False):
         if not isLocalAddress:
             for mem in self.memMap:
