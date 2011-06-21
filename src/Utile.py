@@ -24,6 +24,7 @@
 
 import struct
 import sys
+import os
 import subprocess
 
 def DATA( data, base = 0, itemsInRow=0x10 ):
@@ -197,29 +198,51 @@ def dotted(ip):
     return result
 
 def getIpcsInfo(isVerbos=True):
-    if sys.platform == 'win32':
+    if sys.platform.lower().startswith('win32'):
         raise Exception("This function is not supported under Windows platform")
-    p = subprocess.Popen(['ipcs', '-m'], stdout=subprocess.PIPE)
+    if sys.platform.lower().startswith('linux'):
+        command = ['ipcs', '-m']
+    elif sys.platform.lower().startswith('sunos'):
+        command = ['ipcs', '-mb']
+    else:
+        command = ['ipcs', '-m']
+    p = subprocess.Popen(command, stdout=subprocess.PIPE)
     out,err = p.communicate()
-    lines = out.split('\n')
+    lines = out.split(os.liensep)
     if isVerbos:
         for i in lines:
             print i
     return lines 
 
-def getAllShmidsInfo(shmidIndex=1,keyIndex=0,shSizeIndex=4):
-    if sys.platform == 'win32':
+def getAllShmidsInfo()
+    if sys.platform.lower().startswith('win32'):
         raise Exception("This function is not supported under Windows platform")
+    if sys.platform.lower().startswith('linux'):
+        SHMID_INDEX = 1
+        KEY_INDEX = 0
+        SIZE_INDEX = 4
+    elif sys.platform.lower().startswith('sunos'):
+        SHMID_INDEX = 1
+        KEY_INDEX = 2
+        SIZE_INDEX = 6
+    else:
+        # Defaults
+        SHMID_INDEX = 1
+        KEY_INDEX = 0
+        SIZE_INDEX = 4
     memInfo = getIpcsInfo(False)
-    res=[]
+    res = []
     # We don't know how many lines belong to the header, so we try to parse it until we fail
     for i in memInfo:
         sLine = i.split()
         try:
-            shmid  = int(sLine[shmidIndex])
-            key    = int(sLine[keyIndex],16)
-            shSize = int(sLine[shSizeIndex])
-            res.append([key,shmid,shSize])
+            shmid  = int(sLine[SHMID_INDEX])
+            key    = sLine[KEY_INDEX]
+            if key[:2] == '0x':
+                key = key[2:]
+            key = int(key,16)
+            shSize = int(sLine[SIZE_INDEX])
+            res.append((key,shmid,shSize))
         except ValueError: 
             pass
         except IndexError:
@@ -227,10 +250,10 @@ def getAllShmidsInfo(shmidIndex=1,keyIndex=0,shSizeIndex=4):
     #res[[key,shmid,shSize]]
     return res
 
-def getShmids(shmidIndex=1,keyIndex=0,shSizeIndex=4):
+def getShmids():
     if sys.platform == 'win32':
         raise Exception("This function is not supported under Windows platform")
-    memInfo = getAllShmidsInfo(shmidIndex,keyIndex,shSizeIndex)
+    memInfo = getAllShmidsInfo()
     return map(lambda x:x[1], memInfo)
 
 
