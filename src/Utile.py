@@ -208,7 +208,7 @@ def getIpcsInfo(isVerbos=True):
         command = ['ipcs', '-m']
     p = subprocess.Popen(command, stdout=subprocess.PIPE)
     out,err = p.communicate()
-    lines = out.split(os.liensep)
+    lines = out.split(os.linesep)
     if isVerbos:
         for i in lines:
             print i
