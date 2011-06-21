@@ -37,6 +37,7 @@ def attach(targetProcessId):
 
 class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
     def __init__( self, target_process_id ):
+        MemReaderBase.__init__(self)
         adjustDebugPrivileges()
         self._processId = target_process_id
         self._openProcess( target_process_id )
@@ -644,6 +645,3 @@ class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
     def getEndianity(self):
         return '<' # Intel is always Little-endian
 
-    solveAddr      = None
-    findInSymbols  = None
-    findSymbol     = None
