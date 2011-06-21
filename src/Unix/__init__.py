@@ -1,2 +1,2 @@
 __all__ = [
-        "memoryReaderCommunicator.py"]
+        "MemoryReaderCommunicator.py"]
