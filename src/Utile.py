@@ -214,7 +214,7 @@ def getIpcsInfo(isVerbos=True):
             print i
     return lines 
 
-def getAllShmidsInfo()
+def getAllShmidsInfo():
     if sys.platform.lower().startswith('win32'):
         raise Exception("This function is not supported under Windows platform")
     if sys.platform.lower().startswith('linux'):
