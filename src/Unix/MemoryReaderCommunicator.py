@@ -44,7 +44,7 @@ class SharedMemInfo(object):
         return "MemInfo:Id0x%x:Base0x%x:End0x%x:LocalAddress0x%x" % (self.id, self.base, self.end, self.localAddress)
 
 class SharedMemReader( MemReaderBase ):
-    def __init__(self, memInfos, pointerSIze, defaultSize):
+    def __init__(self, memInfos, pointerSize, defaultSize):
         MemReaderBase.__init__(self)
         self._POINTER_SIZE = pointerSize
         self._DEFAULT_DATA_SIZE = defaultSize
