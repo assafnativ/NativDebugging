@@ -36,37 +36,6 @@ except ImportError, e:
     #print("No GUI support")
     IS_GUI_FOUND = False
 
-def getIpcsInfo(isVerbos=True):
-    p = Popen(['ipcs', '-m'],stdout=subprocess.PIPE)
-    out,err = p.communicate()
-    lines = out.split('\n')
-    if isVerbos:
-        for i in lines:
-            print i
-    return lines 
-
-def getAllShmidsInfo(shmidIndex=1,keyIndex=0,shSizeIndex=4):
-    memInfo = getIpcsInfo(False)
-    res=[]
-    # We don't know how many lines belong to the header, so we try to parse it until we fail
-    for i in memInfo:
-        sLine = i.split()
-        try:
-            shmid  = int(sLine[shmidIndex])
-            key    = int(sLine[keyIndex],16)
-            shSize = int(sLine[shSizeIndex])
-            res.append([key,shmid,shSize])
-        except ValueError: 
-            pass
-        except IndexError:
-            pass
-    #res[[key,shmid,shSize]]
-    return res
-
-def getShmids(shmidIndex=1,keyIndex=0,shSizeIndex=4):
-    memInfo = getAllShmidsInfo(shmidIndex,keyIndex,shSizeIndex)
-    return map(lambda x:x[1], memInfo)
-
 class SharedMemInfo(object):
     def __init__(self, id, localAddress, base, size):
         self.id = id
@@ -84,7 +53,8 @@ def attach(memInfo):
 
 class SharedMemReader( MemReaderBase, GUIDisplayBase ):
     def __init__(self, memInfos):
-        self._POINTER_SIZE=sizeof(c_void_p)
+        MemReaderBase.__init__(self)
+        self._POINTER_SIZE = sizeof(c_void_p)
         self._DEFAULT_DATA_SIZE = 4
         self._ENDIANITY = '='
         self.libc = cdll.LoadLibrary("libc.so.6")
@@ -100,6 +70,7 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
             if -1 == mem:
                 raise Exception("Attach to shared memory failed")
             self.memMap.append(SharedMemInfo(memInfo[0], mem, memInfo[1], memInfo[2]))
+
     def remoteAddressToLocalAddress(self, address):
         for mem in self.memMap:
             if address >= mem.base and address < mem.end:
@@ -177,6 +148,3 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
             else:
                 return result
 
-    solveAddr      = None
-    findInSymbols  = None
-    findSymbol     = None            
