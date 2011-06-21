@@ -59,7 +59,7 @@ class SharedMemReader( MemReaderBase ):
                 raise Exception("Meminfo of type (shared mem id, base address, size in bytes) expected")
         self.memMap = []
         for memInfo in memInfos:
-            sharedMem = SharedMemInfo(memInfo[0], memInfo[1], memInfo[2]))
+            sharedMem = SharedMemInfo(memInfo[0], memInfo[1], memInfo[2])
             reader = subprocess.Popen(
                     [
                         self._READER_NAME, 
