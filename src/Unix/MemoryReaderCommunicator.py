@@ -64,7 +64,7 @@ class SharedMemReader( MemReaderBase ):
                         '%x' % sharedMem.base,
                         '%x' % sharedMem.size ],
                     stdin  = subprocess.PIPE,
-                    stdout = subprcoess.PIPE,
+                    stdout = subprocess.PIPE,
                     stderr = subprocess.STDOUT )
             sharedMem.reader = reader
             self.memMap.append(sharedMem)
