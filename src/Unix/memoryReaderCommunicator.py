@@ -93,8 +93,6 @@ class SharedMemReader( MemReaderBase ):
     def getEndianity(self):
         return self._ENDIANITY
 
-    def __readMemory(self, reader, address, length):
-
     def __findReader(self, address):
         for mem in self.memMap:
             if address >= mem.base and address < mem.end:
