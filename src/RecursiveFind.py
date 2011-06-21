@@ -1,11 +1,19 @@
 
 from abc import ABCMeta
 from .Interfaces import MemReaderInterface
-from .Utile import makeAddrList
+from .Utile import makeQwordsList, makeDwordsList
 
 class RecursiveFind( MemReaderInterface ):
     """ Search for offsets using a recurisve method """
     __metaclass__ = ABCMeta
+
+    def _makeAddrList(self, data):
+        if 4 == self.getPointerSize():
+            return makeQwordsList(data)
+        elif 8 == self.getPointerSize():
+            return makeDwordsList(data)
+        else:
+            raise Exception("Invalid pointer size %d" % self.getPointerSize())
     
     def printRecursiveFindResult( self, result ):
         outputString = hex(result[0]) + ' '
@@ -18,7 +26,7 @@ class RecursiveFind( MemReaderInterface ):
             data = self.readMemory(start_address, length)
         except WindowsError:
             return
-        table_data = makeAddrList(data)
+        table_data = self._makeAddrList(data)
         for i in xrange(len(table_data)):
             if table_data[i] + delta >= target and table_data[i] - delta <= target:
                 result = (start_address + (i*4), path + [i*4], table_data[i])
@@ -35,7 +43,7 @@ class RecursiveFind( MemReaderInterface ):
             data = self.readMemory(start_address, length)
         except WindowsError:
             return
-        table_data = makeAddrList(data)
+        table_data = self._makeAddrList(data)
         pos = 0
         lower_data = data.lower()
         lower_target = target.lower()
@@ -67,7 +75,7 @@ class RecursiveFind( MemReaderInterface ):
             data = self.readMemory(start_address, length)
         except WindowsError:
             return
-        table_data = makeAddrList(data)
+        table_data = self._makeAddrList(data)
         for i in xrange(len(table_data)):
             if table_data[i] in target:
                 result = (start_address + (i*4), path + [i*4], table_data[i])
@@ -86,7 +94,7 @@ class RecursiveFind( MemReaderInterface ):
             data = self.readMemory(start_address, length)
         except WindowsError:
             return
-        table_data = makeAddrList(data)
+        table_data = self._makeAddrList(data)
         if type('') == type(target):
             try:
                 addr = self.resolveOffsetsList(start_address, must_jumps[:-1])[-1]
