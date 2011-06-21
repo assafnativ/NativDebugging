@@ -6,6 +6,9 @@ if sys.platform.lower().startswith('win'):
 elif sys.platform.lower().startswith('linux'):
     packagesNames = ['NativDebugging', 'NativDebugging/Linux']
     packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Linux' : 'src/Linux'}
+else:
+    packagesNames = ['NativDebugging', 'NativDebugging/Unix']
+    packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Unix' : 'src/Unix'}
 
 from distutils.core import setup
 setup(
