@@ -24,6 +24,7 @@
 
 import struct
 import sys
+import subprocess
 
 def DATA( data, base = 0, itemsInRow=0x10 ):
     result = ''
@@ -198,7 +199,7 @@ def dotted(ip):
 def getIpcsInfo(isVerbos=True):
     if sys.platform == 'win32':
         raise Exception("This function is not supported under Windows platform")
-    p = Popen(['ipcs', '-m'],stdout=subprocess.PIPE)
+    p = subprocess.Popen(['ipcs', '-m'], stdout=subprocess.PIPE)
     out,err = p.communicate()
     lines = out.split('\n')
     if isVerbos:
