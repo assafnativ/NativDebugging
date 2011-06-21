@@ -32,16 +32,13 @@ def attach(memInfo, pointerSize, defaultSize):
     return SharedMemReader(memInfo, pointerSize, defaultSize)
 
 class SharedMemInfo(object):
-    def __init__(self, id, localAddress, base, size):
+    def __init__(self, id, base, size):
         self.id = id
-        self.localAddress = localAddress 
-        self.localAddressEnd = localAddress + size
         self.end = base + size 
         self.size = size
         self.base = base
-        self.delta = self.localAddress - base
     def __repr__(self):
-        return "MemInfo:Id0x%x:Base0x%x:End0x%x:LocalAddress0x%x" % (self.id, self.base, self.end, self.localAddress)
+        return "MemInfo:Id0x%x:Base0x%x:End0x%x" % (self.id, self.base, self.end)
 
 class SharedMemReader( MemReaderBase ):
     def __init__(self, memInfos, pointerSize, defaultSize):
