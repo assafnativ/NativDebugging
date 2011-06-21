@@ -1,9 +1,9 @@
 #
 #   utile.py
 #
-#   pyMint - Remote process memory inspection python module
-#   https://code.google.com/p/pymint/
-#   Nativ.Assaf+pyMint@gmail.com
+#   Utile - Utile functions and procedures for NativDebugging
+#   https://svn3.xp-dev.com/svn/nativDebugging/
+#   Nativ.Assaf+debugging@gmail.com
 #   Copyright (C) 2011  Assaf Nativ
 #
 # This program is free software: you can redistribute it and/or modify
@@ -23,11 +23,7 @@
 # Platform independent
 
 import struct
-from ctypes import *
-
-temp_void_p = c_void_p(1)
-temp_void_p.value -= 2
-IS_64BIT = (temp_void_p.value > (2**32))
+import sys
 
 def DATA( data, base = 0, itemsInRow=0x10 ):
     result = ''
@@ -53,16 +49,6 @@ def DATA( data, base = 0, itemsInRow=0x10 ):
         result += line
     return( result )
 
-
-def makeAddrList( data ):
-    if IS_64BIT:
-        if len(data) % 8 != 0:
-            data += '\x00' * (8 - (len(data) % 8))
-        return list(struct.unpack('=' + ('Q' * (len(data) / 8)), data))
-    else:
-        if len(data) % 4 != 0:
-            data += '\x00' * (4 - (len(data) % 4))
-        return list(struct.unpack('=' + ('L' * (len(data) / 4)), data))
 
 def makeQwordsList( data ):
     if len(data) % 8 != 0:
@@ -208,4 +194,42 @@ def buffDiff( buffers, chunk_size = 1 ):
 def dotted(ip):
     result = '%d.%d.%d.%d' % ((ip >> 24) & 0xff, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff)
     return result
+
+def getIpcsInfo(isVerbos=True):
+    if sys.platform == 'win32':
+        raise Exception("This function is not supported under Windows platform")
+    p = Popen(['ipcs', '-m'],stdout=subprocess.PIPE)
+    out,err = p.communicate()
+    lines = out.split('\n')
+    if isVerbos:
+        for i in lines:
+            print i
+    return lines 
+
+def getAllShmidsInfo(shmidIndex=1,keyIndex=0,shSizeIndex=4):
+    if sys.platform == 'win32':
+        raise Exception("This function is not supported under Windows platform")
+    memInfo = getIpcsInfo(False)
+    res=[]
+    # We don't know how many lines belong to the header, so we try to parse it until we fail
+    for i in memInfo:
+        sLine = i.split()
+        try:
+            shmid  = int(sLine[shmidIndex])
+            key    = int(sLine[keyIndex],16)
+            shSize = int(sLine[shSizeIndex])
+            res.append([key,shmid,shSize])
+        except ValueError: 
+            pass
+        except IndexError:
+            pass
+    #res[[key,shmid,shSize]]
+    return res
+
+def getShmids(shmidIndex=1,keyIndex=0,shSizeIndex=4):
+    if sys.platform == 'win32':
+        raise Exception("This function is not supported under Windows platform")
+    memInfo = getAllShmidsInfo(shmidIndex,keyIndex,shSizeIndex)
+    return map(lambda x:x[1], memInfo)
+
 

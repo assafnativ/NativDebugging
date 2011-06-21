@@ -8,6 +8,11 @@ class MemReaderBase( RecursiveFind ):
     """ Few basic functions for memory reader, still abstruct """
     __metaclass__ = ABCMeta
 
+    def __init__(self):
+        self.solveAddr      = None
+        self.findInSymbols  = None
+        self.findSymbol     = None        
+
     def resolveOffsetsList( self, start, l, isVerbos=False ):
         result = [start]
         for i in l:
