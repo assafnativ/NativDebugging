@@ -98,7 +98,7 @@ class SharedMemReader( MemReaderBase ):
 
     def readMemory(self, address, length):
         reader = self.__findReader(address)
-        self.memReader.stdin.write('%x %x\n' % (address, length))
+        reader.stdin.write('%x %x\n' % (address, length))
         if 'Invalid' in value:
             raise Exception('Read from 0x%x of 0x%x bytes failed. Returned code %s' % (address, length, value))
         value = value.strip()
