@@ -28,8 +28,8 @@ import struct
 from ..MemReaderBase import *
 from ..Utile import *
 
-def attach(memInfo):
-    return SharedMemReader(memInfo)
+def attach(memInfo, pointerSize, defaultSize):
+    return SharedMemReader(memInfo, pointerSize, defaultSize)
 
 class SharedMemInfo(object):
     def __init__(self, id, localAddress, base, size):
