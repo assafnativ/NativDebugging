@@ -47,7 +47,7 @@ class SharedMemReader( MemReaderBase ):
         self._DEFAULT_DATA_SIZE = defaultSize
         self._ENDIANITY = '='
         self._READER_NAME = \
-            ['./solarisReadMemory32', './solarisReadMemory64'][self._POINTER_SIZE==8]
+            ['./memoryReader32', './memoryReader64'][self._POINTER_SIZE==8]
         # Support more than one shmid on input
         if list != type(memInfos):
             memInfos = [memInfos]
