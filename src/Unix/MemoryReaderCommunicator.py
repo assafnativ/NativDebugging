@@ -73,7 +73,6 @@ class SharedMemReader( MemReaderBase ):
         self.__detach()
 
     def detach(self):
-        self.__detach()
         del(self)
 
     def __detach(self):
