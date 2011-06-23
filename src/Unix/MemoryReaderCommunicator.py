@@ -122,9 +122,9 @@ class SharedMemReader( MemReaderBase ):
 
     def readAddr(self, address):
         if 4 == self._POINTER_SIZE:
-            return readDword(address)
+            return self.readDword(address)
         else:
-            return readQword(address)
+            return self.readQword(address)
 
     def isAddressValid(self, address):
         for mem in self.memMap:
