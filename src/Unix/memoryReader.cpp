@@ -61,7 +61,6 @@ int main(int argc, char **argv)
 	sscanf( argv[CMD_ARG_BASE],				"%lx",	&base );
 	sscanf( argv[CMD_ARG_SHARED_MEM_SIZE],	"%lx", 	&sharedMemSize );
 	if( 	(0 == shmid) ||
-			(NULL == base) ||
 			(0 == sharedMemSize) )
 	{
 		goto ERROR_INVALID_COMMAND_LINE;
