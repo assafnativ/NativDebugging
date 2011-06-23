@@ -118,7 +118,7 @@ class SharedMemReader( MemReaderBase ):
         return struct.unpack(self._ENDIANITY + 'H', self.readMemory(address, 2))[0]
 
     def readByte(self, address):
-        return ord(self.readMemory(address, 8))
+        return ord(self.readMemory(address, 1))
 
     def readAddr(self, address):
         if 4 == self._POINTER_SIZE:
