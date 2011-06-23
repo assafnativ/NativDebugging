@@ -72,6 +72,7 @@ win32con.EXIT_PROCESS_DEBUG_EVENT       = 5
 win32con.LOAD_DLL_DEBUG_EVENT           = 6
 win32con.UNLOAD_DLL_DEBUG_EVENT         = 7
 win32con.OUTPUT_DEBUG_STRING_EVENT      = 8
+win32con.CREATE_SUSPENDED               = 4
 STATUS_WAIT_0                    = 0    
 STATUS_ABANDONED_WAIT_0          = 128    
 STATUS_USER_APC                  = 192    
