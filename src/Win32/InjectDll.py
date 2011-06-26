@@ -49,24 +49,28 @@ def inject( process_id, dllName, LoadLibraryA_address=-1, isVerbos=False ):
     __injectAndExecute(remoteProcess, dllName, LoadLibraryA_address, isVerbos=isVerbos)
     CloseHandle(remoteProcess)
  
-def __injectAndExecute( remoteProcess, dllName, LoadLibraryA_address=-1, creationFalgs=0, isVerbos=False ):
+def __injectAndExecute( remoteProcess, dllName, LoadLibraryA_address=-1, creationFlags=0, isVerbos=False ):
     printIfVerbos("Allocating memory inside remote process", isVerbos)
+
+    dllName += "\x00"
+    remote_buffer_size = len(dllName)
+
     remote_memory_address = \
         VirtualAllocEx( remoteProcess,
                         None,
-                        REMOTE_BUFFER_SIZE,
+                        remote_buffer_size,
                         win32con.MEM_COMMIT,
-                        win32con.PAGE_EXECUTE_READWRITE )
+                        win32con.PAGE_READWRITE ) 
     printIfVerbos("Memory allocated at 0x%x" % remote_memory_address, isVerbos)
     printIfVerbos("Writting the dll name to remote process", isVerbos)
     bytes_written = c_uint(0)
     WriteProcessMemory(
                     remoteProcess,
                     remote_memory_address,
-                    dllName + '\x00',
-                    len(dllName) + 1,
+                    dllName,
+                    remote_buffer_size,
                     byref(bytes_written))
-    if bytes_written.value != (len(dllName) + 1):
+    if bytes_written.value != remote_buffer_size:
         print("Unable to write to process memory")
         return
 
@@ -80,33 +84,15 @@ def __injectAndExecute( remoteProcess, dllName, LoadLibraryA_address=-1, creatio
         # We can assume that kernel32 is loaded in the same place in every process
         # because it's the first dll to be loaded in every process
 
-    printIfVerbos('Generating loading code', isVerbos)
-    code = '\x68'       # Push
-    code += pack('=l', remote_memory_address)
-    code += '\xb8'      # mov eax,
-    code += pack('=l', LoadLibraryA_address)
-    code += '\xff\xd0'  # call eax
-    code += '\x3c\xc0'  # xor eax,eax
-    code += '\xc3'      # retn
-    WriteProcessMemory(
-            remoteProcess,
-            remote_memory_address + MAX_DLL_NAME_LENGTH,
-            code,
-            len(code),
-            byref(bytes_written))
-    if bytes_written.value != len(code):
-        print('Unable to write code')
-        return
-
     printIfVerbos("Creating remote thread on LoadLibrary", isVerbos)
     remote_thread_id = c_uint(0)
     remote_thread = CreateRemoteThread( \
                         remoteProcess,
                         None,
                         0,
-                        remote_memory_address + MAX_DLL_NAME_LENGTH,
+                        LoadLibraryA_address,
                         remote_memory_address,
-                        creationFalgs,
+                        creationFlags,
                         byref(remote_thread_id) )
     printIfVerbos("Thread %d created" % remote_thread_id.value, isVerbos)
     return remote_thread
@@ -117,7 +103,7 @@ def createProcessWithDll(
         securityAttributes=None, 
         threadAttributes=None, 
         inheritHandles=0, 
-        creationFalgs=win32con.NORMAL_PRIORITY_CLASS, 
+        creationFlags=win32con.NORMAL_PRIORITY_CLASS, 
         environment=None, 
         currentDirectory=None,
         startupInfo=None,
@@ -150,7 +136,7 @@ def createProcessWithDll(
                 byref(securityAttributes),
                 byref(threadAttributes),
                 TRUE,
-                creationFalgs | win32con.CREATE_SUSPENDED,
+                creationFlags | win32con.CREATE_SUSPENDED,
                 environment,
                 currentDirectory,
                 byref(startupInfo),
@@ -160,12 +146,14 @@ def createProcessWithDll(
     printIfVerbos('Process id: %d' % processInfo.dwProcessId, isVerbos)
     printIfVerbos('Thread handle: %d' % processInfo.hThread, isVerbos)
     printIfVerbos('Thread id: %d' % processInfo.dwThreadId, isVerbos)
-    remoteThread = __injectAndExecute( processInfo.hProcess, dll, isVerbos=isVerbos )
+    remoteThread = __injectAndExecute( processInfo.hProcess, dll, isVerbos=isVerbos, creationFlags=win32con.CREATE_SUSPENDED)
     ResumeThread(processInfo.hThread)
     printIfVerbos('Process resumed', isVerbos)
     ResumeThread(remoteThread)
 
     return (processInfo.hProcess, processInfo.hThread, processInfo.dwProcessId, processInfo.dwThreadId)
+
+
 
 
 
