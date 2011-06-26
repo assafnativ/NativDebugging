@@ -65,6 +65,13 @@ class PatternFinder( object ):
         self._POINTER_SIZE = memReader.getPointerSize()
         self._DEFAULT_DATA_SIZE = memReader.getDefaultDataSize()
         self._ENDIANITY = memReader.getEndianity()
+        if '=' == self._ENDIANITY:
+            if 'big' == sys.byteorder:
+                self._ENDIANITY = '>'
+            elif 'little' == sys.byteorder:
+                self._ENDIANITY = '<'
+            else:
+                raise Exception("Unknown endianity %s" % sys.byteorder)
 
     def getPointerSize(self):
         return self._POINTER_SIZE
@@ -331,7 +338,7 @@ class NUMBER( dataType ):
         dataType.__init__(self, **kw)
     def setForSearch(self, patFinder):
         if '=' == self.endianity:
-            endianity = patFinder.getEndianity()
+            self.endianity = patFinder.getEndianity()
         if None == self.sizeOfData:
             self.sizeOfData = patFinder.getDefaultDataSize()
         if None == self.alignment:
