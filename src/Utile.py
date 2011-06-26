@@ -204,6 +204,8 @@ def getIpcsInfo(isVerbos=True):
         command = ['ipcs', '-m']
     elif sys.platform.lower().startswith('sunos'):
         command = ['ipcs', '-mb']
+    elif sys.platform.lower().startswith('aix'):
+        command = ['ipcs', '-mb']
     else:
         command = ['ipcs', '-m']
     p = subprocess.Popen(command, stdout=subprocess.PIPE)
@@ -222,6 +224,10 @@ def getAllShmidsInfo():
         KEY_INDEX = 0
         SIZE_INDEX = 4
     elif sys.platform.lower().startswith('sunos'):
+        SHMID_INDEX = 1
+        KEY_INDEX = 2
+        SIZE_INDEX = 6
+    elif sys.platform.lower().startswith('aix'):
         SHMID_INDEX = 1
         KEY_INDEX = 2
         SIZE_INDEX = 6
@@ -247,7 +253,7 @@ def getAllShmidsInfo():
             pass
         except IndexError:
             pass
-    #res[[key,shmid,shSize]]
+    #res[(key,shmid,shSize)]
     return res
 
 def getShmids():
