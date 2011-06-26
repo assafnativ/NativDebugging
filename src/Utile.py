@@ -216,32 +216,39 @@ def getIpcsInfo(isVerbos=True):
             print i
     return lines 
 
-def getAllShmidsInfo():
+def getAllShmidsInfo(ownerFilter=None):
     if sys.platform.lower().startswith('win32'):
         raise Exception("This function is not supported under Windows platform")
     if sys.platform.lower().startswith('linux'):
         SHMID_INDEX = 1
         KEY_INDEX = 0
         SIZE_INDEX = 4
+        OWNER = 2
     elif sys.platform.lower().startswith('sunos'):
         SHMID_INDEX = 1
         KEY_INDEX = 2
         SIZE_INDEX = 6
+        OWNER = 4
     elif sys.platform.lower().startswith('aix'):
         SHMID_INDEX = 1
         KEY_INDEX = 2
         SIZE_INDEX = 6
+        OWNER = 4
     else:
         # Defaults
         SHMID_INDEX = 1
         KEY_INDEX = 0
         SIZE_INDEX = 4
+        OWNER = 2
     memInfo = getIpcsInfo(False)
     res = []
     # We don't know how many lines belong to the header, so we try to parse it until we fail
     for i in memInfo:
         sLine = i.split()
         try:
+            owner  = sLine[OWNER]
+            if None != ownerFilter and owner != ownerFilter:
+                continue
             shmid  = int(sLine[SHMID_INDEX])
             key    = sLine[KEY_INDEX]
             if key[:2] == '0x':
@@ -256,10 +263,10 @@ def getAllShmidsInfo():
     #res[(key,shmid,shSize)]
     return res
 
-def getShmids():
+def getShmids(ownerFilter=None):
     if sys.platform == 'win32':
         raise Exception("This function is not supported under Windows platform")
-    memInfo = getAllShmidsInfo()
+    memInfo = getAllShmidsInfo(ownerFilter)
     return map(lambda x:x[1], memInfo)
 
 
