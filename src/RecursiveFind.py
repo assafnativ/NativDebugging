@@ -24,7 +24,7 @@ class RecursiveFind( MemReaderInterface ):
     def _recursiveFindInt( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbos = False):
         try:
             data = self.readMemory(start_address, length)
-        except WindowsError:
+        except:
             return
         table_data = self._makeAddrList(data)
         for i in xrange(len(table_data)):
@@ -41,7 +41,7 @@ class RecursiveFind( MemReaderInterface ):
     def _recursiveFindString( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbos = False):
         try:
             data = self.readMemory(start_address, length)
-        except WindowsError:
+        except:
             return
         table_data = self._makeAddrList(data)
         pos = 0
@@ -73,7 +73,7 @@ class RecursiveFind( MemReaderInterface ):
     def _recursiveFindList( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbos = False):
         try:
             data = self.readMemory(start_address, length)
-        except WindowsError:
+        except:
             return
         table_data = self._makeAddrList(data)
         for i in xrange(len(table_data)):
@@ -92,14 +92,14 @@ class RecursiveFind( MemReaderInterface ):
             raise Exception("Not aligned")
         try:
             data = self.readMemory(start_address, length)
-        except WindowsError:
+        except:
             return
         table_data = self._makeAddrList(data)
         if type('') == type(target):
             try:
                 addr = self.resolveOffsetsList(start_address, must_jumps[:-1])[-1]
                 data = self.readMemory(addr + must_jumps[-1], len(target) * 2)
-            except WindowsError:
+            except:
                 data = ''
             if '' != data:
                 lower_data = data.lower()
@@ -120,7 +120,7 @@ class RecursiveFind( MemReaderInterface ):
                     data = m.readAddr(addr + must_jumps[-1])
                     if data + delta >= target and data - delta <= target:
                         yield ((start_address + (i*4), path + must_jumps + [i*4], table_data[i]))
-                except WindowsError:
+                except:
                     pass
             if hops > 0 and self.isAddressValid(table_data[i]):
                 for x in self._recursiveFindWithMust( target, table_data[i], must_jumps, length, hops - 1, delta, path + [i * 4] ):
