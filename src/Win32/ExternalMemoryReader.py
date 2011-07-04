@@ -27,16 +27,16 @@ import os
 import struct
 import subprocess
 
-def attach(targetProcessId):
-    return ExternalMemoryReader(targetProcessId)
+def attach(targetProcessId, platform):
+    return ExternalMemoryReader(targetProcessId, platform)
 
 class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
-    PLATFORM_WIN32 = 'Win32'
+    PLATFORM_X86 = 'x86'
     PLATFORM_AMD64 = 'AMD64'
     PLATFORM_IA64  = 'Ia64'
-    SUPPORTED_PLATFORMS = [PLATFORM_WIN32, PLATFORM_AMD64, PLATFORM_IA64]
+    SUPPORTED_PLATFORMS = [PLATFORM_X86, PLATFORM_AMD64, PLATFORM_IA64]
     EXTERNAL_READER     = 'memReader%s.exe'
-    def __init__( self, targetProcessId, platform=PLATFORM_WIN32 ):
+    def __init__( self, targetProcessId, platform=PLATFORM_X86 ):
         MemReaderBase.__init__(self)
         self._processId = targetProcessId
         if platform not in self.SUPPORTED_PLATFORMS:
@@ -50,7 +50,7 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
                 stdin   = subprocess.PIPE,
                 stdout  = subprocess.PIPE,
                 stderr  = subprocess.STDOUT )
-        if platform == self.PLATFORM_WIN32:
+        if platform == self.PLATFORM_X86:
             self._pointerSize = 4
         elif platform == self.PLATFORM_IA64 or self.platform == self.PLATFORM_AMD64:
             self._pointerSize = 8
@@ -101,7 +101,7 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
             return self.readQword(address)
 
     def isAddressValid(self, address):
-        if self.PLATFORM_WIN32 == self._platform:
+        if self.PLATFORM_X86 == self._platform:
             if (0 == (0xffff0000 & address)) or (0 != (0x80000000 & address)):
                 return False
         elif self.PLATFORM_AMD64 == self._platform:
