@@ -6,7 +6,7 @@ if sys.platform.lower().startswith('win'):
     ExtraDataFiles = [('Lib\\site-packages\\NativDebugging\\Win32', (
         'src/Win32/memReaderAMD64.exe', 
         'src/Win32/memReaderIa64.exe', 
-        'src/Win32/memReaderWin32.exe'))]
+        'src/Win32/memReaderx86.exe'))]
 elif sys.platform.lower().startswith('linux'):
     packagesNames = ['NativDebugging', 'NativDebugging/Linux']
     packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Linux' : 'src/Linux'}
