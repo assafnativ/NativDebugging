@@ -52,7 +52,7 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
                 stderr  = subprocess.STDOUT )
         if platform == self.PLATFORM_X86:
             self._pointerSize = 4
-        elif platform == self.PLATFORM_IA64 or self.platform == self.PLATFORM_AMD64:
+        elif platform == self.PLATFORM_IA64 or platform == self.PLATFORM_AMD64:
             self._pointerSize = 8
 
     def __del__(self):
@@ -61,7 +61,7 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
     def detach(self):
         del(self)
 
-    def __detach__(self):
+    def __detach(self):
         self.reader.stdin.write('0 0' + os.linesep)
         self.reader.communicate()
 
@@ -95,7 +95,7 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
         return ord(self.readMemory(address, 1))
 
     def readAddr(self, address):
-        if 4 == self._POINTER_SIZE:
+        if 4 == self._pointerSize:
             return self.readDword(address)
         else:
             return self.readQword(address)
@@ -111,7 +111,6 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
             if (0xfffff80000000000 & address) or (0 == (0xffffffffffff0000 & address)):
                 return False
         return True
-
     def readString(self, address):
         result = ''
         while True:

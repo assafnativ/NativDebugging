@@ -241,7 +241,7 @@ LookupPrivilegeValue.restype = ErrorIfZero
 ReadProcessMemory = windll.kernel32.ReadProcessMemory
 ReadProcessMemory.argtypes = [
     c_int,      # hProcess // handle to the process
-    c_uint,     # lpBaseAddress // base of memory area
+    c_void_p,     # lpBaseAddress // base of memory area
     c_void_p,   # lpBuffer // data buffer
     c_uint,     # nSize // number of bytes to read
     c_void_p]   # lpNumberOfBytesWritten // number of bytes write
