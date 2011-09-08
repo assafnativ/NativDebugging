@@ -49,6 +49,7 @@ class SharedMemInfo(object):
         return "MemInfo:Id0x%x:Base0x%x:End0x%x:LocalAddress0x%x" % (self.id, self.base, self.end, self.localAddress)
 
 def attach(memInfo):
+    # memInfo: (memId, baseAddress, size)
     return SharedMemReader(memInfo)
 
 class SharedMemReader( MemReaderBase, GUIDisplayBase ):
