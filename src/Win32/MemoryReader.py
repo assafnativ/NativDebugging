@@ -24,18 +24,23 @@ from ..Interfaces import MemWriterInterface
 from .MemReaderBaseWin import *
 from ..GUIDisplayBase import *
 
+from .MemorySnapshot import *
 from .Win32Structs import *
 from .Win32Utile import *
 import sys
 import struct
 from pefile import *
 
-PAGE_SIZE = 0x1000
 
 def attach(targetProcessId):
     return MemoryReader(targetProcessId)
 
 class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
+    PAGE_SIZE       = 0x1000
+    PAGE_SIZE_MASK  = 0x0fff
+    READ_ATTRIBUTES_MASK    = 0xee # [0x20, 0x40, 0x80, 0x02, 0x04, 0x08]
+    WRITE_ATTRIBUTES_MASK   = 0xcc # [0x40, 0x80, 0x04, 0x08]
+    EXECUTE_ATTRIBUTES_MASK = 0xf0 # [0x10, 0x20, 0x40, 0x80]
     def __init__( self, target_process_id ):
         MemReaderBase.__init__(self)
         adjustDebugPrivileges()
@@ -50,9 +55,9 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             self._POINTER_SIZE = 4
         self._DEFAULT_DATA_SIZE = 4
         self._mem_map = None
-        self._READ_ATTRIBUTES       = [1, 2, 4, 6, 9, 11, 12, 14, 17, 19, 20, 22, 25, 27, 28, 30]
-        self._WRITE_ATTRIBUTES      = [4, 5, 6, 7, 12, 13, 14, 15, 20, 21, 22, 23, 28, 29, 30, 31]
-        self._EXECUTE_ATTRIBUTES    = [2, 3, 6, 7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31]
+        #self._READ_ATTRIBUTES       = [1, 2, 4, 6, 9, 11, 12, 14, 17, 19, 20, 22, 25, 27, 28, 30]
+        #self._WRITE_ATTRIBUTES      = [4, 5, 6, 7, 12, 13, 14, 15, 20, 21, 22, 23, 28, 29, 30, 31]
+        #self._EXECUTE_ATTRIBUTES    = [2, 3, 6, 7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31]
         self._cache = [(0, [])] * (0x80000000 >> 12)
 
     def __del__( self ):
@@ -195,75 +200,44 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         WriteProcessMemory( self._process, addr, data_to_write, len(data), byref(bytes_written) )
         return bytes_written.value
 
-    def findMemBlock( self, addr ):
-        if None == self._mem_map:
-            self.getMemoryMapWithQuery()
-        size = len(self._mem_map_keys)
-        if self._mem_map_keys[size // 2] > addr:
-            block_start = self._findMemBlockStart( addr, self._mem_map_keys[:size // 2], size // 2 )
-        else:
-            block_start = self._findMemBlockStart( addr, self._mem_map_keys[size // 2:], size // 2 )
-        block = self._mem_map[block_start]
-        if addr > (block_start + block[1]):
-            return None
-        else:
-            return block
-        
-    def _findMemBlockStart( self, addr, keys, size ):
-        if size == 1:
-            return keys[0]
-        mid = size // 2
-        if keys[mid] > addr:
-            return self._findMemBlockStart( addr, keys[:mid], mid )
-        else:
-            return self._findMemBlockStart( addr, keys[mid:], mid )
+    def getAddressAttributes(self, addr):
+        memBasicInfo = MEMORY_BASIC_INFORMATION()
+        read_result = VirtualQueryEx(
+                            self._process, 
+                            addr, 
+                            byref(memBasicInfo), 
+                            sizeof(MEMORY_BASIC_INFORMATION))
+        if 0 == read_result:
+            raise Exception("Failed to query memory attributes for address 0x%x" % i)
+        return (memBasicInfo.Protect)
+
 
     def isAddressWritable( self, addr ):
-        block = self.findMemBlock( addr )
-        if None == block:
-            return False
-        if block[2] in self._WRITE_ATTRIBUTES:
-            return True
-        return False
+        return 0 != (self.getAddressAttributes(addr) & self.WRITE_ATTRIBUTES_MASK)
 
     def isAddressReadable( self, addr ):
-        block = self.findMemBlock( addr )
-        if None == block:
-            return False
-        if block[2] in self._READ_ATTRIBUTES:
-            return True
-        return False
+        return 0 != (self.getAddressAttributes(addr) & self.READ_ATTRIBUTES_MASK)
 
     def isAddressExecuatable( self, addr ):
-        block = self.findMemBlock( addr )
-        if None == block:
-            return False
-        if block[2] in self._EXECUTE_ATTRIBUTES:
-            return True
-        return False
+        return 0 != (self.getAddressAttributes(addr) & self.EXECUTE_ATTRIBUTES_MASK)
 
     def isAddressValid( self, addr ):
         result = c_uint(0)
         bytes_read = c_uint(0)
-        #if addr % 4 != 0:
-        #   return False
         returncode = ReadProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
         if 0 != returncode and 1 == bytes_read.value:
             return True
         return False
 
-###     block = self.findMemBlock(addr)
-###     if None == block:
-###         return False
-###     return True
+    def getMemoryMapByQuery( self ):
+        """ Get map of all the memory with names of the modules the memory belongs to """
 
-    def getMemoryMapWithQuery( self ):
         if self._is_win64:
             raise Excpetion("Not supported on x64")
         result = {}
 
-        # Enum modules sections and sizes
-        modules = ARRAY( c_void_p, PAGE_SIZE )(0)
+        # Get all modules names, and on the way the size of the binary of each module
+        modules = ARRAY( c_void_p, self.PAGE_SIZE )(0)
         bytes_written = c_uint(0)
         EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
         num_modules = bytes_written.value / sizeof(c_void_p(0))
@@ -275,54 +249,53 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             module_info = MODULEINFO(0)
             GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
             module_base = module_info.lpBaseOfDll
-            if module_base & 0xfff != 0:
+            if module_base & self.PAGE_SIZE_MASK != 0:
                 raise Exception("Module not page aligned")
-            result[module_base] = (module_cut_name, module_info.SizeOfImage, 0)
+            result[module_base] = (
+                            module_cut_name, 
+                            module_info.SizeOfImage, 
+                            self.getAddressAttributes(module_base))
             # Get the sections
-            module_bin = self.readMemory(module_base, PAGE_SIZE) #module_info.SizeOfImage)
+            module_bin = self.readMemory(module_base, self.PAGE_SIZE) #module_info.SizeOfImage)
             parsed_pe = PE(data=module_bin, fast_load=True)
             for section in parsed_pe.sections:
                 section_addr = (section.VirtualAddress & 0xfffff000l) + module_base
                 section_size = section.SizeOfRawData
                 # Algin to end of page
                 if 0 == section_size:
-                    section_size = PAGE_SIZE
-                elif (section_size & 0xfff) != 0:
-                    section_size += PAGE_SIZE - (section_size & 0xfff)
+                    section_size = self.PAGE_SIZE
+                elif (section_size & self.PAGE_SIZE_MASK) != 0:
+                    section_size += self.PAGE_SIZE - (section_size & self.PAGE_SIZE_MASK)
                 # Append to list
-                result[section_addr] = (module_cut_name + section.Name.replace('\x00', ''), section_size, 1)
+                result[section_addr] = (
+                            module_cut_name + section.Name.replace('\x00', ''), 
+                            section_size, 
+                            self.getAddressAttributes(section_addr))
             
         # Get all other memory and attributes of pages
         memory_map = ARRAY( c_uint, 0x80000 )(0)
         QueryWorkingSet( self._process, byref(memory_map), sizeof(memory_map) )
         number_of_pages = memory_map[0]
+        # Add all pages
         for page in memory_map[1:1+number_of_pages]:
             addr = page & (0xfffff000l)
-            attrib = page & 0xfff
             # We have no intrest in kernel pages
             if addr > 0x80000000l:
                 continue
-            # Check if page found
-            page_found = False
-            page_already_set = False
-            for block_start in result.keys():
-                if addr >= block_start and addr < (block_start + result[block_start][1]):
-                    page_found = True
-                    if addr != block_start:
-                        page_already_set = True
-                    else:
-                        page_already_set = False
-                        module_name = result[block_start][0]
-                        module_size = result[block_start][1]
-                        break
-            if True == page_already_set:
+            # Check if page is already in the list
+            isPageSet = False
+            for blockAddr, blockInfo in result.iteritems():
+                if blockAddr <= addr and (blockAddr + blockInfo[1]) > addr:
+                    isPageSet = True
+                    break
+            if isPageSet:
                 continue
-            if True == page_found:
-                result[addr] = (module_name, module_size, attrib)
-            else:
-                result[addr] = ("", PAGE_SIZE, attrib)
+            result[addr] = (
+                "_PAGE_", 
+                self.PAGE_SIZE,
+                self.getAddressAttributes(addr))
 
-        # Concat blocks
+        # Coalesce blocks
         keys = result.keys()
         keys.sort()
         pos = 1
@@ -339,146 +312,44 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             else:
                 pos += 1
 
-        self._mem_map = result.copy()
-        self._mem_map_keys = result.keys()
-        self._mem_map_keys.sort()
-        return result
+        return MemorySnapshot(result, self)
 
-    def getMemoryMap( self ):
+    def getMemoryMapByEnum( self ):
         if self._is_win64:
             raise Exception( "Not supported on x64" )
-        result = []
+        result = {}
         one_byte = c_uint(0)
         bytes_read = c_uint(0)
-        for i in range( 0l, 0x80000000l, PAGE_SIZE ):
+        currentBlockStart = 0
+        currentBlockSize  = 0
+        currentBlockAttributes = None
+        for i in range( 0l, 0x80000000l, self.PAGE_SIZE ):
             read_result = ReadProcessMemory( self._process, i, byref(one_byte), 1, byref(bytes_read) )
-            if 0 != read_result:
-                yield( ("", i, PAGE_SIZE) )
+            if 0 != read_result and 0 < currentBlockSize:
+                result[currentBlockStart] = ("", currentBlockSize, currentBlockAttributes)
+            currentBlockSize = 0
+            currentBlockStart = i + self.PAGE_SIZE
+            currentBlockAttributes = None
+            continue
 
-    def getMemorySnapshot( self ):
-        result = []
-        memMap = self.getMemoryMapWithQuery()
-        for addr in memMap.keys():
-            if self.isAddressWritable(addr):
-                result.append((addr, self.readMemory(addr, memMap[addr][1])))
-        return result
-
-    def searchInMemory( self, target, searchRange=None, isCaseSensitive=True, searchUnicode=False ):
-        if self._is_win64:
-            return "Not supported on x64"
-        result = []
-
-        if None == searchRange:
-            searchRange = self.getMemoryMap()
-
-        if False == isCaseSensitive:
-            target = target.lower()
-        if isinstance(target, str):
-            last_block = ''
-            for block in searchRange:
-                try:
-                    data = last_block + self.readMemory(block[1], block[2])
-                except WindowsError:
-                    print "Can't read from %08x" % block[1]
-                    continue
-                if False == isCaseSensitive:
-                    data = data.lower()
-                pos = data.find(target)
-                while -1 != pos:
-                    result.append(pos + block[1] - len(last_block))
-                    pos = data.find(target, pos+1)
-                last_block = data[-(len(target) - 1):]
-            if False == searchUnicode:
-                return result
-            target = '\x00'.join(target)
-            last_block = ''
-            for block in searchRange:
-                try:
-                    data = last_block + self.readMemory(block[1], block[2])
-                except WindowsError:
-                    print "Can't read from %08x" % block[1]
-                    continue
-                if False == isCaseSensitive:
-                    data = data.lower()
-                pos = data.find(target)
-                while -1 != pos:
-                    result.append(pos + block[1] - len(last_block))
-                    pos = data.find(target, pos+1)
-                last_block = data[-(len(target) - 1):]
-        elif isinstance(target, int) or isinstance(target, long):
-            target = struct.pack('<L', target)
-            for block in searchRange:
-                try:
-                    data = self.readMemory(block[1], block[2])
-                except WindowsError:
-                    print "Can't read from %08x" % block[1]
-                    continue
-                pos = data.find(target)
-                while -1 != pos:
-                    result.append(pos + block[1])
-                    pos = data.find(target, pos+1)
-
-        return result
-
-    def removeChangedMemory( self, snapshot ):
-        result = []
-        for block in snapshot:
-            addr = block[0]
-            offset = 0
-            try:
-                for byte in block[1]:
-                    if self.readByte(addr + offset) == ord(byte):
-                        result.append((addr + offset, byte))
-                    offset += 1
-            except WindowsError, e:
-                continue
-
-        return result
-    
-    def removeUnchangedMemory( self, snapshot ):
-        result = []
-        for block in snapshot:
-            addr = block[0]
-            offset = 0
-            try:
-                for byte in block[1]:
-                    newByte = self.readByte(addr + offset)
-                    if newByte != ord(byte):
-                        result.append((addr + offset, chr(newByte)))
-                    offset += 1
-            except WindowsError, e:
-                continue
-        return result
-            
-        
-    def searchBinInAllMemory( self, target, isCaseSensitive = True ):
-        if self._is_win64:
-            return "Not supported on x64"
-
-        results = []
-
-        if isinstance(target, int) or isinstance(target, long):
-            target = struct.pack('<L', target)
-        elif False == isCaseSensitive:
-            target = target.lower()
-        firstByteTarget = target[:1]
-
-        pos = 0l
-        while pos < 0x8000000l:
-            if 0 == (pos & 0xffffff):
-                print '.',
-            try:
-                data = self.readMemory( pos, len(target) )
-                if False == isCaseSensitive:
-                    data = data.lower()
-                if data == target:
-                    results.append(pos)
-            except WindowsError:
-                pos += PAGE_SIZE - (pos % PAGE_SIZE)
-                continue
-            pos += 1
-
-        return results
+            memBasicInfo = MEMORY_BASIC_INFORMATION()
+            read_result = VirualQueryEx(self._process, i, byref(memBasicInfo), 1)
+            if 0 == read_result:
+                raise Exception("Failed to query memory attributes for address 0x%x" % i)
+            pageAttributes = memBasicInfo.Protect
+            if None == currentBlockAttributes:
+                currentBlockAttributes = memBasicInfo.Protect
+                currentBlockSize += self.PAGE_SIZE
+            elif currentBlockAttributes != pageAttributes:
+                # This page has different attributes so we would put it in a new block
+                result[currentBlockStart] = ("", currentBlockSize, currentBlockAttributes)
+                currentBlockSize = self.PAGE_SIZE
+                currentBlockStart = i
+                currentBlockAttributes = pageAttributes
+            else:
+                # Block continues
+                currentBlockSize += self.PAGE_SIZE
+        return MemorySnapshot(result, self)
 
     def getPointerSize(self):
         return self._POINTER_SIZE
