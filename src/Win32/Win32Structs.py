@@ -277,7 +277,7 @@ VirtualQueryEx.argtypes = [
     c_int,      # HANDLE hProces
     c_void_p,   # LPCVOID lpAddress
     c_void_p,   # PMEMORY_BASIC_INFORMATION lpBuffer
-    c_longlong ] # SIZE_T dwLength
+    c_ulong ] # SIZE_T dwLength
 VirtualQueryEx.restype = ErrorIfZero
 
 # VirtualAllocEx
@@ -602,7 +602,7 @@ class MEMORY_BASIC_INFORMATION(Structure):
     _fields_ = [("BaseAddress", c_void_p),
                 ("AllocationBase", c_void_p),
                 ("AllocationProtect", c_uint),
-                ("RegionSize", c_longlong),
+                ("RegionSize", c_long),
                 ("State", c_uint),
                 ("Protect", c_uint),
                 ("Type", c_uint),]
