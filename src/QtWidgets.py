@@ -51,7 +51,7 @@ class MemoryVisualizer(QtGui.QWidget):
     A widget that displays bytes as colored pixels
     """
 
-    def __init__(self, data, pixel_width, pixel_height, color_map, background_color, items_per_row, parent = None):
+    def __init__(self, data, updateCallback, pixel_width, pixel_height, color_map, background_color, items_per_row, parent = None):
         """
         data - the data to display
         pixel_width, pixel_height - dimensions of each pixel
@@ -63,6 +63,7 @@ class MemoryVisualizer(QtGui.QWidget):
         QtGui.QWidget.__init__(self, parent)
 
         self._data = data
+        self._updateCallback = updateCallback
 
         self._pixel_width = pixel_width
         self._pixel_height = pixel_height
@@ -74,9 +75,6 @@ class MemoryVisualizer(QtGui.QWidget):
         self._items_per_row = items_per_row
 
         self._start_offset = 0
-
-        self._data = data
-
 
         # Image control
 
@@ -129,6 +127,12 @@ class MemoryVisualizer(QtGui.QWidget):
         self._last_pm.save(filename)
 
 
+    def updateData(self):
+        if None == self._updateCallback:
+            raise Exception("No update function")
+        self._data  = self._updateCallback()
+        self._colorMap()
+ 
     #
     # Helper methods
     #
@@ -184,7 +188,7 @@ class MemoryVisualizer(QtGui.QWidget):
         self._last_pm = pm
 
         self.image_label.resize(self.image.width(), self.image.height())
- 
+
     def _colorPixel(self, x, y, color):
         clr = QtGui.QColor(color)
         painter = QtGui.QPainter(self.image)
@@ -238,7 +242,7 @@ class MemoryMap(QtGui.QWidget):
                     (random.randint(0, 255)) )
         return color_map
 
-    def __init__(self, data, color_map=None, parent=None):
+    def __init__(self, data, color_map=None, updateCallback=None, parent=None):
         """
         data - the data to display
         color_map - a list converting from byte value to color (item index = byte value)
@@ -257,11 +261,19 @@ class MemoryMap(QtGui.QWidget):
         # Memory Visualizer (right pane)
         #
 
-        self.memory_visualizer = MemoryVisualizer(data,
-                MemoryMap.DEFAULT_ZOOM,
-                MemoryMap.DEFAULT_ZOOM,
-                color_map, MemoryMap.DEFAULT_BACKGROUND_COLOR,
-                MemoryMap.DEFAULT_LINE_SIZE)
+        self.memory_visualizer = MemoryVisualizer(
+                        data,
+                        updateCallback,
+                        MemoryMap.DEFAULT_ZOOM,
+                        MemoryMap.DEFAULT_ZOOM,
+                        color_map, 
+                        MemoryMap.DEFAULT_BACKGROUND_COLOR,
+                        MemoryMap.DEFAULT_LINE_SIZE)
+        self.setPixelDimensions     = self.memory_visualizer.setPixelDimensions
+        self.setStartOffset         = self.memory_visualizer.setStartOffset
+        self.setItemsPerRow         = self.memory_visualizer.setItemsPerRow
+        self.saveImage              = self.memory_visualizer.saveImage
+        self.updateData             = self.memory_visualizer.updateData
 
 
         #
@@ -559,7 +571,7 @@ class HexView(QtGui.QWidget):
     __app_instance = None
 
 
-    def __init__(self, data, start_address = 0x0, item_size = 4, color_ranges = [], always_on_top = False, parent = None):
+    def __init__(self, data, updateCallback = None, start_address = 0x0, item_size = 4, color_ranges = [], always_on_top = False, parent = None):
         """
             data - Binary blob of data to display
             start_address - The virtual address where the data starts
@@ -577,6 +589,7 @@ class HexView(QtGui.QWidget):
         #
 
         self._data = data
+        self._updateCallback = updateCallback
         self._start_address = start_address
 
         if (item_size not in [1,2,4]):
@@ -927,6 +940,10 @@ class HexView(QtGui.QWidget):
             # Refresh the window title only if it hasn't been set externally
             self.setWindowTitle('HexView: %X - %X' % (start_address, start_address + len(data)))
 
+    def updateData(self):
+        if None == self._updateCallback:
+            raise Exception("No update callback is set")
+        self.setData(self._updateCallback(self._start_address, len(self._data)), self._start_address)
 
     def setTitle(self, title):
         """
