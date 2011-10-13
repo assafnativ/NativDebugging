@@ -1,7 +1,7 @@
 #
-#   MemorySnapshot.py
+#   DifferentialSearch.py
 #
-#   MemorySnapshot
+#   DifferentialSearch - A class that helps performaing a differential search of memory
 #   https://svn3.xp-dev.com/svn/nativDebugging/
 #   Nativ.Assaf+debugging@gmail.com
 #   Copyright (C) 2011  Assaf Nativ
@@ -23,54 +23,53 @@
 from struct import unpack
 from copy import deepcopy
 
-# Maybe in the future I shell split this class into a MemorySnapshot and MemoryMap classes
-# MemorySnapshot would be platform depended, while MemoryMap won't
-class MemorySnapshot( object ):
-    READ_ATTRIBUTES_MASK    = 0xee # [0x20, 0x40, 0x80, 0x02, 0x04, 0x08]
-    WRITE_ATTRIBUTES_MASK   = 0xcc # [0x40, 0x80, 0x04, 0x08]
-    EXECUTE_ATTRIBUTES_MASK = 0xf0 # [0x10, 0x20, 0x40, 0x80]
-    def __init__(self, memoryMap, reader, atomSize=4, memory={}):
-        self._memoryMap = memoryMap
-        self._memory = memory
+class DifferentialSearch( object ):
+    READ_ALL_WRITABLE_MEMORY    = 1
+    READ_ALL_READABLE_MEMORY    = 2
+    READ_ALL_EXECUTABLE_MEMORY  = 4
+    READ_ALL_MEMORY             = 8
+    def __init__(self, memMap, reader, searchIn=READ_ALL_WRITABLE_MEMORY, atomSize=4, memory=None):
+        self._memoryMap = memMap
         self._atomSize = atomSize
         self._reader = reader
-    
-    def getAddressInfo(self, x):
-        for addr, block in self._memoryMap.iteritems():
-            if x > addr and x < (addr + block[1]):
-                return MemoryBlockInfo(addr, block[1], block[0], block[2])
-        return None
-    
-    def readAllWritableMemory(self):
-        self.readAllMemoryWithAttributes(self.WRITE_ATTRIBUTES_MASK)
-    def readAllReadableMemory(self):
-        self.readAllMemoryWithAttributes(self.READ_ATTRIBUTES_MASK)
-    def readAllExecutableMemory(self):
-        self.readAllMemoryWithAttributes(self.EXECUTE_ATTRIBUTES_MASK)
+        self._readMemory = reader.readMemory
+        if None == memory:
+            self._memory = {}
+            readAttributesMask = 0
+            if 0 != (searchIn & self.READ_ALL_READABLE_MEMORY):
+                readAttributesMask |= memMap.READ_ATTRIBUTES_MASK
+            if 0 != (searchIn & self.READ_ALL_WRITABLE_MEMORY):
+                readAttributesMask |= memMap.WRITE_ATTRIBUTES_MASK
+            if 0 != (searchIn & self.READ_ALL_EXECUTABLE_MEMORY):
+                readAttributesMask |= memMap.EXECUTE_ATTRIBUTES_MASK
+            if 0 != (searchIn & self.READ_ALL_MEMORY):
+                readAttributesMask |= memMap.ALL_ATTRIBUTES_MASK
+            self.readAllMemoryWithAttributes(readAttributesMask)
+        else:
+            self._memory = memory
 
     def readAllMemoryWithAttributes(self, attributesMask):
-        for addr, block in self._memoryMap.iteritems():
-            if (block[2] & attributesMask):
-                try:
-                    self._memory[addr] = self._reader.readMemory(addr, block[1])
-                except WindowsError, e:
-                    continue
+        for block in self._memoryMap.filteredMap(attributesMask):
+            try:
+                self._memory[block.address] = self._readMemory(block.address, block.length)
+            except WindowsError, e:
+                continue
 
     def filterMemoryOldWithNew(self, comperator, atomSize=None):
         newMemory = {}
         if None == atomSize:
             atomSize = self._atomSize
-        for addr, block in self._memory.iteritems():
+        for addr, data in self._memory.iteritems():
             try:
                 newBlockAddress = addr
                 newBlockSize = 0
-                for offset in xrange(0, len(block), atomSize):
+                for offset in xrange(0, len(data), atomSize):
                     if not comperator( \
-                            self._reader.readMemory(addr + offset, atomSize), \
-                            block[offset:offset+atomSize] ):
+                            self._readMemory(addr + offset, atomSize), \
+                            data[offset:offset+atomSize] ):
                         if newBlockSize > 0:
                             newMemory[newBlockAddress] = \
-                                self._reader.readMemory(newBlockAddress, newBlockSize)
+                                self._readMemory(newBlockAddress, newBlockSize)
                         newBlockAddress = addr + offset + atomSize
                         newBlockSize = 0
                     else:
@@ -79,21 +78,21 @@ class MemorySnapshot( object ):
                 continue
             if newBlockSize > 0:
                 newMemory[newBlockAddress] = \
-                    self._reader.readMemory(newBlockAddress, newBlockSize)
+                    self._readMemory(newBlockAddress, newBlockSize)
         self._memory = newMemory
 
     def filterMemoryWithConst(self, comperator, const, atomSize=None):
         newMemory = {}
         if None == atomSize:
             atomSize = self._atomSize
-        for addr, block in self._memory.iteritems():
+        for addr, data in self._memory.iteritems():
             try:
-                for offset in xrange(0, len(block), atomSize):
-                    data = self._reader.readMemory(addr + offset, atomSize)
+                for offset in xrange(0, len(data), atomSize):
+                    newData = self._readMemory(addr + offset, atomSize)
                     if comperator(
-                            data,
+                            newData,
                             const):
-                        newMemory[addr + offset] = data
+                        newMemory[addr + offset] = newData
             except WindowsError, e:
                 continue
         self._memory = newMemory
@@ -171,7 +170,7 @@ class MemorySnapshot( object ):
             newMemory = {}
             for key in keys[index]:
                 newMemory[key] = self._memory[key]
-            return MemorySnapshot(self._memoryMap, self._reader, atomSize=self._atomSize, memory=newMemory)
+            return DifferentialSearch(self._memoryMap, self._reader, atomSize=self._atomSize, memory=newMemory)
         return keys[index]
 
     def __delitem__(self, index):
@@ -199,7 +198,7 @@ class MemorySnapshot( object ):
         return self._operatorAdd(other, (lambda x,y:not list.__contains__(x, y)))
 
     def _operatorAdd(self, other, comperator):
-        if not isinstance(other, MemorySnapshot):
+        if not isinstance(other, DifferentialSearch):
             raise TypeError()
         otherKeys = other._memory.keys()
         selfKeys = self._memory.keys()
@@ -211,28 +210,16 @@ class MemorySnapshot( object ):
                         newMemory[key] = other._memory[key]
                 else:
                     newMemory[key] = other._memory[key]
-        return MemorySnapshot(self._memoryMap, self._reader, atomSize=self._atomSize, memory=newMemory)
+        return DifferentialSearch(self._memoryMap, self._reader, atomSize=self._atomSize, memory=newMemory)
 
     def _operatorRemove(self, other, comperator):
-        if not isinstance(other, MemorySnapshot):
+        if not isinstance(other, DifferentialSearch):
             raise TypeError()
         newMemory = {}
         otherKeys = other._memory.keys()
         for key in self._memory.keys():
             if comperator(key, otherKeys):
                 newMemory[key] = self._memory[key]
-        return MemorySnapshot(self._memoryMap, self._reader, atomSize=self._atomSize, memory=newMemory)
+        return DifferentialSearch(self._memoryMap, self._reader, atomSize=self._atomSize, memory=newMemory)
 
 
-class MemoryBlockInfo(object):
-    def __init__(self, address, length, name, attributes):
-        self.address = address
-        self.length = length
-        self.name = name
-        self.attributes = attributes
-    def __repr__(self):
-        return 'Address: 0x%x\nLength: 0x%x\nName: %s\nAttributes: 0x%x' % (
-                self.address, 
-                self.length, 
-                self.name, 
-                self.attributes)

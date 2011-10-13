@@ -24,7 +24,7 @@ from ..Interfaces import MemWriterInterface
 from .MemReaderBaseWin import *
 from ..GUIDisplayBase import *
 
-from .MemorySnapshot import *
+from .MemoryMap import *
 from .Win32Structs import *
 from .Win32Utile import *
 import sys
@@ -312,7 +312,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             else:
                 pos += 1
 
-        return MemorySnapshot(result, self)
+        return MemoryMap(result, self)
 
     def getMemoryMapByEnum( self ):
         if self._is_win64:
@@ -349,7 +349,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             else:
                 # Block continues
                 currentBlockSize += self.PAGE_SIZE
-        return MemorySnapshot(result, self)
+        return MemoryMap(result, self)
 
     def getPointerSize(self):
         return self._POINTER_SIZE

@@ -1,7 +1,8 @@
 __all__ = [
         "Debugger",
         "MemoryReader",
-        "MemorySnapshot",
+        "MemoryMap",
+        "DifferentialSearch",
         "ExternalMemoryReader",
         "Symbols",
         "InjectDll",
