@@ -35,10 +35,12 @@ class MemoryMap( object ):
                 return MemoryBlockInfo(addr, block)
         return None
 
-    def filteredMap(self, attributesMask=ALL_ATTRIBUTES_MASK, name=None):
+    def filteredMap(self, attributesMask=ALL_ATTRIBUTES_MASK, nameStartsWith=None):
+        if None != nameStartsWith:
+            nameStartsWith = nameStartsWith.lower()
         for addr, block in self._memoryMap.iteritems():
             if block[2] & attributesMask:
-                if None != name and block[0] != name:
+                if None != nameStartsWith and not block[0].lower().startswith(nameStartsWith):
                     continue
                 yield MemoryBlockInfo(addr, block)
     def __iter__(self):
@@ -58,6 +60,7 @@ class MemoryBlockInfo(object):
             self.length = length
             self.name = name
             self.attributes = attributes
+
     def __repr__(self):
         return 'Address: 0x{0:x}\nLength: 0x{1:x}\nName: {2:s}\nAttributes: 0x{3:x}'.format(
                 self.address, 
