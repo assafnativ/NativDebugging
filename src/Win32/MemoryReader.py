@@ -255,11 +255,12 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             module_info = MODULEINFO(0)
             GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
             module_base = module_info.lpBaseOfDll
+            module_size = module_info.SizeOfImage
             if module_base & self.PAGE_SIZE_MASK != 0:
                 raise Exception("Module not page aligned")
             result[module_base] = (
                             module_cut_name, 
-                            module_info.SizeOfImage, 
+                            module_size, 
                             self.getAddressAttributes(module_base))
             # Get the sections
             module_bin = self.readMemory(module_base, self.PAGE_SIZE) #module_info.SizeOfImage)
@@ -267,16 +268,50 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             for section in parsed_pe.sections:
                 section_addr = (section.VirtualAddress & 0xfffff000l) + module_base
                 section_size = section.SizeOfRawData
+                section_attributes = self.getAddressAttributes(section_addr)
+                section_name = module_cut_name + '!' + section.Name.replace('\x00', '')
                 # Algin to end of page
                 if 0 == section_size:
                     section_size = self.PAGE_SIZE
                 elif (section_size & self.PAGE_SIZE_MASK) != 0:
                     section_size += self.PAGE_SIZE - (section_size & self.PAGE_SIZE_MASK)
                 # Append to list
-                result[section_addr] = (
-                            module_cut_name + '!' + section.Name.replace('\x00', ''), 
-                            section_size, 
-                            self.getAddressAttributes(section_addr))
+                sectionInMap = False
+                for addr, block in result.iteritems():
+                    if addr == section_addr:
+                        result[addr] = (
+                                section_name,
+                                section_size, 
+                                section_attributes )
+                        result[addr + section_size] = (
+                                block[0],
+                                block[1] - section_size,
+                                self.getAddressAttributes(addr + section_size))
+                        sectionInMap = True
+                        break
+                    elif addr <= section_addr and (addr + block[1]) > section_addr:
+                        firstPartSize   = section_addr - addr
+                        lastPartSize    = block[1] - firstPartSize - section_size
+                        result[addr] = (
+                                block[0],
+                                firstPartSize,
+                                block[2] )
+                        result[section_addr] = (
+                                section_name,
+                                section_size,
+                                section_attributes )
+                        if 0 < lastPartSize:
+                            result[section_addr + section_size] = (
+                                block[0],
+                                lastPartSize,
+                                self.getAddressAttributes(section_addr + section_size))
+                        sectionInMap = True
+                        break
+                if False == sectionInMap:
+                    result[section_addr] = (
+                                module_cut_name + '!' + section.Name.replace('\x00', ''), 
+                                section_size, 
+                                self.getAddressAttributes(section_addr))
             
         # Get all other memory and attributes of pages
         memory_map = ARRAY( c_uint, 0x80000 )(0)
