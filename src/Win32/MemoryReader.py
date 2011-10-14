@@ -27,6 +27,12 @@ from ..GUIDisplayBase import *
 from .MemoryMap import *
 from .Win32Structs import *
 from .Win32Utile import *
+
+try:
+    import distorm3
+    IS_DISASSEMBLER_FOUND = True
+except ImportError, e:
+    IS_DISASSEMBLER_FOUND = False
 import sys
 import struct
 from pefile import *
@@ -268,7 +274,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
                     section_size += self.PAGE_SIZE - (section_size & self.PAGE_SIZE_MASK)
                 # Append to list
                 result[section_addr] = (
-                            module_cut_name + section.Name.replace('\x00', ''), 
+                            module_cut_name + '!' + section.Name.replace('\x00', ''), 
                             section_size, 
                             self.getAddressAttributes(section_addr))
             
@@ -335,7 +341,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             memBasicInfo = MEMORY_BASIC_INFORMATION()
             read_result = VirualQueryEx(self._process, i, byref(memBasicInfo), 1)
             if 0 == read_result:
-                raise Exception("Failed to query memory attributes for address 0x%x" % i)
+                raise Exception("Failed to query memory attributes for address 0x{0:x}".format(i))
             pageAttributes = memBasicInfo.Protect
             if None == currentBlockAttributes:
                 currentBlockAttributes = memBasicInfo.Protect
@@ -350,6 +356,16 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
                 # Block continues
                 currentBlockSize += self.PAGE_SIZE
         return MemoryMap(result, self)
+
+    def disasm(self, addr, length=0x100, decodeType=1):
+        if IS_DISASSEMBLER_FOUND:
+            for opcode in distorm3.Decode(
+                    addr, 
+                    self.readMemory(addr, length),
+                    decodeType):
+                print('{0:x} {1:24s} {2:s}'.format(opcode[0], opcode[3], opcode[2]))
+        else:
+            raise Exception("No disassembler module")
 
     def getPointerSize(self):
         return self._POINTER_SIZE
