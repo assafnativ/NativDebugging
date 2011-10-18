@@ -219,7 +219,7 @@ class MemoryMap(QtGui.QWidget):
     DISPLAY_FONT_SIZE = 10
 
     DEFAULT_LINE_SIZE = 20
-    MAX_LINE_SIZE = 300
+    MAX_LINE_SIZE = 0x8000
     MIN_LINE_SIZE = 5
 
     DEFAULT_START_OFFSET = 0
