@@ -356,7 +356,7 @@ class MemoryMap(QtGui.QWidget):
         self.line_size_scrollbar.setValue(value)
         self.memory_visualizer.setItemsPerRow(value)
 
-    def saveImage(self, fileName)
+    def saveImage(self, fileName):
         self.memory_visualizer.saveImage(fileName)
 
     def updateData(self):
