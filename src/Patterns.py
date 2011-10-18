@@ -463,8 +463,8 @@ class BUFFER( dataType ):
     def isValid(self, *arg, **kw):
         yield True
 
-NULL_TERM = None
 class STRING( dataType ):
+    NULL_TERM = None
     def __init__(self, size=None, maxSize=0x1000, fixedValue=None, isPrintable=True, isUnicode=False, isCaseSensitive=True, **keys):
         if None != fixedValue:
             size = len(fixedValue)
@@ -477,7 +477,7 @@ class STRING( dataType ):
         self.maxSize        = maxSize
         self.len            = size
     def __repr__(self):
-        if NULL_TERM == self.len:
+        if self.NULL_TERM == self.len:
             return '\\0 STRING'
         elif type(self.len) == int:
             return 'STRING[%d]' % self.len
@@ -492,7 +492,7 @@ class STRING( dataType ):
                 return self.len
     def readValue(self, patFinder, address):
         try:
-            if NULL_TERM == self.len:
+            if self.NULL_TERM == self.len:
                 result = patFinder.readString(address, maxSize=self.maxSize, isUnicode=self.isUnicode)
             else:
                 if self.isUnicode:
