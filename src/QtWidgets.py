@@ -348,13 +348,22 @@ class MemoryMap(QtGui.QWidget):
         self.memory_visualizer.setPixelDimensions(value, value)
         self.zoom_scrollbar.setValue(value)
 
+    def getZoom(self):
+        return self.zoom_scrollbar.value()
+
     def setStartOffset(self, value):
-        self.start_offset_scrollbar.setValue(value)
         self.memory_visualizer.setStartOffset(value)
+        self.start_offset_scrollbar.setValue(value)
+
+    def getStartOffset(self):
+        return self.start_offset_scrollbar.value()
 
     def setItemsPerRow(self, value):
-        self.line_size_scrollbar.setValue(value)
         self.memory_visualizer.setItemsPerRow(value)
+        self.line_size_scrollbar.setValue(value)
+
+    def getItemsPerRow(self):
+        return self.line_size_scrollbar.value()
 
     def saveImage(self, fileName):
         self.memory_visualizer.saveImage(fileName)
