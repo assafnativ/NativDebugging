@@ -269,12 +269,6 @@ class MemoryMap(QtGui.QWidget):
                         color_map, 
                         MemoryMap.DEFAULT_BACKGROUND_COLOR,
                         MemoryMap.DEFAULT_LINE_SIZE)
-        self.setPixelDimensions     = self.memory_visualizer.setPixelDimensions
-        self.setStartOffset         = self.memory_visualizer.setStartOffset
-        self.setItemsPerRow         = self.memory_visualizer.setItemsPerRow
-        self.saveImage              = self.memory_visualizer.saveImage
-        self.updateData             = self.memory_visualizer.updateData
-
 
         #
         # Various Controls (left pane)
@@ -350,10 +344,28 @@ class MemoryMap(QtGui.QWidget):
 
 
 
+    def setZoom(self, value):
+        self.memory_visualizer.setPixelDimensions(value, value)
+        self.zoom_scrollbar.setValue(value)
+
+    def setStartOffset(self, value):
+        self.start_offset_scrollbar.setValue(value)
+        self.memory_visualizer.setStartOffset(value)
+
+    def setItemsPerRow(self, value):
+        self.line_size_scrollbar.setValue(value)
+        self.memory_visualizer.setItemsPerRow(value)
+
+    def saveImage(self, fileName)
+        self.memory_visualizer.saveImage(fileName)
+
+    def updateData(self):
+        self.memory_visualizer.updateData()
+
+
     #
     # Events
     #
-
 
     def _onTakeScreenshot(self):
         filename = QtGui.QFileDialog.getSaveFileName(filter = "All Files (*.*);;PNG Files (*.png)", selectedFilter = "PNG Files (*.png)")
