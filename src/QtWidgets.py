@@ -44,6 +44,14 @@ import time
 import copy
 import random
 
+class labelWithGetPos(QtGui.QLabel):
+    def __init__(self, mousePressCallback, *arg, **kw):
+        self.mousePressCallback = mousePressCallback
+        QtGui.QLabel.__init__(self, *arg, **kw)
+    def mousePressEvent(self, event):
+        self.mousePressCallback(event.pos())
+
+
 class MemoryVisualizer(QtGui.QWidget):
     """
     MemoryVisualizer class
@@ -51,7 +59,7 @@ class MemoryVisualizer(QtGui.QWidget):
     A widget that displays bytes as colored pixels
     """
 
-    def __init__(self, data, updateCallback, pixel_width, pixel_height, color_map, background_color, items_per_row, parent = None):
+    def __init__(self, data, updateCallback, pixel_width, pixel_height, color_map, background_color, items_per_row, labelWidget, parent = None):
         """
         data - the data to display
         pixel_width, pixel_height - dimensions of each pixel
@@ -76,12 +84,14 @@ class MemoryVisualizer(QtGui.QWidget):
 
         self._start_offset = 0
 
+        self.labelWidget = labelWidget
+
         # Image control
 
         self._calculateRowCount()
         self.image = QtGui.QImage(pixel_width * items_per_row, pixel_height * self._row_count, QtGui.QImage.Format_RGB32)
 
-        self.image_label = QtGui.QLabel()
+        self.image_label = labelWithGetPos(self.mousePressCallback)
 
         pm = QtGui.QPixmap(self.image)
         self.image_label.setPixmap(pm)
@@ -97,6 +107,11 @@ class MemoryVisualizer(QtGui.QWidget):
 
         self._colorMap()
 
+    def mousePressCallback(self, pos):
+        self.labelWidget.setText( 'Offset: 0x%x' % ( \
+                (pos.y() / self._pixel_height) * self._items_per_row + \
+                (pos.x() / self._pixel_width) - \
+                self._start_offset) )
 
     #
     # Accessor methods
@@ -201,7 +216,6 @@ class MemoryVisualizer(QtGui.QWidget):
             self._row_count += 1 # Half-empty row
 
 
-
  
 class MemoryMap(QtGui.QWidget):
     """
@@ -260,6 +274,8 @@ class MemoryMap(QtGui.QWidget):
         #
         # Memory Visualizer (right pane)
         #
+        self.offset_label = QtGui.QLabel("?")
+        self.offset_label.setMaximumHeight(20)
 
         self.memory_visualizer = MemoryVisualizer(
                         data,
@@ -268,7 +284,9 @@ class MemoryMap(QtGui.QWidget):
                         MemoryMap.DEFAULT_ZOOM,
                         color_map, 
                         MemoryMap.DEFAULT_BACKGROUND_COLOR,
-                        MemoryMap.DEFAULT_LINE_SIZE)
+                        MemoryMap.DEFAULT_LINE_SIZE,
+                        self.offset_label,
+                        parent=self)
 
         #
         # Various Controls (left pane)
@@ -323,14 +341,15 @@ class MemoryMap(QtGui.QWidget):
         self.left_pane.addWidget(self.take_screenshot_button)
         self.connect(self.take_screenshot_button, SIGNAL("clicked()"), self._onTakeScreenshot)
 
+        # Pos lablel
+        self.left_pane.addWidget(self.offset_label)
 
-
-        wid = QtGui.QWidget()
-        wid.setLayout(self.left_pane)
+        self.wid = QtGui.QWidget()
+        self.wid.setLayout(self.left_pane)
 
         self.horizontal_layout = QtGui.QHBoxLayout()
         self.horizontal_splitter = QtGui.QSplitter()
-        self.horizontal_splitter.addWidget(wid)
+        self.horizontal_splitter.addWidget(self.wid)
         self.horizontal_splitter.addWidget(self.memory_visualizer)
         self.horizontal_splitter.setOrientation(Qt.Horizontal)
 
@@ -341,8 +360,6 @@ class MemoryMap(QtGui.QWidget):
                 400, 250)
 
         self.setWindowTitle('Memory Visualizer')
-
-
 
     def setZoom(self, value):
         self.memory_visualizer.setPixelDimensions(value, value)
@@ -400,7 +417,6 @@ class MemoryMap(QtGui.QWidget):
         elif (changeType == QtGui.QSlider.SliderValueChange):
             self.memory_visualizer.setStartOffset(self.start_offset_scrollbar.value())
 
-
     def _onZoomChange(self, changeType):
 
         self.zoom_scrollbar.update()
@@ -410,7 +426,7 @@ class MemoryMap(QtGui.QWidget):
         elif (changeType == QtGui.QSlider.SliderValueChange):
             value = self.zoom_scrollbar.value()
             self.memory_visualizer.setPixelDimensions(value, value)
-
+    
 
  
 class ColorLegendItem(QtGui.QWidget):
@@ -1116,8 +1132,6 @@ class HexView(QtGui.QWidget):
             string_data.append(string_line.rstrip())
 
         return (address_data, (hex_data, hex_data_colors), (string_data, string_data_colors))
-
-
 
 
     def _calcStringWidth(self, length):
