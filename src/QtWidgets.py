@@ -274,7 +274,7 @@ class MemoryMap(QtGui.QWidget):
         #
         # Memory Visualizer (right pane)
         #
-        self.offset_label = QtGui.QLabel("?")
+        self.offset_label = QtGui.QLabel("Click on map to find offset")
         self.offset_label.setMaximumHeight(20)
 
         self.memory_visualizer = MemoryVisualizer(
