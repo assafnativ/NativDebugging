@@ -327,7 +327,7 @@ class POINTER_TO_STRUCT( POINTER ):
     def isValid(self, patFinder, address, value):
         if self.isNullValid and 0 == value:
             yield True
-        elif None != ptr and patFinder.isAddressValid(value):
+        elif None != value and patFinder.isAddressValid(value):
             content = self.pattern.readValue(patFinder, value)
             for x in self.pattern.isValid(patFinder, value, content):
                 yield True
