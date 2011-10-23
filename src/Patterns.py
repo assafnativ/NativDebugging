@@ -316,11 +316,18 @@ class POINTER_TO_STRUCT( POINTER ):
         self.isNullValid    = isNullValid
         dataType.__init__(self, **kw)
     def readValue(self, patFinder, address):
-        return patFinder.readAddr(address)
+        ptr = patFinder.readAddr(address)
+        if patFinder.isAddressValid(ptr):
+            # To prevent reads from invalid memory during pattern search
+            try:
+                patFinder.readByte(ptr)
+            except Exception, e:
+                return None
+        return ptr
     def isValid(self, patFinder, address, value):
         if self.isNullValid and 0 == value:
             yield True
-        elif patFinder.isAddressValid(value):
+        elif None != ptr and patFinder.isAddressValid(value):
             content = self.pattern.readValue(patFinder, value)
             for x in self.pattern.isValid(patFinder, value, content):
                 yield True
