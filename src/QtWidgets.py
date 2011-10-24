@@ -34,7 +34,8 @@ except ImportError, e:
     def qtmissing():
         print("Qt Module is missing")
     QtGui = qtmissing
-    QtGui.QWidget = type("qt_is_missing", (object,), {'__init__': qtmissing})
+    QtGui.QWidget   = type("qt_is_missing", (object,), {'__init__': qtmissing})
+    QtGui.QLabel    = type("qt_is_missing", (object,), {'__init__': qtmissing})
     Qt = qtmissing
     SIGNAL = qtmissing
     QtCore = qtmissing
