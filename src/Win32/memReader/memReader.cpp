@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 {
     int returnCode = RETURN_CODE_READ_SECCUESS;
 
-    unsigned char * address = NULL;
+    ADDR_TYPE		address = NULL;
     unsigned int	size = 0;
     int				processId;
 
