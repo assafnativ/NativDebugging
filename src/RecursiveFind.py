@@ -26,12 +26,12 @@ class RecursiveFind( MemReaderInterface ):
         table_data = self._makeAddrList(data)
         for i in xrange(len(table_data)):
             if table_data[i] + delta >= target and table_data[i] - delta <= target:
-                result = (start_address + (i*4), path + [i*4], table_data[i])
+                result = (start_address + (i*self.getPointerSize()), path + [i*self.getPointerSize()], table_data[i])
                 yield result
                 if True == isVerbos:
                     self.printRecursiveFindResult( result )
             if hops > 0 and self.isAddressValid(table_data[i]):
-                for x in self._recursiveFindInt( target, table_data[i], length, hops - 1, delta, path + [i * 4], isVerbos ):
+                for x in self._recursiveFindInt( target, table_data[i], length, hops - 1, delta, path + [i * self.getPointerSize()], isVerbos ):
                     yield x
         return
 
@@ -61,10 +61,11 @@ class RecursiveFind( MemReaderInterface ):
                 if True == isVerbos:
                     self.printRecursiveFindResult(result)
                 pos += 1
-        for i in xrange(len(table_data)):
-            if hops > 0 and self.isAddressValid(table_data[i]):
-                for x in self._recursiveFindString( target, table_data[i], length, hops - 1, delta, path + [i * 4], isVerbos ):
-                    yield x
+        if hops > 0:
+            for i in xrange(len(table_data)):
+                if self.isAddressValid(table_data[i]):
+                    for x in self._recursiveFindString( target, table_data[i], length, hops - 1, delta, path + [i * self.getPointerSize()], isVerbos ):
+                        yield x
         return
 
     def _recursiveFindList( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbos = False):
@@ -75,12 +76,12 @@ class RecursiveFind( MemReaderInterface ):
         table_data = self._makeAddrList(data)
         for i in xrange(len(table_data)):
             if table_data[i] in target:
-                result = (start_address + (i*4), path + [i*4], table_data[i])
+                result = (start_address + (i*self.getPointerSize()), path + [i*self.getPointerSize()], table_data[i])
                 yield result
                 if True == isVerbos:
                     self.printRecursiveFindResult(result)
             if hops > 0 and self.isAddressValid(table_data[i]):
-                for x in self._recursiveFindList( target, table_data[i], length, hops - 1, delta, path + [i * 4], isVerbos ):
+                for x in self._recursiveFindList( target, table_data[i], length, hops - 1, delta, path + [i * self.getPointerSize()], isVerbos ):
                     yield x
         return
 
@@ -116,11 +117,11 @@ class RecursiveFind( MemReaderInterface ):
                     addr = self.resolveOffsetsList( start_address, must_jumps[:-1] )[-1]
                     data = m.readAddr(addr + must_jumps[-1])
                     if data + delta >= target and data - delta <= target:
-                        yield ((start_address + (i*4), path + must_jumps + [i*4], table_data[i]))
+                        yield ((start_address + (i*self.getPointerSize()), path + must_jumps + [i*self.getPointerSize()], table_data[i]))
                 except:
                     pass
             if hops > 0 and self.isAddressValid(table_data[i]):
-                for x in self._recursiveFindWithMust( target, table_data[i], must_jumps, length, hops - 1, delta, path + [i * 4] ):
+                for x in self._recursiveFindWithMust( target, table_data[i], must_jumps, length, hops - 1, delta, path + [i * self.getPointerSize()] ):
                     yield x
 
     def recursiveFind( self, target, start_address, length, hops=1, delta=0, must=None, isVerbos=False):
