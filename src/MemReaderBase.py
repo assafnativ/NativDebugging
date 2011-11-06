@@ -41,7 +41,7 @@ class MemReaderBase( RecursiveFind ):
                 outputString += ']'
                 print(outputString)
             else:
-                print(map(lambda x:'0x{0:x}, '.format(x), result))
+                print('',join(map(lambda x:'0x{0:x}, '.format(x), result)))
             if readFail:
                 print("Could not resolve all offsets")
         if True == isLookingForCycles and True == cycleFound:

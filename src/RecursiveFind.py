@@ -16,10 +16,7 @@ class RecursiveFind( MemReaderInterface ):
             raise Exception("Invalid pointer size %d" % self.getPointerSize())
     
     def printRecursiveFindResult( self, result ):
-        outputString = hex(result[0]) + ' '
-        outputString += str(map(hex, result[1])) + ' '
-        outputString += str(result[2])
-        print outputString
+        print('0x{0:x} {1:s} {2:s}'.format(result[0], map(lambda x:'0x{0}, '.format(x), result[1]), str(result[2])))
 
     def _recursiveFindInt( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbos = False):
         try:
