@@ -23,7 +23,7 @@ class MemReaderBase( RecursiveFind ):
                 if nextAddr in result:
                     cycleFound = True
                 result.append(nextAddr)
-        except:
+        except Exception, e:
             readFail = True
             result.append(-1)
         if True == isVerbos:
