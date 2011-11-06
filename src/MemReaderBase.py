@@ -13,10 +13,19 @@ class MemReaderBase( RecursiveFind ):
         self.findInSymbols  = None
         self.findSymbol     = None        
 
-    def resolveOffsetsList( self, start, l, isVerbos=False ):
+    def resolveOffsetsList( self, start, l, isVerbos=False, isLookingForCycles=True ):
         result = [start]
-        for i in l:
-            result.append(self.readAddr(result[-1]+i))
+        readFail = False
+        cycleFound = False
+        try:
+            for i in l:
+                nextAddr = self.readAddr(result[-1]+i)
+                if nextAddr in result:
+                    cycleFound = True
+                result.append(nextAddr)
+        except:
+            readFail = True
+            result.append(-1)
         if True == isVerbos:
             if None != self.solveAddr:
                 outputString = '['
@@ -30,9 +39,13 @@ class MemReaderBase( RecursiveFind ):
                     if i != (len(result) - 1):
                         outputString += ', '
                 outputString += ']'
-                print outputString
+                print(outputString)
             else:
-                print map(hex, result)
+                print(map(lambda x:'0x{0:x}, '.format(x), result))
+            if readFail:
+                print("Could not resolve all offsets")
+        if True == isLookingForCycles and True == cycleFound:
+            print("Offsets path contains a cycle")
         return result
 
     def readNPrintQwords( self, addr, length=0x100, isNoBase=True, itemsInRow=4 ):
