@@ -29,10 +29,10 @@ import subprocess
 
 def DATA( data, base = 0, itemsInRow=0x10 ):
     result = ''
-    for i in xrange(0, len(data), itemsInRow):
+    for i in range(0, len(data), itemsInRow):
         line = '%08X  ' % (i + base)
         line_data = data[i:][:itemsInRow]
-        for t in xrange(len(line_data)):
+        for t in range(len(line_data)):
             if( (0 == (t % 8)) and (t > 0) ):
                 line += '- %02X' % ord(line_data[t])
             elif( 0 == (t & 1) ):
@@ -43,7 +43,7 @@ def DATA( data, base = 0, itemsInRow=0x10 ):
         spacesLeft = 13 + int(itemsInRow * 2.5) + (2 * ((itemsInRow - 1)//8))
         line += ' ' * (spacesLeft - len(line))
         for t in line_data:
-            if( t == `t`[1] ):
+            if( t == repr(t)[1] ):
                 line += t
             else:
                 line += '.'
@@ -68,7 +68,7 @@ def makeWordsList( data ):
     return list(struct.unpack('=' + ('H' * (len(data) / 2)), data))
 
 def makeBytesList( data ):
-    return map(ord, data)
+    return list(map(ord, data))
 
 def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
     result = ''
@@ -78,7 +78,7 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
         result += itemStr % (i * itemSize)
         result += ' '
     result += '\n'
-    for i in xrange(0, len(table), itemsInRow):
+    for i in range(0, len(table), itemsInRow):
         if 0 == base:
             line = '%16x ' % (i * 4 )
         else:
@@ -91,13 +91,13 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
         line += ' ' * (spacesLeft - len(line))
         for t in line_data:
             for x in struct.pack('=L', t):
-                if( x == `x`[1] ):
+                if( x == repr(x)[1] ):
                     line += x
                 else:
                     line += '.'
         line += '\n'
         result += line
-    print result
+    print(result)
 
 def printAsQwordsTable( data, base = 0, itemsInRow = 0x8 ):
     table = makeQwordsList(data)
@@ -116,7 +116,7 @@ def printAsWordsTable( data, base = 0, itemsInRow = 0x8 ):
 
 def hex2data( h ):
     result = ''
-    for i in xrange(0,len(h),2):
+    for i in range(0,len(h),2):
         result += chr(int(h[i:i+2],16))
     return result
 
@@ -131,7 +131,7 @@ def hex2dword(x):
 
 def buffDiff( buffers, chunk_size = 1 ):
     if type(buffers) != type([]):
-        print 'Invalid type'
+        print('Invalid type')
         return
     l = len(buffers[0])
     for i in buffers:
@@ -167,31 +167,31 @@ def buffDiff( buffers, chunk_size = 1 ):
             for chunk in chunks:
                 if chunk != chunk0:
                     if( 1 == chunk_size ):
-                        print "Buff diff at %04X: " % (i),
+                        print("Buff diff at {0:04X}: ".format(i)),
                         for chunk in chunks:
-                            print "%02X " % ord(chunk),
+                            print("{0:02X} ".format(ord(chunk))),
                         print
                     elif( 2 == chunk_size ):
-                        print "Buff diff at %04X: " % (i),
+                        print("Buff diff at {0:04X}: ".format(i)),
                         for chunk in chunks:
-                            print "%04X " % (struct.unpack('=H',chunk)[0]),
+                            print("{0:04X} ".format(struct.unpack('=H',chunk)[0])),
                         print
                     elif( 4 == chunk_size ):
-                        print "Buff diff at %04X: " % (i),
+                        print("Buff diff at {0:04X}: ".format(i)),
                         for chunk in chunks:
-                            print "%08X " % (struct.unpack('=L',chunk)[0]),
+                            print("{0:08X} ".format(struct.unpack('=L',chunk)[0])),
                         print
                     else:
-                        print "Buff diff at %04X: " % (i)
+                        print("Buff diff at {0:04X}: ".format(i)),
                         for chunk in chunks:
-                            print "\t%s" % data2hex(chunk)
+                            print("\t{0:s}".format(data2hex(chunk))),
                     total_diffs += 1
                     break
         i += chunk_size
     if( 0 == total_diffs ):
-        print "Buffers match!"
+        print("Buffers match!")
     else:
-        print "Total diffs %d" % total_diffs
+        print("Total diffs %d" % total_diffs)
 
 def dotted(ip):
     result = '%d.%d.%d.%d' % ((ip >> 24) & 0xff, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff)
@@ -213,7 +213,7 @@ def getIpcsInfo(isVerbos=True):
     lines = out.split(os.linesep)
     if isVerbos:
         for i in lines:
-            print i
+            print(i)
     return lines 
 
 def getAllShmidsInfo(ownerFilter=None):
@@ -267,6 +267,6 @@ def getShmids(ownerFilter=None):
     if sys.platform == 'win32':
         raise Exception("This function is not supported under Windows platform")
     memInfo = getAllShmidsInfo(ownerFilter)
-    return map(lambda x:x[1], memInfo)
+    return [x[1] for x in memInfo]
 
 

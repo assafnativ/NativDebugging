@@ -52,18 +52,18 @@ class DifferentialSearch( object ):
         for block in self._memoryMap.filteredMap(attributesMask):
             try:
                 self._memory[block.address] = self._readMemory(block.address, block.length)
-            except WindowsError, e:
+            except WindowsError as e:
                 continue
 
     def filterMemoryOldWithNew(self, comperator, atomSize=None):
         newMemory = {}
         if None == atomSize:
             atomSize = self._atomSize
-        for addr, data in self._memory.iteritems():
+        for addr, data in self._memory.items():
             try:
                 newBlockAddress = addr
                 newBlockSize = 0
-                for offset in xrange(0, len(data), atomSize):
+                for offset in range(0, len(data), atomSize):
                     if not comperator( \
                             self._readMemory(addr + offset, atomSize), \
                             data[offset:offset+atomSize] ):
@@ -74,7 +74,7 @@ class DifferentialSearch( object ):
                         newBlockSize = 0
                     else:
                         newBlockSize += atomSize
-            except WindowsError, e:
+            except WindowsError as e:
                 continue
             if newBlockSize > 0:
                 newMemory[newBlockAddress] = \
@@ -85,15 +85,15 @@ class DifferentialSearch( object ):
         newMemory = {}
         if None == atomSize:
             atomSize = self._atomSize
-        for addr, data in self._memory.iteritems():
+        for addr, data in self._memory.items():
             try:
-                for offset in xrange(0, len(data), atomSize):
+                for offset in range(0, len(data), atomSize):
                     newData = self._readMemory(addr + offset, atomSize)
                     if comperator(
                             newData,
                             const):
                         newMemory[addr + offset] = newData
-            except WindowsError, e:
+            except WindowsError as e:
                 continue
         self._memory = newMemory
     
@@ -154,7 +154,7 @@ class DifferentialSearch( object ):
 
     def __repr__(self):
         MAX_DISPLAY = 0x40
-        keys = self._memory.keys()
+        keys = list(self._memory.keys())
         keys.sort()
         result = ''
         for i, x in enumerate(keys[:MAX_DISPLAY]):
@@ -164,7 +164,7 @@ class DifferentialSearch( object ):
         return result
 
     def __getitem__(self, index):
-        keys = self._memory.keys()
+        keys = list(self._memory.keys())
         keys.sort()
         if isinstance(index, slice):
             newMemory = {}
@@ -174,7 +174,7 @@ class DifferentialSearch( object ):
         return keys[index]
 
     def __delitem__(self, index):
-        keys = self._memory.keys()
+        keys = list(self._memory.keys())
         keys.sort()
         if isinstance(index, slice):
             for key in keys[index]:
@@ -200,8 +200,8 @@ class DifferentialSearch( object ):
     def _operatorAdd(self, other, comperator):
         if not isinstance(other, DifferentialSearch):
             raise TypeError()
-        otherKeys = other._memory.keys()
-        selfKeys = self._memory.keys()
+        otherKeys = list(other._memory.keys())
+        selfKeys = list(self._memory.keys())
         newMemory = deepcopy(self._memory)
         for key in otherKeys:
             if comperator(key, selfKeys):
@@ -216,8 +216,8 @@ class DifferentialSearch( object ):
         if not isinstance(other, DifferentialSearch):
             raise TypeError()
         newMemory = {}
-        otherKeys = other._memory.keys()
-        for key in self._memory.keys():
+        otherKeys = list(other._memory.keys())
+        for key in list(self._memory.keys()):
             if comperator(key, otherKeys):
                 newMemory[key] = self._memory[key]
         return DifferentialSearch(self._memoryMap, self._reader, atomSize=self._atomSize, memory=newMemory)

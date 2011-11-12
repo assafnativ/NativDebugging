@@ -16,7 +16,7 @@ class RecursiveFind( MemReaderInterface ):
             raise Exception("Invalid pointer size %d" % self.getPointerSize())
     
     def printRecursiveFindResult( self, result ):
-        print('0x{0:x}\t{1:s}\t"{2:s}"'.format(result[0], ''.join(map(lambda x:'0x{0}, '.format(x), result[1])), str(result[2])))
+        print(('0x{0:x}\t{1:s}\t"{2:s}"'.format(result[0], ''.join(['0x{0}, '.format(x) for x in result[1]]), str(result[2]))))
 
     def _recursiveFindInt( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbos = False):
         try:
@@ -24,7 +24,7 @@ class RecursiveFind( MemReaderInterface ):
         except:
             return
         table_data = self._makeAddrList(data)
-        for i in xrange(len(table_data)):
+        for i in range(len(table_data)):
             if table_data[i] + delta >= target and table_data[i] - delta <= target:
                 result = (start_address + (i*self.getPointerSize()), path + [i*self.getPointerSize()], table_data[i])
                 yield result
@@ -62,7 +62,7 @@ class RecursiveFind( MemReaderInterface ):
                     self.printRecursiveFindResult(result)
                 pos += 1
         if hops > 0:
-            for i in xrange(len(table_data)):
+            for i in range(len(table_data)):
                 if self.isAddressValid(table_data[i]):
                     for x in self._recursiveFindString( target, table_data[i], length, hops - 1, delta, path + [i * self.getPointerSize()], isVerbos ):
                         yield x
@@ -74,7 +74,7 @@ class RecursiveFind( MemReaderInterface ):
         except:
             return
         table_data = self._makeAddrList(data)
-        for i in xrange(len(table_data)):
+        for i in range(len(table_data)):
             if table_data[i] in target:
                 result = (start_address + (i*self.getPointerSize()), path + [i*self.getPointerSize()], table_data[i])
                 yield result
@@ -111,7 +111,7 @@ class RecursiveFind( MemReaderInterface ):
                 if -1 != pos:
                     yield ((start_address + pos, path + must_jumps + [pos], self.readString(start_address+pos, True)))
                     pos += 1
-        for i in xrange(len(table_data)):
+        for i in range(len(table_data)):
             if type(0) == type(target):
                 try:
                     addr = self.resolveOffsetsList( start_address, must_jumps[:-1] )[-1]

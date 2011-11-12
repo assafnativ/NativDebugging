@@ -32,7 +32,7 @@ from ..Utile import *
 try:
     from ..QtWidgets import *
     IS_GUI_FOUND = True
-except ImportError, e:
+except ImportError as e:
     #print("No GUI support")
     IS_GUI_FOUND = False
 
@@ -67,7 +67,7 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
                 raise Exception("Meminfo of type (shared mem id, base address, size in bytes) expected")
         self.memMap = []
         for memInfo in memInfos:
-            mem = self.libc.shmat(memInfo[0], 0, 010000) # 010000 == SHM_RDONLY
+            mem = self.libc.shmat(memInfo[0], 0, 0o10000) # 010000 == SHM_RDONLY
             if -1 == mem:
                 raise Exception("Attach to shared memory failed")
             self.memMap.append(SharedMemInfo(memInfo[0], mem, memInfo[1], memInfo[2]))

@@ -23,13 +23,13 @@ class MemReaderBase( RecursiveFind ):
                 if nextAddr in result:
                     cycleFound = True
                 result.append(nextAddr)
-        except Exception, e:
+        except Exception as e:
             readFail = True
             result.append(-1)
         if True == isVerbos:
             if None != self.solveAddr:
                 outputString = '['
-                for i in xrange(len(result)):
+                for i in range(len(result)):
                     addr = result[i]
                     addrName = self.solveAddr(addr)
                     if None != addrName:
@@ -41,7 +41,7 @@ class MemReaderBase( RecursiveFind ):
                 outputString += ']'
                 print(outputString)
             else:
-                print(''.join(map(lambda x:'0x{0:x}, '.format(x), result)))
+                print(''.join(['0x{0:x}, '.format(x) for x in result]))
             if readFail:
                 print("Could not resolve all offsets")
         if True == isLookingForCycles and True == cycleFound:
@@ -68,8 +68,8 @@ class MemReaderBase( RecursiveFind ):
 
     def readNPrintBin( self, addr, length=0x100, isNoBase=True, itemsInRow=0x10 ):
         if isNoBase:
-            print DATA(self.readMemory(addr, length), itemsInRow=itemsInRow)
+            print(DATA(self.readMemory(addr, length), itemsInRow=itemsInRow))
         else:
-            print DATA(self.readMemory(addr, length), addr, itemsInRow=itemsInRow)
+            print(DATA(self.readMemory(addr, length), addr, itemsInRow=itemsInRow))
 
 

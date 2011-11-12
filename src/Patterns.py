@@ -35,14 +35,14 @@ class SearchContext( object ):
         pass
     def __repr__(self):
         result = ''
-        for item in self.__dict__.keys():
+        for item in list(self.__dict__.keys()):
             if item.startswith('AddressOf'):
                 continue
             elif item.startswith('OffsetOf'):
                 continue
             elif item.startswith('__'):
                 continue
-            result += '%-20s@%08x (offset: %08x) value=%s\n' % (item + ':', self.__dict__['AddressOf'+item], self.__dict__['OffsetOf'+item], `self.__dict__[item]`)
+            result += '%-20s@%08x (offset: %08x) value=%s\n' % (item + ':', self.__dict__['AddressOf'+item], self.__dict__['OffsetOf'+item], repr(self.__dict__[item]))
         return result
 
 def CreatePatternsFinder( memReader ):
@@ -188,10 +188,10 @@ class SHAPE( object ):
         self.data     = data
         self.extraCheck = extraCheckFunction
         self.fromStart = fromStart
-        if type(place) == tuple:
+        if isinstance(place, tuple):
             self.minOffset = place[0]
             self.maxOffset = place[1]
-        elif type(place) == int or type(place) == long:
+        elif isinstance(place, (int, long)):
             self.minOffset = 0
             self.maxOffset = place
         else:
@@ -200,7 +200,7 @@ class SHAPE( object ):
             self.iterator = place
     def setForSearch(self, patFinder):
         self.data.setForSearch(patFinder)
-        if type(self.place) == tuple and len(self.place) > 2:
+        if isinstance(self.place, tuple) and len(self.place) > 2:
             self.alignment = self.place[2]
         else:
             self.alignment = self.data.getAlignment()
@@ -321,7 +321,7 @@ class POINTER_TO_STRUCT( POINTER ):
             # To prevent reads from invalid memory during pattern search
             try:
                 patFinder.readByte(ptr)
-            except Exception, e:
+            except Exception as e:
                 return None
         return ptr
     def isValid(self, patFinder, address, value):
@@ -337,7 +337,6 @@ class NUMBER( dataType ):
         self.sizeOfData   = size
         self.alignment    = alignment
         self.value        = value
-        self.valueType    = type(value)
         self.isSigned    = isSigned
         if endianity not in [">", "<", "="]:
             raise Exception('Invalid endianity (">", "<", "=")')
@@ -361,24 +360,24 @@ class NUMBER( dataType ):
             result = 'little-endian_' + result
         elif self.endianity == '>':
             result = 'big-endin_' + result
-        valueType = type(self.value)
-        if valueType == int or valueType == long:
-            result += 'CONST_VALUE_%d' % self.value
-        elif valueType == tuple:
-            result += 'RANGE_FROM_%d_TO_%d' % (self.value[0], self.value[1])
-        elif valueType == list:
-            result += 'ENUM_%s' % `self.value`
-        elif self.value == None:
+        value = self.value
+        if isinstance(value, (int, long)):
+            result += 'CONST_VALUE_%d' % value
+        elif isinstance(value, tuple):
+            result += 'RANGE_FROM_%d_TO_%d' % (value[0], value[1])
+        elif isinstance(value, list):
+            result += 'ENUM_%s' % repr(value)
+        elif None == value:
             result += 'ANYTHING'
         return result
     def readValue(self, patFinder, address):
         result = 0
         if self.endianity == ">":
-            for i in xrange(self.sizeOfData):
+            for i in range(self.sizeOfData):
                 result <<= 8
                 result += patFinder.readByte(address + i)
         else:
-            for i in xrange(0, self.sizeOfData):
+            for i in range(0, self.sizeOfData):
                 result += patFinder.readByte(address + i) << (i * 8)
         if self.isSigned:
             maxPositive = 2 << (self.sizeOfData * 8 - 1)
@@ -386,16 +385,17 @@ class NUMBER( dataType ):
                 result = 0 - ((maxPositive << 1) - result)
         return result
     def isValid(self, patFinder, address, value):
-        if self.valueType == tuple:
+        validValue = self.value
+        if isinstance(validValue, tuple):
             if value < self.value[1] and value >= self.value[0]:
                 yield True
-        elif self.valueType == int or self.valueType == long:
+        elif isinstance(validValue, (int, long)):
             if value == self.value:
                 yield True
-        elif self.valueType == list:
+        elif isinstance(validValue, list):
             if value in self.value:
                 yield True
-        elif self.valueType == type(None):
+        elif None == validValue:
             yield True
     def size(self):
         return self.sizeOfData
@@ -444,7 +444,7 @@ class QWORD( NUMBER ):
 
 def IsPrintable(s, isUnicode=False):
     if isUnicode:
-        for c in xrange(len(s)):
+        for c in range(len(s)):
             if c % 2 == 0:
                 if ord(s[c]) > 0x7f or ord(s[c]) < 0x20:
                     return False
@@ -486,7 +486,7 @@ class STRING( dataType ):
     def __repr__(self):
         if self.NULL_TERM == self.len:
             return '\\0 STRING'
-        elif type(self.len) == int:
+        elif isinstance(self.len, (int, long)):
             return 'STRING[%d]' % self.len
         return 'STRING'
     def size(self):
@@ -506,7 +506,7 @@ class STRING( dataType ):
                     result = patFinder.readMemory(address, self.len * 2)
                 else:
                     result = patFinder.readMemory(address, self.len)
-        except MemoryReadError, e:
+        except MemoryReadError as e:
             #print 'FIXED_SIZE_STRING read overflow'
             return ''
         return result
@@ -518,7 +518,7 @@ class STRING( dataType ):
             if self.isUnicode:
                 if (self.len * 2) > len(value):
                     return
-                for i in xrange(self.len):
+                for i in range(self.len):
                     if self.isCaseSensitive:
                         if value[i*2] != self.fixedValue[i]:
                             return
@@ -547,7 +547,7 @@ class ARRAY( dataType ):
         return self.var.size() * self.arraySize
     def readValue(self, patFinder, address):
         result = []
-        for i in xrange(self.arraySize):
+        for i in range(self.arraySize):
             result.append(self.var.readValue(patFinder, address))
             address += self.var.size()
         return result

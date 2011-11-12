@@ -31,7 +31,7 @@ from .Win32Utile import *
 try:
     import distorm3
     IS_DISASSEMBLER_FOUND = True
-except ImportError, e:
+except ImportError as e:
     IS_DISASSEMBLER_FOUND = False
 import sys
 import struct
@@ -172,28 +172,28 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             raise Exception("Unknown pointer size")
 
     def writeQword( self, addr, data ):
-        if isinstance(data, int) or isinstance(data, long):
+        if isinstance(data, (int, long)):
             data = struct.pack('<Q', data)
         data_to_write = c_buffer(data, 8)
         bytes_written = c_uint(0)
         WriteProcessMemory( self._process, addr, data_to_write, 8, byref(bytes_written) )
 
     def writeDword( self, addr, data ):
-        if isinstance(data, int) or isinstance(data, long):
+        if isinstance(data, (int, long)):
             data = struct.pack('<L', data)
         data_to_write = c_buffer(data, 4)
         bytes_written = c_uint(0)
         WriteProcessMemory( self._process, addr, data_to_write, 4, byref(bytes_written) )
 
     def writeWord( self, addr, data ):
-        if isinstance(data, int) or isinstance(data, long):
+        if isinstance(data, (int, long)):
             data = struct.pack('<H', data)
         data_to_write = c_buffer(data, 2)
         bytes_written = c_uint(0)
         WriteProcessMemory( self._process, addr, data_to_write, 2, byref(bytes_written) )
 
     def writeByte( self, addr, data ):
-        if isinstance(data, int) or isinstance(data, long):
+        if isinstance(data, (int, long)):
             data = struct.pack('<B', data)
         data_to_write = c_buffer(data, 1)
         bytes_written = c_uint(0)
@@ -247,7 +247,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         bytes_written = c_uint(0)
         EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
         num_modules = bytes_written.value / sizeof(c_void_p(0))
-        for module_iter in xrange(num_modules):
+        for module_iter in range(num_modules):
             module_name = ARRAY( c_char, 1000 )('\x00')
             GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
             module_name = module_name.value
@@ -266,7 +266,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             module_bin = self.readMemory(module_base, self.PAGE_SIZE) #module_info.SizeOfImage)
             parsed_pe = PE(data=module_bin, fast_load=True)
             for section in parsed_pe.sections:
-                section_addr = (section.VirtualAddress & 0xfffff000l) + module_base
+                section_addr = (section.VirtualAddress & 0xfffff000) + module_base
                 section_size = section.SizeOfRawData
                 section_attributes = self.getAddressAttributes(section_addr)
                 section_name = module_cut_name + '!' + section.Name.replace('\x00', '')
@@ -277,7 +277,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
                     section_size += self.PAGE_SIZE - (section_size & self.PAGE_SIZE_MASK)
                 # Append to list
                 sectionInMap = False
-                for addr, block in result.iteritems():
+                for addr, block in result.items():
                     if addr == section_addr:
                         result[addr] = (
                                 section_name,
@@ -319,13 +319,13 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         number_of_pages = memory_map[0]
         # Add all pages
         for page in memory_map[1:1+number_of_pages]:
-            addr = page & (0xfffff000l)
+            addr = page & (0xfffff000)
             # We have no intrest in kernel pages
-            if addr > 0x80000000l:
+            if addr > 0x80000000:
                 continue
             # Check if page is already in the list
             isPageSet = False
-            for blockAddr, blockInfo in result.iteritems():
+            for blockAddr, blockInfo in result.items():
                 if blockAddr <= addr and (blockAddr + blockInfo[1]) > addr:
                     isPageSet = True
                     break
@@ -337,7 +337,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
                 self.getAddressAttributes(addr))
 
         # Coalesce blocks
-        keys = result.keys()
+        keys = list(result.keys())
         keys.sort()
         pos = 1
         while pos < len(keys):
@@ -364,7 +364,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         currentBlockStart = 0
         currentBlockSize  = 0
         currentBlockAttributes = None
-        for i in range( 0l, 0x80000000l, self.PAGE_SIZE ):
+        for i in range( 0, 0x80000000, self.PAGE_SIZE ):
             read_result = ReadProcessMemory( self._process, i, byref(one_byte), 1, byref(bytes_read) )
             if 0 != read_result and 0 < currentBlockSize:
                 result[currentBlockStart] = ("", currentBlockSize, currentBlockAttributes)

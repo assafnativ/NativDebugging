@@ -29,7 +29,7 @@ try:
     from PyQt4 import QtGui
     from PyQt4.QtCore import Qt, SIGNAL
     from PyQt4 import QtCore
-except ImportError, e:
+except ImportError as e:
     # Stabs
     def qtmissing():
         print("Qt Module is missing")
@@ -250,7 +250,7 @@ class MemoryMap(QtGui.QWidget):
 
     def __randomPalette(self):
         color_map = []
-        for i in xrange(256):
+        for i in range(256):
             color_map.append(
                     (random.randint(0, 255) << 16) |
                     (random.randint(0, 255) << 8) |
@@ -534,8 +534,8 @@ class ColorLegend(QtGui.QWidget):
         column_count = self.grid_layout.columnCount()
         row_count = self.grid_layout.rowCount()
 
-        for row in xrange(row_count):
-            for column in xrange(column_count):
+        for row in range(row_count):
+            for column in range(column_count):
                 item = self.grid_layout.itemAtPosition(row, column)
                 if (not item):
                     continue
@@ -1005,7 +1005,7 @@ class HexView(QtGui.QWidget):
 
 
     def _insertColoredLines(self, text_box, lines, colors):
-        for i in xrange(len(lines)):
+        for i in range(len(lines)):
             line = lines[i]
             color_ranges = colors[i]
 
@@ -1075,7 +1075,7 @@ class HexView(QtGui.QWidget):
 
         itemHex = '%%0%dx' % (itemSize * 2)
 
-        for i in xrange(0, len(table), itemsInRow * itemSize):
+        for i in range(0, len(table), itemsInRow * itemSize):
 
             if 0 == base:
                 address_data.append(address_format % (i))
@@ -1086,7 +1086,7 @@ class HexView(QtGui.QWidget):
 
             # Convert from single bytes to larger items (1/2/4 bytes)
             line_data = []
-            for c in xrange(0, len(raw_line_data), itemSize):
+            for c in range(0, len(raw_line_data), itemSize):
                 line_data.append(struct.unpack_from('=' + size_format, raw_line_data, c)[0])
 
             hex_line = ''
@@ -1095,8 +1095,8 @@ class HexView(QtGui.QWidget):
             for t in line_data:
                 line_offset = len(hex_line)
 
-                for addr in xrange(current_offset, current_offset + itemSize):
-                    if (self._absolute_color_addresses.has_key(addr)):
+                for addr in range(current_offset, current_offset + itemSize):
+                    if (addr in self._absolute_color_addresses):
                         # Since each byte is actually 2 hex characters wide
                         current_color_range.append([(itemSize - (addr - current_offset) - 1) * 2 + line_offset, self._absolute_color_addresses[addr]])
                         current_color_range.append([(itemSize - (addr - current_offset) - 1) * 2 + line_offset + 1, self._absolute_color_addresses[addr]])
@@ -1117,10 +1117,10 @@ class HexView(QtGui.QWidget):
                 for x in struct.pack('=' + size_format, t):
                     line_offset = len(string_line)
 
-                    if (self._absolute_color_addresses.has_key(current_offset)):
+                    if (current_offset in self._absolute_color_addresses):
                         current_color_range.append([line_offset, self._absolute_color_addresses[current_offset]])
 
-                    if( x == `x`[1] ):
+                    if( x == repr(x)[1] ):
                         string_line += x
                     else:
                         string_line += '.'
@@ -1151,7 +1151,7 @@ class HexView(QtGui.QWidget):
     def _getAbsoluteColorAddresses(self):
         self._absolute_color_addresses = {}
         for (start_addr, size, color, name) in self._color_ranges:
-            for addr in xrange(start_addr, start_addr + size):
+            for addr in range(start_addr, start_addr + size):
                 self._absolute_color_addresses[addr] = color
 
 
@@ -1177,7 +1177,7 @@ SAMPLE_TYPE = "MEMORY_MAP"
 
 
 if (__name__ == '__main__'):
-    data = [chr(random.randrange(0,255)) for i in xrange(1200)]
+    data = [chr(random.randrange(0,255)) for i in range(1200)]
     data = ''.join(data)
 
     if (SAMPLE_TYPE == 'MEMORY_MAP'):

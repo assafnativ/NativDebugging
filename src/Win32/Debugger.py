@@ -35,7 +35,7 @@ from ..Utile import *
 import traceback
 import sys
 # For making debugger blocking free
-from thread import *
+from _thread import *
 # Arkon's disassembler
 import distorm3
 
@@ -106,7 +106,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         if( str == type(process) ):
             # Create the process
             self.load(process)
-        elif( int == type(process) or long == type(process) ):
+        elif( int == type(process) or int == type(process) ):
             # Attach to process
             self.attach(process)
         else:
@@ -154,8 +154,8 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
             if( CTRL_CMD_NOP != cmd ):
                 # For debug 
                 if( True == DEBUG_MODE ):
-                    print cmd
-                    print self._commandParams
+                    print(cmd)
+                    print(self._commandParams)
                 try:
                     self._commandHandler[ cmd ]( *self._commandParams )
                 except:
@@ -204,8 +204,8 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self._processId       = _processInfo.dwProcessId
         self._currentThreadId = _processInfo.dwThreadId
         MemoryReader.__init__(self, self._processId)
-        print "Process (id %d, handle %08x) was created with main thread (id %d, handle %08x)" % \
-                (self._processId, self._process, self._currentThreadId, self._currentThread)
+        print("Process (id %d, handle %08x) was created with main thread (id %d, handle %08x)" % \
+                (self._processId, self._process, self._currentThreadId, self._currentThread))
         
         # Clear all
         self._dlls = []
@@ -257,7 +257,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         if (0 != self._processId):
             DebugActiveProcessStop( self._processId )
         else:
-            print "No process to detach from"
+            print("No process to detach from")
 
         # Clear all
         self._processId = 0
@@ -284,7 +284,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         del self
 
     def pause( self ):
-        print 'Pause'
+        print('Pause')
         self._returnToUser = True
 
     def _run( self ):
@@ -439,7 +439,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
                         self._makeProcessReadyToRun()
                         continue
                     self._state = PROCESS_STATE_RECOVER_FROM_SINGLE_STEP
-                    print "Single step"
+                    print("Single step")
                     return( -1 )
                     
                 elif( exception_code == win32con.EXCEPTION_STACK_OVERFLOW ):
@@ -453,7 +453,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
                     pass
 
                 if( 0 == exception_info.dwFirstChance ):
-                    print "None first chance exception not handled"
+                    print("None first chance exception not handled")
                     return( -1 )
  
             elif( event_code == win32con.CREATE_THREAD_DEBUG_EVENT ):
@@ -494,14 +494,14 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
                                         process_info.fUnicode,
                                         module_name) )
                 
-                print "Create Process", module_name
+                print("Create Process", module_name)
 
             elif( event_code == win32con.EXIT_THREAD_DEBUG_EVENT ):
                 # Remove the dyeing thread from the thread list
                 del( self._thread_dictionary[ self._lastDebugEvent.dwThreadId ] )
                 #print "Exit thread"
             elif( event_code == win32con.EXIT_PROCESS_DEBUG_EVENT ):
-                print "Exit process"
+                print("Exit process")
                 self._state = PROCESS_STATE_NO_PROCESS
                 return
             elif( event_code == win32con.LOAD_DLL_DEBUG_EVENT ):
@@ -536,15 +536,15 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
                 # Remove the unloaded dll from the dlls list
                 for dll in self._dlls:
                     if( dll.baseAddress == base_address ):
-                        print '%s is unloded' % dll.name
+                        print('{0:s} is unloded'.format(dll.name))
                         self._dlls.remove( dll )
                         
             elif( event_code == win32con.OUTPUT_DEBUG_STRING_EVENT ):
-                print "Output string"
+                print("Output string")
             elif( event_code == win32con.RIP_EVENT ):
-                print "RIP"
+                print("RIP")
             else:
-                print "Unknown debug event! (%d)" % event_code
+                print("Unknown debug event! {0:d}".format(event_code))
 
             if True == self._isDirty:
                 FlushInstructionCache(self._process, None, 0)
@@ -580,7 +580,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         # Print the result
         data[:lines]
         for opcode in data:
-            print "0x%08X (%02X) %-20s %s" % (opcode[0], opcode[1], opcode[3], opcode[2])
+            print("0x{0:08X} ({1:02X}) {2:-20s} {3:s}".format(opcode[0], opcode[1], opcode[3], opcode[2]))
 
         return
         
@@ -608,12 +608,12 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         # Check that we don't have a breakpoint already
         for bp in self._breakPoints:
             if( bp.address == address ):
-                print 'Already a breakpoint'
+                print('Already a breakpoint')
                 return -1
         # Save the original byte 
         original_byte = self.readByte( address )
         if( BREAK_POINT_BYTE == original_byte ):
-            print 'Already a breakpoint - Adding it to the list'
+            print('Already a breakpoint - Adding it to the list')
         # Write the int3 opcode
         self.writeByte( address, BREAK_POINT_BYTE )
         self._breakPoints.append( BreakPoint(address, 1, original_byte, proc) )
@@ -624,14 +624,14 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         List all break points.
         """
         for break_point in self._breakPoints:
-            print str( self._breakPoints.index( break_point ) ),
+            print(str( self._breakPoints.index( break_point ) )),
             if( BREAK_POINT_ACTIVE | break_point.state ):
                 # Breakpoint is active.
-                print "   ",
+                print("   "),
             elif( not BREAK_POINT_ACTIVE | break_point.state ):
                 # Breakpoint is not active.
-                print " * ",
-            print hex( break_point.address )
+                print(" * "),
+            print(hex( break_point.address ))
                 
     def _bpc( self, break_point ):
         """
@@ -666,7 +666,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
     def _bpd( self, break_point ):
         if( True == self._areBreakPointsInstalled ):
             if( BREAK_POINT_BYTE != self.readByte( break_point.address ) ):
-                print "Program state =", self._state
+                print("Program state = {0:s}".format(str(self._state)))
                 raise Exception( 'Breakpoint had been overwrite by somthing' )
             self.writeByte( break_point.address, break_point.original_byte )
         break_point.state &= ~BREAK_POINT_ACTIVE
@@ -688,7 +688,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         # Disable a single breakpoint
         break_point = self._breakPoints[index]
         if( not BREAK_POINT_ACTIVE | break_point.state ):
-            print "Break point is allread disabled"
+            print("Break point is allread disabled")
             return
         self._bpd( break_point )
         
@@ -714,7 +714,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         # Enbale a single breakpoint
         break_point = self._breakPoints[index]
         if( BREAK_POINT_ACTIVE | break_point.state ):
-            print "Break point is allread enabled"
+            print("Break point is allread enabled")
             return
         self._bpe( break_point )
 
@@ -734,9 +734,9 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
             context
         """
         context = self.context
-        string = 'EAX %08X\tECX %08X\tEDX %08X\tEBX %08X\nEDI %08X\tESI %08X\tEBP %08X\tEIP %08X\nSegCs %08X\tEFlags %08X\tESP %08X\tSegSs %08X\n'
-        string = string % (context.eax, context.ecx, context.edx, context.ebx, context.edi, context.esi, context.ebp, context.eip, context.segcs, context.eflags, context.esp, context.segss )
-        print string
+        string = 'EAX {0:08X}\tECX {1:08X}\tEDX {2:08X}\tEBX {3:08X}\nEDI {4:08X}\tESI {5:08X}\tEBP {6:08X}\tEIP {7:08X}\nSegCs {8:08X}\tEFlags {9:08X}\tESP {10:08X}\tSegSs {11:08X}\n'
+        string = string.format(context.eax, context.ecx, context.edx, context.ebx, context.edi, context.esi, context.ebp, context.eip, context.segcs, context.eflags, context.esp, context.segss)
+        print(string)
         return context
 
     def t( self ):
@@ -787,7 +787,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         if( PROCESS_STATE_LOADED == self._state ):
             # First break point.
             self._state = PROCESS_STATE_RUN
-            print "Process began..."
+            print("Process began...")
             return -1
         elif( PROCESS_STATE_RUN == self._state ):
             # The process was in a middel of normal running
@@ -812,7 +812,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
 
     def _makeProcessReadyToRun( self ):
         if( PROCESS_STATE_NO_PROCESS == self._state ):
-            raise( Exception("No process") )
+            raise Exception
             return
         elif( PROCESS_STATE_RUN == self._state ):
             # Nothing to be done...
@@ -837,5 +837,5 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
             self._reinstallAllBreakPoints()
             return
         else:
-            print "Unknown state"
-            raise( Exception("Error") )
+            print("Unknown state")
+            raise Exception

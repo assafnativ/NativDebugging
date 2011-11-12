@@ -40,7 +40,7 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
         MemReaderBase.__init__(self)
         self._processId = targetProcessId
         if platform not in self.SUPPORTED_PLATFORMS:
-            raise Exception("Platform %s note supported only %s are supported" % (platform, `self.SUPPORTED_PLATFORMS`))
+            raise Exception("Platform %s note supported only %s are supported" % (platform, repr(self.SUPPORTED_PLATFORMS)))
         self._platform = platform
         self._externalReader = os.path.join(os.path.dirname(__file__), self.EXTERNAL_READER % platform)
         self.reader = subprocess.Popen(

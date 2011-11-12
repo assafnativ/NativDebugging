@@ -3,7 +3,7 @@ from .Interfaces import GUIDisplayInterface
 try:
     from .QtWidgets import *
     IS_QT_SUPPORTED = True
-except ImportError, e:
+except ImportError as e:
     IS_QT_SUPPORTED = False
 
 class GUIDisplayBase( GUIDisplayInterface ):

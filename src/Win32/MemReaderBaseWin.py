@@ -32,7 +32,7 @@ class MemReaderBaseWin( MemReaderBase ):
         bytes_written = c_uint(0)
         EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
         num_modules = bytes_written.value / sizeof(c_void_p(0))
-        for module_iter in xrange(num_modules):
+        for module_iter in range(num_modules):
             module_name = ARRAY( c_char, 10000 )('\x00')
             GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
             module_name = module_name.raw.replace('\x00', '')
@@ -40,7 +40,7 @@ class MemReaderBaseWin( MemReaderBase ):
             GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
             module_base = module_info.lpBaseOfDll
             if isVerbos:
-                print "Module: (0x%x) %s" % (module_base, module_name)
+                print("Module: (0x%x) %s" % (module_base, module_name))
             yield (module_base, module_name)
 
     def findModule( self, target_module, isVerbos=False ):
@@ -66,9 +66,9 @@ class MemReaderBaseWin( MemReaderBase ):
         first_section = self.readWord( pe_offset + PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET) + PE_SIZEOF_NT_HEADER
         num_sections = self.readWord( pe_offset + PE_NUM_OF_SECTIONS_OFFSET )
         result = []
-        for sections_iter in xrange(num_sections):
+        for sections_iter in range(num_sections):
             if isVerbos:
-                print hex(pe_offset + first_section + (sections_iter * IMAGE_SIZEOF_SECTION_HEADER))
+                print(hex(pe_offset + first_section + (sections_iter * IMAGE_SIZEOF_SECTION_HEADER)))
             section_name = self.readMemory( \
                     pe_offset + first_section + (sections_iter * IMAGE_SIZEOF_SECTION_HEADER), \
                     PE_SECTION_NAME_SIZE )
@@ -79,7 +79,7 @@ class MemReaderBaseWin( MemReaderBase ):
                     pe_offset + first_section + (sections_iter * IMAGE_SIZEOF_SECTION_HEADER) + PE_SECTION_SIZE_OF_RAW_DATA_OFFSET )
             result.append( (section_name, section_base, section_size) )
             if isVerbos:
-                print "Section:", section_name, "@0x%x of 0x%x bytes" % (section_base, section_size)
+                print("Section: {0:s} @0x{1:x} of 0x{2:x} bytes".format(section_name, section_base, section_size))
         return result
 
 
@@ -114,7 +114,7 @@ class MemReaderBaseWin( MemReaderBase ):
         if (win32con.STATUS_SUCCESS != ntstatus):
             raise Exception("Failed to query system information %x" % ntstatus)
         systemHandles = handleInfo.SystemHandle
-        for i in xrange(handleInfo.uCount):
+        for i in range(handleInfo.uCount):
             if (self._processId != systemHandles[i].uIdProcess):
                 continue
             objectHandle = c_int(0)
@@ -129,10 +129,10 @@ class MemReaderBaseWin( MemReaderBase ):
                         False,
                         0 )
                 if (not objectHandle.value):
-                    print 'Failed to duplicate handle %x' % systemHandles[i].Handle
+                    print('Failed to duplicate handle %x' % systemHandles[i].Handle)
                     continue
                 objectHandle = objectHandle.value
-            except WindowsError, e:
+            except WindowsError as e:
                 needToClose = False
                 if 5 == e.winerror:
                     objectHandle = systemHandles[i].Handle
@@ -146,7 +146,7 @@ class MemReaderBaseWin( MemReaderBase ):
                             sizeof(objectBasicInfo),
                             byref(bytesNeeded) )
             if (win32con.STATUS_SUCCESS != ntstatus):
-                print 'Failed to query besic infromation for handle %x' % systemHandles[i].Handle
+                print('Failed to query besic infromation for handle {0:x}'.format(systemHandles[i].Handle))
 
             if objectBasicInfo.TypeInformationLength > 0:
                 class OBJECT_TYPE_INFROMATION_TAG( Structure ):
@@ -161,9 +161,9 @@ class MemReaderBaseWin( MemReaderBase ):
                                 sizeof(objectType),
                                 byref(bytesNeeded))
                 if (win32con.STATUS_SUCCESS != ntstatus):
-                    print 'Failed to query object type'
+                    print('Failed to query object type')
 
-                print objectType.typeInfo.TypeName.Buffer
+                print(objectType.typeInfo.TypeName.Buffer)
 
             if objectBasicInfo.NameInformationLength > 0:
                 class OBJECT_NAME_INFORMATION_TAG( Structure ):
@@ -178,10 +178,10 @@ class MemReaderBaseWin( MemReaderBase ):
                                 sizeof(objectName),
                                 byref(bytesNeeded) )
                 if (win32con.STATUS_SUCCESS != ntstatus):
-                    print 'Failed to query object name'
+                    print('Failed to query object name')
 
                 name = objectName.nameInfo.UnicodeStr.Buffer
-                print name
+                print(name)
 
             if needToClose:
                 CloseHandle(objectHandle)

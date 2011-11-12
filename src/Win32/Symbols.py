@@ -85,7 +85,7 @@ def findContaining( subText, symbols, base=0, isCaseSensitive = False ):
 		if type(subText) == type(''):
 			subText = subText.lower()
 		elif type(subText) == type([]):
-			subText = map(lambda x:x.lower(), subText)
+			subText = [x.lower() for x in subText]
 	for sym in symbols:
 		if False == isCaseSensitive:
 			symName = sym[0].lower()
@@ -93,13 +93,13 @@ def findContaining( subText, symbols, base=0, isCaseSensitive = False ):
 			symName = sym[0]
 		if type(subText) == type(''):
 			if subText in symName:
-				print hex(sym[1]+base), sym[0]
+				print('0x{0:x} {1:s}'.format(sym[1]+base, sym[0]))
 		elif type(subText) == type([]):
 			for st in subText:
 				if st not in symName:
 					break
 			else:
-				print hex(sym[1]+base), sym[0]
+				print('0x{0:x} {1:s}'.format(sym[1]+base, sym[0]))
 
 def solveAddr( addr, symbols, base = 0 ):
 	for sym in symbols:

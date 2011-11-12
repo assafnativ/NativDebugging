@@ -35,7 +35,7 @@ def enumProcesses():
     results = []
     module  = c_ulong()
     count   = c_ulong()
-    for i in xrange(processes):
+    for i in range(processes):
         if processesIds[i] == 0:
             continue
         try:
@@ -43,7 +43,7 @@ def enumProcesses():
                         win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
                         0,
                         processesIds[i])
-        except WindowsError, e:
+        except WindowsError as e:
             if 5 == e.winerror:
                 continue
             raise e
@@ -52,7 +52,7 @@ def enumProcesses():
             try:
                 EnumProcessModules(process, byref(module), sizeof(module), byref(count))
                 GetModuleBaseName(process, module.value, moduleName, sizeof(moduleName))
-            except WindowsError, e:
+            except WindowsError as e:
                 if 299 != e.winerror:
                     raise e
             results.append((moduleName.value.replace('\x00', ''), processesIds[i]))
