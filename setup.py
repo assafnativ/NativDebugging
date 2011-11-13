@@ -14,7 +14,7 @@ elif sys.platform.lower().startswith('linux'):
 else:
     packagesNames = ['NativDebugging', 'NativDebugging/Unix']
     packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Unix' : 'src/Unix'}
-    ExtraDataFiles = []
+    ExtraDataFiles = [ ('Lib\\site-packages\\NativDebugging\\Unix', ('src/Unix/memReader')) ]
 
 from distutils.core import setup
 setup(
