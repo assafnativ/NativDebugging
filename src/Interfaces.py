@@ -85,6 +85,11 @@ class GUIDisplayInterface( object ):
         raise NotImplementedError("Pure function call")
 
 
+class ReadError( Exception ):
+    def __init__(self, address):
+        self.address = address
+        Exception.__init__(self)
+
 class MemReaderInterface( object ):
     """ Pure Interface for Debugger """
     __metaclass__ = ABCMeta

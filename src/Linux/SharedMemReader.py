@@ -76,7 +76,7 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
         for mem in self.memMap:
             if address >= mem.base and address < mem.end:
                 return address + mem.delta
-        raise Exception("Address (0x%x) not in any attached memory" % address)
+        raise ReadError(address)
 
     def __del__(self):
         self.__detach()

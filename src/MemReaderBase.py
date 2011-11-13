@@ -23,7 +23,10 @@ class MemReaderBase( RecursiveFind ):
                 if nextAddr in result:
                     cycleFound = True
                 result.append(nextAddr)
-        except Exception as e:
+        except WindowsError as e:
+            readFail = True
+            result.append(-1)
+        except ReadError as e:
             readFail = True
             result.append(-1)
         if True == isVerbos:
@@ -41,7 +44,7 @@ class MemReaderBase( RecursiveFind ):
                 outputString += ']'
                 print(outputString)
             else:
-                print(''.join(['0x{0:x}, '.format(x) for x in result]))
+                print(''.join(['0x{0:x}, '.format(int(x)) for x in result]))
             if readFail:
                 print("Could not resolve all offsets")
         if True == isLookingForCycles and True == cycleFound:

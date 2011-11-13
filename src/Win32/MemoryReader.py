@@ -92,7 +92,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         bytes_read = c_uint(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), self._POINTER_SIZE, byref(bytes_read) )
         if 0 == read_result:
-            raise WinError()
+            raise ReadError(addr)
         if None == result.value:
             return 0
         return result.value
@@ -102,7 +102,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         bytes_read = c_uint(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), 8, byref(bytes_read) )
         if 0 == read_result:
-            raise WinError()
+            raise ReadError(addr)
         return result.value
 
     def readDword( self, addr ):
@@ -110,7 +110,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         bytes_read = c_uint(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), 4, byref(bytes_read) )
         if 0 == read_result:
-            raise WinError()
+            raise ReadError(addr)
         return result.value
 
     def readWord( self, addr ):
@@ -118,7 +118,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         bytes_read = c_uint(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), 2, byref(bytes_read) )
         if 0 == read_result:
-            raise WinError()
+            raise ReadError(addr)
         return result.value
 
     def readByte( self, addr ):
@@ -126,7 +126,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         bytes_read = c_uint(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
         if 0 == read_result:
-            raise WinError()
+            raise ReadError(addr)
         return result.value
 
     def readMemory( self, addr, length ):
@@ -134,7 +134,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         bytes_read = c_uint(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), sizeof(result), byref(bytes_read) )
         if 0 == read_result:
-            raise WinError()
+            raise ReadError(addr)
         return result.raw
 
     def readString( self, addr, maxSize=None, isUnicode=False ):

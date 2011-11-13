@@ -93,18 +93,18 @@ class SharedMemReader( MemReaderBase ):
         for mem in self.memMap:
             if address >= mem.base and address < mem.end:
                 return mem.reader
-        raise Exception("Address (0x%x) not in any attached memory" % address)
+        raise ReadError(address)
 
     def readMemory(self, address, length):
         reader = self.__findReader(address)
         reader.stdin.write('%x %x%s' % (address, length, os.linesep))
         value = reader.stdout.readline()
         if 'Invalid' in value:
-            raise Exception('Read from 0x%x of 0x%x bytes failed. Returned code %s' % (address, length, value))
+            raise ReadError(address)
         value = value.strip()
         value = value.decode('hex')
         if len(value) != length:
-            raise Exception('Read only 0x%x bytes out of 0x%x from address 0x%x' % (len(value), length, address))
+            raise ReadError(address)
         return value
 
     def readQword(self, address):

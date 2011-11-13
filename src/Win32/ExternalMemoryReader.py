@@ -75,11 +75,11 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
         self.reader.stdin.write('%x %x%s' % (address, length, os.linesep))
         value = self.reader.stdout.readline()
         if 'Invalid' in value:
-            raise Exception('Read from 0x%x of 0x%x bytes failed. Returned code %s' % (address, length, value))
+            raise ReadError(address)
         value = value.strip()
         value = value.decode('hex')
         if len(value) != length:
-            raise Exception('Read only 0x%x bytes out of 0x%x from address 0x%x' % (len(value), length, address))
+            raise ReadError(address)
         return value
 
     def readQword(self, address):
