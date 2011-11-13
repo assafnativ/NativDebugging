@@ -47,7 +47,7 @@ class SharedMemReader( MemReaderBase ):
         self._DEFAULT_DATA_SIZE = defaultSize
         self._ENDIANITY = '='
         self._READER_NAME = \
-            ['./memoryReader32', './memoryReader64'][self._POINTER_SIZE==8]
+            ['./memReader32', './memReader64'][self._POINTER_SIZE==8]
         self._EXTERNAL_READER = os.path.join(os.path.dirname(__file__), self._READER_NAME)
         # Support more than one shmid on input
         if not isinstance(memInfos, list):
