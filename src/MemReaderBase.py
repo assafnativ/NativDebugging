@@ -44,7 +44,7 @@ class MemReaderBase( RecursiveFind ):
                 outputString += ']'
                 print(outputString)
             else:
-                print(''.join(['0x{0:x}, '.format(int(x)) for x in result]))
+                print(', '.join([hex(x) for x in result]))
             if readFail:
                 print("Could not resolve all offsets")
         if True == isLookingForCycles and True == cycleFound:
