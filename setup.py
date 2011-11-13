@@ -13,7 +13,7 @@ else:
             'NativDebugging' : 'src', \
             'NativDebugging/Linux' : 'src/Linux',\
             'NativDebugging/Unix' : 'src/Unix'}
-    ExtraDataFiles = [ ('Lib\\site-packages\\NativDebugging\\Unix', ('src/Unix/memReader32', 'src/Unix/memReader64')) ]
+    ExtraDataFiles = []
 
 from distutils.core import setup
 setup(
