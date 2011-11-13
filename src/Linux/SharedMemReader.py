@@ -60,7 +60,7 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
         self._ENDIANITY = '='
         self.libc = cdll.LoadLibrary("libc.so.6")
         # Support more than one shmid on input
-        if list != type(memInfos):
+        if not isinstance(memInfos, list):
             memInfos = [memInfos]
         for memInfo in memInfos:
             if 3 != len(memInfo) or tuple != type(memInfo):

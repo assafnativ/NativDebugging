@@ -7,14 +7,13 @@ if sys.platform.lower().startswith('win'):
         'src/Win32/memReaderAMD64.exe', 
         'src/Win32/memReaderIa64.exe', 
         'src/Win32/memReaderx86.exe'))]
-elif sys.platform.lower().startswith('linux'):
-    packagesNames = ['NativDebugging', 'NativDebugging/Linux']
-    packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Linux' : 'src/Linux'}
-    ExtraDataFiles = []
 else:
-    packagesNames = ['NativDebugging', 'NativDebugging/Unix']
-    packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Unix' : 'src/Unix'}
-    ExtraDataFiles = [ ('Lib\\site-packages\\NativDebugging\\Unix', ('src/Unix/memReader')) ]
+    packagesNames = ['NativDebugging', 'NativDebugging/Linux', 'NativDebugging/Unix']
+    packagesDirs = { \
+            'NativDebugging' : 'src', \
+            'NativDebugging/Linux' : 'src/Linux',\
+            'NativDebugging/Unix' : 'src/Unix'}
+    ExtraDataFiles = [ ('Lib\\site-packages\\NativDebugging\\Unix', ('src/Unix/memReader32', 'src/Unix/memReader64')) ]
 
 from distutils.core import setup
 setup(

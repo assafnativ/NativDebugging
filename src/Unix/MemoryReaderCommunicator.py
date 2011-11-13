@@ -48,8 +48,9 @@ class SharedMemReader( MemReaderBase ):
         self._ENDIANITY = '='
         self._READER_NAME = \
             ['./memoryReader32', './memoryReader64'][self._POINTER_SIZE==8]
+        self._EXTERNAL_READER = os.path.join(os.path.dirname(__file__), self._READER_NAME)
         # Support more than one shmid on input
-        if list != type(memInfos):
+        if not isinstance(memInfos, list):
             memInfos = [memInfos]
         for memInfo in memInfos:
             if 3 != len(memInfo) or tuple != type(memInfo):
@@ -59,7 +60,7 @@ class SharedMemReader( MemReaderBase ):
             sharedMem = SharedMemInfo(memInfo[0], memInfo[1], memInfo[2])
             reader = subprocess.Popen(
                     [
-                        self._READER_NAME, 
+                        self._EXTERNAL_READER, 
                         '%d' % sharedMem.id,
                         '%x' % sharedMem.base,
                         '%x' % sharedMem.size ],
