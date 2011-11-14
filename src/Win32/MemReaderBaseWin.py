@@ -39,9 +39,10 @@ class MemReaderBaseWin( MemReaderBase ):
             module_info = MODULEINFO(0)
             GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
             module_base = module_info.lpBaseOfDll
+            module_size = module_info.SizeOfImage
             if isVerbos:
-                print("Module: (0x%x) %s" % (module_base, module_name))
-            yield (module_base, module_name)
+                print("Module: (0x{0:x}) {1:s} of size (0x{2:x})".format(module_base, module_name, module_size))
+            yield (module_base, module_name, module_size)
 
     def findModule( self, target_module, isVerbos=False ):
         target_module = target_module.lower()
