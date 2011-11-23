@@ -20,13 +20,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-from ..Interfaces import MemWriterInterface
+from ..Interfaces import MemWriterInterface, ReadError
 from .MemReaderBaseWin import *
 from ..GUIDisplayBase import *
 
 from .MemoryMap import *
 from .Win32Structs import *
-from .Win32Utile import *
 
 try:
     import distorm3

@@ -23,7 +23,7 @@
 
 from .MemReaderBaseWin import *
 from ..GUIDisplayBase import *
-from ..Interfaces import *
+from ..Interfaces import ReadError
 import os
 import struct
 import subprocess

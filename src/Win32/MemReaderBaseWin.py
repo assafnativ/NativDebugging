@@ -22,6 +22,7 @@
 
 from ..MemReaderBase import *
 from .Win32Structs import *
+from .Win32Utile import *
 
 class MemReaderBaseWin( MemReaderBase ):
     def getEndianity(self):

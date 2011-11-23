@@ -26,6 +26,7 @@ from ctypes import *
 import subprocess
 from subprocess import Popen
 
+from ..Interfaces import ReadError
 from ..MemReaderBase import *
 from ..GUIDisplayBase import *
 from ..Utile import *
