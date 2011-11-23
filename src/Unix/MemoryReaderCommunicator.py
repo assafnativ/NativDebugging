@@ -25,6 +25,7 @@ import os
 import subprocess
 import struct
 
+from ..Interfaces import *
 from ..MemReaderBase import *
 from ..Utile import *
 
