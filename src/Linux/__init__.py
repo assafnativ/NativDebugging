@@ -1,2 +1,2 @@
 __all__ = [
-        "SharedMemReader.py"]
+        "SharedMemReader"]
