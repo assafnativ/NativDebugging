@@ -206,6 +206,8 @@ def getIpcsInfo(isVerbos=True):
         command = ['ipcs', '-mb']
     elif sys.platform.lower().startswith('aix'):
         command = ['ipcs', '-mb']
+    elif sys.platform.lower().startswith('hp-ux'):
+        command = ['ipcs', '-mb']
     else:
         command = ['ipcs', '-m']
     p = subprocess.Popen(command, stdout=subprocess.PIPE)
@@ -230,6 +232,11 @@ def getAllShmidsInfo(ownerFilter=None):
         SIZE_INDEX = 6
         OWNER = 4
     elif sys.platform.lower().startswith('aix'):
+        SHMID_INDEX = 1
+        KEY_INDEX = 2
+        SIZE_INDEX = 6
+        OWNER = 4
+    elif sys.platform.lower().startswith('hp-ux'):
         SHMID_INDEX = 1
         KEY_INDEX = 2
         SIZE_INDEX = 6
