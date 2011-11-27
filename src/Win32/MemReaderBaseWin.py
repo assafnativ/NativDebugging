@@ -47,7 +47,7 @@ class MemReaderBaseWin( MemReaderBase ):
 
     def findModule( self, target_module, isVerbos=False ):
         target_module = target_module.lower()
-        for base, name in self.enumModules(isVerbos):
+        for base, name, moduleSize in self.enumModules(isVerbos):
             if target_module in name.lower():
                 return base
         raise Exception("Can't find module")
