@@ -1,6 +1,6 @@
 
 from abc import ABCMeta
-from .Interfaces import MemReaderInterface
+from .Interfaces import MemReaderInterface, ReadError
 from .Utile import *
 from .RecursiveFind import *
 
