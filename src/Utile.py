@@ -115,19 +115,18 @@ def printAsWordsTable( data, base = 0, itemsInRow = 0x8 ):
     return table
 
 def hex2data( h ):
-    result = ''
-    for i in range(0,len(h),2):
-        result += chr(int(h[i:i+2],16))
-    return result
+    if h[:2] == '0x':
+        return h[2:].decode('hex')
+    return h.decode('hex')
 
 def data2hex( d ):
-    result = ''
-    for i in d:
-        result += '%02X' % ord(i)
-    return result
+    return d.encode('hex')
 
-def hex2dword(x):
-    return struct.unpack('=L', hex2data(x))[0]
+def data2dword(x):
+    return struct.unpack('=L', x)[0]
+
+def dword2data(x):
+    return struct.pack('=L', x)
 
 def buffDiff( buffers, chunk_size = 1 ):
     if type(buffers) != type([]):
