@@ -29,46 +29,67 @@ class DebuggerInterface( object ):
 
     @abstractmethod
     def __init__(self):
+        """ Pure virtual """
         raise NotImplementedError("Pure function call")
 
     @abstractmethod
     def __del__(self):
+        """ Pure virtual """
         raise NotImplementedError("Pure function call")
 
     @abstractmethod
     def attach(self):
+        """ Pure virtual 
+        This function should set a new connection to a target process.
+        Note: The signeture of the function change from platform to platform and from one implmentation to another. For example in one case it would take process id, and on another a process name. """
         raise NotImplementedError("Pure function call")
 
     @abstractmethod
     def detach(self):
+        """ Pure virtual 
+        Disconnecting from debugged process, or closing connection. Should be less aggrassive than __del__ """
         raise NotImplementedError("Pure function call")
     
     @abstractmethod
-    def g(self):
-        raise NotImplementedError("Pure function call")
-    
-    @abstractmethod
-    def bpx(self, address):
-        raise NotImplementedError("Pure function call")
-    
-    @abstractmethod
-    def bpl(self):
-        raise NotImplementedError("Pure function call")
-    
-    @abstractmethod
-    def bpc(self, index):
+    def run(self):
+        """ Pure virtual
+        Make debuggee run"""
         raise NotImplementedError("Pure function call")
 
     @abstractmethod
-    def bpd(self, index):
-        raise NotImplementedError("Pure function call")
-
-    @abstractmethod
-    def bpe(self, index):
+    def breakpointSet(self, address):
+        """ Pure virtual
+        Set a breakpoint"""
         raise NotImplementedError("Pure function call")
     
     @abstractmethod
-    def r(self):
+    def breakpointsList(self):
+        """ Pure virtual
+        Show list of breakpoints """
+        raise NotImplementedError("Pure function call")
+    
+    @abstractmethod
+    def breakpointRemove(self, index):
+        """ Pure virtual
+        Remove a specific breakpoint"""
+        raise NotImplementedError("Pure function call")
+
+    @abstractmethod
+    def breakpointDisable(self, index):
+        """ Pure virtual
+        Disable specific breakpoint"""
+        raise NotImplementedError("Pure function call")
+
+    @abstractmethod
+    def breakpointEnable(self, index):
+        """ Pure virtual
+        Enable specific breakpoint"""
+        raise NotImplementedError("Pure function call")
+    
+    @abstractmethod
+    def contextShow(self):
+        """ Pure virtual
+        Show current context of debuggeee, should list all registers and current thread and stuff"""
         raise NotImplementedError("Pure function call")
 
 
@@ -78,10 +99,12 @@ class GUIDisplayInterface( object ):
 
     @abstractmethod
     def hexDisplay(self, address, length):
+        """ Display hex dump """
         raise NotImplementedError("Pure function call")
 
     @abstractmethod
     def mapDisplay(self, address, length, colorMap):
+        """ Display visual bits map of memory """
         raise NotImplementedError("Pure function call")
 
 

@@ -22,7 +22,7 @@
 
 
 # Imports
-from ..Interfaces import DebuggerInterface
+from ..DebuggerBase import DebuggerBase
 from .MemoryReader import MemoryReader
 
 from .BreakPoint import *
@@ -35,7 +35,7 @@ from ..Utile import *
 import traceback
 import sys
 # For making debugger blocking free
-from _thread import *
+from thread import *
 # Arkon's disassembler
 import distorm3
 
@@ -67,16 +67,15 @@ def attach(targetProcessId):
 def create(processName):
     return Win32Debugger(str(processName))
 
-class Win32Debugger( DebuggerInterface, MemoryReader ):
+class Win32Debugger( DebuggerBase, MemoryReader ):
     def __init__(self, process = None):
         """ 
         Constructor of the Win32Debugger class.
         """
 
         # For talking with the control center
-        self._command          = CTRL_CMD_NOP
+        self._commands         = []
         self._commandLock      = allocate_lock()
-        self._commandParams    = None
         self._isDoneLoading    = allocate_lock()
         # Set the commands handlers
         self._commandHandler = {}
@@ -84,7 +83,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self._commandHandler[ CTRL_CMD_LOAD ]      = self._load
         self._commandHandler[ CTRL_CMD_ATTACH ]    = self._attach
         self._commandHandler[ CTRL_CMD_DETACH ]    = self._detach
-        self._commandHandler[ CTRL_CMD_GO ]        = self._g
+        self._commandHandler[ CTRL_CMD_GO ]        = self._run
         self._commandHandler[ CTRL_CMD_EXIT ]      = self._nop
 
         # Create the control thread
@@ -111,6 +110,10 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
             self.attach(process)
         else:
             raise Exception("Don't know how to debug this")
+
+        self.d   = self.readNPrintBin
+        self.dd  = self.readNPrintDwords
+        DebuggerBase.__init__(self)
         
     def __del__( self ):
         """
@@ -127,8 +130,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self._commandLock.acquire()
         
         # Now we can safly set the command and its' params
-        self._command = command
-        self._commandParams = params
+        self._commands.append = (command, params)
         
         # Free Mutex
         self._commandLock.release()
@@ -147,24 +149,27 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         while( CTRL_CMD_EXIT != cmd ):
             # Mutex
             self._commandLock.acquire()
-            
-            cmd = self._command
+            if 0 < len(self._commands):
+                cmd, params = self._commands.pop()
+            else:
+                cmd = CTRL_CMD_NOP
+                params = []
+            # Free Mutex
+            self._commandLock.release()
 
             # Handle the new command
             if( CTRL_CMD_NOP != cmd ):
                 # For debug 
                 if( True == DEBUG_MODE ):
                     print(cmd)
-                    print(self._commandParams)
+                    print(params)
                 try:
-                    self._commandHandler[ cmd ]( *self._commandParams )
+                    self._commandHandler[ cmd ]( *params )
                 except:
                     traceback.print_exc( sys.exc_info )
-            # Make sure we wont handle it again
-            self._command = CTRL_CMD_NOP
-            
-            # Free Mutex
-            self._commandLock.release()
+
+            if CTRL_CMD_DETACH == cmd:
+                break
 
     def _load( self, command_line ):
         """
@@ -218,7 +223,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self._thread_dictionary = { self._currentThread : _processInfo.dwThreadId }
 
         # Make one go, to stop after program is loaded
-        self._g()
+        self._run()
         
         # Done loading
         self._isDoneLoading.acquire()
@@ -256,6 +261,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
 
         if (0 != self._processId):
             DebugActiveProcessStop( self._processId )
+            self._run()
         else:
             print("No process to detach from")
 
@@ -280,6 +286,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
             pass
         
     def detach( self ):
+        self._uninstallAllBreakPoints()
         self._setCommand( CTRL_CMD_DETACH, () )
         del self
 
@@ -287,7 +294,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         print('Pause')
         self._returnToUser = True
 
-    def _run( self ):
+    def _runBlocking( self ):
         
         if( True == self._pause ):
             if( True == self._isExceptionHandled ):
@@ -322,35 +329,15 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self.context.ContextFlags = win32con.CONTEXT_FULL | win32con.CONTEXT_i386
         SetThreadContext( self._currentThread, byref( self.context ) )
 
-###     def __getattr__( self, name ):
-###         regname = name.lower()
-###         if( regname not in VALID_REGISTERS ):
-###             if( name in self.__dict__ ):
-###                 return self.__dict__[name]
-###             raise AttributeError, name
-###         self.getCurrentContext()
-###         # I really don't like this way of accessing a variable, but thats do the job.
-###         return eval( 'self.context.' + regname )
-### 
-###     def __setattr__( self, name, value ):
-###         regname = name.lower()
-###         if( regname not in VALID_REGISTERS ):
-###             self.__dict__[ name ] = value
-###             return
-###         self.getCurrentContext()
-###         # I really don't like this way of accessing a variable, but thats do the job.
-###         exec( 'self.context.' + regname + '=' + str(value) )
-###         self.setCurrentContext()
-        
-    def _g( self ):
+    def _run( self ):
         """
-        Same as g only blocking
+        Same as run only blocking
         """
         self._makeProcessReadyToRun()
 
         self._debugerMainLoop()
 
-    def g( self ):
+    def run( self ):
         """
         Run the process to the next event.
         """
@@ -364,7 +351,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         
         while True:
             # Run
-            self._run()
+            self._runBlocking()
             # Handle the event
             event_code = self._lastDebugEvent.dwDebugEventCode
             if( event_code == win32con.EXCEPTION_DEBUG_EVENT ):
@@ -550,10 +537,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
                 FlushInstructionCache(self._process, None, 0)
                 self._isDirty = False
 
-    d   = MemoryReader.readNPrintBin
-    dd  = MemoryReader.readNPrintDwords
-
-    def u( self, address = None, lines = None ):
+    def disassemble( self, address = None, lines = None ):
         """
         Display unassembley (disassembly) of memory
         Gets:
@@ -580,9 +564,13 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         # Print the result
         data[:lines]
         for opcode in data:
-            print("0x{0:08X} ({1:02X}) {2:-20s} {3:s}".format(opcode[0], opcode[1], opcode[3], opcode[2]))
+            print("0x{0:08X} ({1:02X}) {2:<20s} {3:s}".format(opcode[0], opcode[1], opcode[3], opcode[2]))
 
         return
+
+    def u( self, address = None, lines = None ):
+        """ Wrapper for the disassemble command """
+        self.disassemble(address, lines)
         
     def getProcAddress( self, dllName, procName ):
         """
@@ -596,7 +584,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         module_handle = GetModuleHandle( dllName )
         return( GetProcAddress( module_handle, procName ) )
 
-    def bpx( self, address, proc = pause ):
+    def breakpointSet( self, address, proc = pause ):
         """
         Set a break point on execution.
         Gets:
@@ -619,31 +607,34 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self._breakPoints.append( BreakPoint(address, 1, original_byte, proc) )
         return( len(self._breakPoints) - 1 )
         
-    def bpl( self ):
+    def breakpointsList( self ):
         """
         List all break points.
         """
+        result = ""
         for break_point in self._breakPoints:
-            print(str( self._breakPoints.index( break_point ) )),
+            result += str( self._breakPoints.index( break_point ) )
             if( BREAK_POINT_ACTIVE | break_point.state ):
                 # Breakpoint is active.
-                print("   "),
+                result += "   "
             elif( not BREAK_POINT_ACTIVE | break_point.state ):
                 # Breakpoint is not active.
-                print(" * "),
-            print(hex( break_point.address ))
+                reuslt += " * "
+            result += hex( break_point.address )
+            result += '\n'
+        return result
                 
-    def _bpc( self, break_point ):
+    def _breakpointRemove( self, break_point ):
         """
         Makes the actually remove of the breakpoint, in a safly way.
         """
-        if( BREAK_POINT_ACTIVE | break_point.state ):
+        if( (BREAK_POINT_ACTIVE & break_point.state) and (self._state != PROCESS_STATE_RECOVER_FROM_BREAK_POINT) ):
             current_byte = self.readByte( break_point.address )
             if( current_byte != break_point.original_byte ):
                 raise Exception('Somone overwritten the breakpoint!')
             self.writeByte( break_point.address, break_point.original_byte )
 
-    def bpc( self, index ):
+    def breakpointRemove( self, index ):
         """
         Remove a break point.
         Gets:
@@ -654,16 +645,16 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         if( '*' == index ):
             # Remove all breakpoints
             for break_point in self._breakPoints:
-                self._bpc( break_point )
+                self._breakpointRemove( break_point )
             self._breakPoints = []
             return
 
         # Remove a single breakpoint
         break_point = self._breakPoints[index]
-        self._bpc( break_point )
+        self._breakpointRemove( break_point )
         self._breakPoints.remove( break_point )
 
-    def _bpd( self, break_point ):
+    def _breakpointDisable( self, break_point ):
         if( True == self._areBreakPointsInstalled ):
             if( BREAK_POINT_BYTE != self.readByte( break_point.address ) ):
                 print("Program state = {0:s}".format(str(self._state)))
@@ -671,7 +662,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
             self.writeByte( break_point.address, break_point.original_byte )
         break_point.state &= ~BREAK_POINT_ACTIVE
 
-    def bpd( self, index ):
+    def breakpointDisable( self, index ):
         """
         Disable a break point.
         Gets:
@@ -683,21 +674,21 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
             # Disable all breakpoints
             for break_point in self._breakPoints:
                 if( BREAK_POINT_ACTIVE | break_point.state ):
-                    self._bpd( break_point )
+                    self._breakpointDisable( break_point )
             return
         # Disable a single breakpoint
         break_point = self._breakPoints[index]
         if( not BREAK_POINT_ACTIVE | break_point.state ):
             print("Break point is allread disabled")
             return
-        self._bpd( break_point )
+        self._breakpointDisable( break_point )
         
-    def _bpe( self, break_point ):
+    def _breakpointEnable( self, break_point ):
         if( True == self._areBreakPointsInstalled ):
             self.writeByte( break_point.address, BREAK_POINT_BYTE )
         break_point.state |= BREAK_POINT_ACTIVE
 
-    def bpe( self, index ):
+    def breakpointEnable( self, index ):
         """
         TODO: handle pause state
         Enable a break point.
@@ -708,7 +699,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
             # Disable all breakpoints
             for break_point in self._breakPoints:
                 if( not BREAK_POINT_ACTIVE | break_point.state ):
-                    self._bpe( break_point )
+                    self._breakpointEnable( break_point )
             return
         
         # Enbale a single breakpoint
@@ -716,9 +707,9 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         if( BREAK_POINT_ACTIVE | break_point.state ):
             print("Break point is allread enabled")
             return
-        self._bpe( break_point )
+        self._breakpointEnable( break_point )
 
-    def _r( self ):
+    def _contextShow( self ):
         """
         Returns the current registers and machine state.
         Returns:
@@ -727,7 +718,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         context = self.context
         return context
 
-    def r( self ):
+    def contextShow( self ):
         """
         Prints the current registers and machine state.
         Returns:
@@ -739,7 +730,7 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         print(string)
         return context
 
-    def t( self ):
+    def trace( self ):
         """
         Trace one opcode
         """
@@ -748,11 +739,14 @@ class Win32Debugger( DebuggerInterface, MemoryReader ):
         self.context.eflags |= 0x100
         self.setCurrentContext( )
         self._uninstallAllBreakPoints( )
-        self._g()
+        self._run()
 
-###     def __repr__( self ):
-###         return( self._r() )
-    
+    def t(self):
+        """
+        Wrapper for trace command
+        """
+        self.trace()
+
     def hideDebugger( self ):
         """
         Rewrites the debugger flag in the PEB

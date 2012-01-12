@@ -1,6 +1,7 @@
 __all__ = [
         "Patterns",
         "Interfaces",
+        "DebuggerBase",
         "MemReaderBase",
         "QtWidgets",
         "GUIDisplayBase",
