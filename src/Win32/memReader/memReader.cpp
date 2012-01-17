@@ -145,7 +145,7 @@ int attachProcess( IN DWORD processId, OUT HANDLE * processHandle )
 
     /* Attach */
     *processHandle = OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, TRUE, processId );
-    if( NULL == processHandle ) {
+    if( NULL == *processHandle ) {
         return( RETURN_CODE_ATTACH_FAILED );
     }
 
