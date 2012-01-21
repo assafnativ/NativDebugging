@@ -29,6 +29,10 @@ class MemReaderBaseWin( MemReaderBase ):
         return '<' # Intel is always Little-endian
 
     def enumModules( self, isVerbos=False ):
+        """
+        Return list of tuples containg infromation about the modules loaded in memory in the form of
+        (Address, module_name, module_size)
+        """
         modules = ARRAY( c_void_p, 10000 )(0)
         bytes_written = c_uint(0)
         EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
