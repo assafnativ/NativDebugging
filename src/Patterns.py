@@ -147,9 +147,9 @@ class PatternFinder( object ):
             size = data.size()
             # Check if recursive
             if isinstance(data, STRUCT) and depth > 1:
-                self.__paintPattern(depth-1, data.content, displayContext)
+                self.__textPattern(depth-1, data.content)
             elif isinstance(data, POINTER_TO_STRUCT) and depth > 1:
-                self.__paintPattern(depth-1, [data.pattern], displayContext)
+                self.__textPattern(depth-1, [data.pattern])
             elif 0 != size:
                 if None == shape.extraCheck:
                     shape.extraCheck = self.__genDisplayText(shape.name)
