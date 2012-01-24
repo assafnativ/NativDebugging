@@ -115,9 +115,10 @@ class PatternFinder( object ):
             data = shape.getData()
             size = data.size()
             # Check if recursive
-            if isinstance(data, POINTER_TO_STRUCT) and depth > 1:
-                if isinstance(data.pattern, STRUCT):
-                    self.__paintPattern(depth-1, data.pattern.content, displayContext)
+            while isinstance(data, POINTER_TO_STRUCT):
+                data = data.pattern
+            if isinstance(data, STRUCT):
+                self.__paintPattern(depth-1, data.pattern.content, displayContext)
             elif 0 != size:
                 if None == shape.extraCheck:
                     shape.extraCheck = self.__genSetColor(displayContext, shape.name, size, '#%06x' % self.color)
@@ -138,7 +139,7 @@ class PatternFinder( object ):
         self.__paintPattern(maxDepth, pattern, displayContext)
         return self.search(pattern, startAddress, context=context)
     def __genDisplayText(self, name):
-        return lambda context, value: sys.stdout.write('%s found @%08x' % (name, context.__dict__['AddressOf%s' % name]) ) or True
+        return lambda context, value: sys.stdout.write('%s found @%08x\n' % (name, context.__dict__['AddressOf%s' % name]) ) or True
     def __textPattern(self, depth, pattern):
         if 0 == depth:
             return
@@ -146,10 +147,10 @@ class PatternFinder( object ):
             data = shape.getData()
             size = data.size()
             # Check if recursive
-            if isinstance(data, STRUCT) and depth > 1:
+            while isinstance(data, POINTER_TO_STRUCT):
+                data = data.pattern
+            if isinstance(data, STRUCT):
                 self.__textPattern(depth-1, data.content)
-            elif isinstance(data, POINTER_TO_STRUCT) and depth > 1:
-                self.__textPattern(depth-1, [data.pattern])
             elif 0 != size:
                 if None == shape.extraCheck:
                     shape.extraCheck = self.__genDisplayText(shape.name)
