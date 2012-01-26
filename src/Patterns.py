@@ -20,15 +20,14 @@ try:
 except ImportError:
     pass
 
-from .Interfaces import MemReaderInterface
+from abc import ABCMeta, abstractmethod
+from .Interfaces import MemReaderInterface, ReadError
 
 import sys
+from os import linesep
 import struct
 import datetime
 import copy
-
-class MemoryReadError( Exception ):
-    pass
 
 class SearchContext( object ):
     def __init__(self):
@@ -40,9 +39,15 @@ class SearchContext( object ):
                 continue
             elif item.startswith('OffsetOf'):
                 continue
+            elif item.startswith('SizeOf'):
+                continue
             elif item.startswith('__'):
                 continue
-            result += '%-20s@%08x (offset: %08x) value=%s\n' % (item + ':', self.__dict__['AddressOf'+item], self.__dict__['OffsetOf'+item], repr(self.__dict__[item]))
+            result += '%-20s@%08x (offset: %08x) of size %04x value=%s\n' % (\
+                    item + ':', self.__dict__['AddressOf'+item], \
+                    self.__dict__['OffsetOf'+item], \
+                    self.__dict__['SizeOf'+item], \
+                    repr(self.__dict__[item]) )
         return result
 
 def CreatePatternsFinder( memReader ):
@@ -97,7 +102,7 @@ class PatternFinder( object ):
             for x in shape.isValid(self, shape_address, shape_offset):
                 # Search the next shape if needed
                 if len(pattern) > 1:
-                    for result in self._search(pattern[1:], startAddress, shape_address + shape.getData().size(), context):
+                    for result in self._search(pattern[1:], startAddress, shape_address + len(shape.getData()), context):
                         yield result
                 else:
                     # No more shapes in pattern
@@ -107,58 +112,59 @@ class PatternFinder( object ):
     def __genConcatedProc(self, proc1, proc2):
         return lambda context, value: proc1(context, value) and proc2(context, value)
     def __genSetColor(self, displayContext, name, size, color):
-        return lambda context, value: displayContext.addColorRanges((context.__dict__['AddressOf%s' % name], size, color, name)) or True
+        return lambda context, value: displayContext.addColorRanges( \
+                (
+                    context.__dict__['AddressOf%s' % name], 
+                    max(context.__dict__['SizeOf%s' % name], 1), 
+                    color, 
+                    name) ) or True
     def __paintPattern(self, depth, pattern, displayContext):
         if 0 == depth:
             return
         for shape in pattern:
             data = shape.getData()
-            size = data.size()
             # Check if recursive
             while isinstance(data, POINTER_TO_STRUCT):
                 data = data.pattern
             if isinstance(data, STRUCT):
                 self.__paintPattern(depth-1, data.pattern.content, displayContext)
-            elif 0 != size:
-                if None == shape.extraCheck:
-                    shape.extraCheck = self.__genSetColor(displayContext, shape.name, size, '#%06x' % self.color)
-                else:
-                    shape.extraCheck = self.__genConcatedProc(
-                            shape.extraCheck, 
-                            self.__genSetColor(displayContext, shape.name, size, '#%06x' % self.color) )
-                brightness = 0
-                while brightness < 0x190:
-                    self.color += 0x102030
-                    self.color &= 0xffffff
-                    brightness = self.color & 0xff
-                    brightness += (self.color >> 0x08) & 0xff
-                    brightness += (self.color >> 0x10) & 0xff
-    def displaySearch(self, pattern, startAddress, displayContext, maxDepth=1, context=None):
+            if None == shape.extraCheck:
+                shape.extraCheck = self.__genSetColor(displayContext, shape.name, '#%06x' % self.color)
+            else:
+                shape.extraCheck = self.__genConcatedProc(
+                        shape.extraCheck, 
+                        self.__genSetColor(displayContext, shape.name, '#%06x' % self.color) )
+            brightness = 0
+            while brightness < 0x190:
+                self.color += 0x102030
+                self.color &= 0xffffff
+                brightness = self.color & 0xff
+                brightness += (self.color >> 0x08) & 0xff
+                brightness += (self.color >> 0x10) & 0xff
+    def displaySearch(self, pattern, startAddress, displayContext, maxDepth=3, context=None):
         self.color = 0x2090d0
         pattern = copy.deepcopy(pattern)
         self.__paintPattern(maxDepth, pattern, displayContext)
         return self.search(pattern, startAddress, context=context)
     def __genDisplayText(self, name):
-        return lambda context, value: sys.stdout.write('%s found @%08x\n' % (name, context.__dict__['AddressOf%s' % name]) ) or True
+        return lambda context, value: sys.stdout.write('%s found @%08x%s'  % (name, context.__dict__['AddressOf%s' % name], linesep) ) or True
     def __textPattern(self, depth, pattern):
         if 0 == depth:
             return
         for shape in pattern:
             data = shape.getData()
-            size = data.size()
             # Check if recursive
             while isinstance(data, POINTER_TO_STRUCT):
                 data = data.pattern
             if isinstance(data, STRUCT):
                 self.__textPattern(depth-1, data.content)
-            elif 0 != size:
-                if None == shape.extraCheck:
-                    shape.extraCheck = self.__genDisplayText(shape.name)
-                else:
-                    shape.extraCheck = self.__genConcatedProc(
-                            shape.extraCheck, 
-                            self.__genDisplayText(shape.name) )
-    def verbosSearch(self, pattern, startAddress, maxDepth=1, context=None):
+            if None == shape.extraCheck:
+                shape.extraCheck = self.__genDisplayText(shape.name)
+            else:
+                shape.extraCheck = self.__genConcatedProc(
+                        shape.extraCheck, 
+                        self.__genDisplayText(shape.name) )
+    def verbosSearch(self, pattern, startAddress, maxDepth=3, context=None):
         pattern = copy.deepcopy(pattern)
         self.__textPattern(maxDepth, pattern)
         return self.search(pattern, startAddress, context=context)
@@ -181,7 +187,8 @@ class SHAPE( object ):
                 (not name[0].isalpha) or \
                 (not striped_name.isalnum()) or \
                 name.startswith('AddressOf') or \
-                name.startswith('OffsetOf'):
+                name.startswith('OffsetOf') or \
+                name.startswith('SizeOf'):
             raise Exception("Invalid name for shape")
         self.name     = name
         self.place    = place
@@ -232,6 +239,7 @@ class SHAPE( object ):
         context.__dict__[self.name] = value
         context.__dict__['AddressOf' + self.name] = address
         context.__dict__['OffsetOf' + self.name] = offset
+        context.__dict__['SizeOf' + self.name] = len(self.data)
         for x in self.data.isValid(patFinder, address, value):
             if None != self.extraCheck:
                 if True == self.extraCheck(context, value):
@@ -239,10 +247,7 @@ class SHAPE( object ):
             else:
                 yield True
 
-# TODO:
-#class DEBUG_SHAPE( SHAPE ):
-
-class dataType( object ):
+class DATA_TYPE( object ):
     def __init__(self, desc = ""):
         self.desc = desc
     def __repr__(self):
@@ -255,30 +260,40 @@ class dataType( object ):
         Used for Shapes that are need to be aware of machine infromation such as pointer size
         """
         pass
-    def size(self):
-        raise Exception("Pure")
     def getAlignment(self):
         return 1
+    @abstractmethod
+    def __len__(self):
+        """ Pure virtual """
+        raise NotImplementedError("Pure function call")
+    @abstractmethod
+    def readValue(self, patFinder, address):
+        """ Pure virtual """
+        raise NotImplementedError("Pure function call")
+    @abstractmethod
+    def isValid(self, patFinder, address, value):
+        """ Pure virtual """
+        raise NotImplementedError("Pure function call")
 
-class ANYTHING( dataType ):
+class ANYTHING( DATA_TYPE ):
     def __init__(self, size = 0, **kw):
-        dataType.__init__(self, **kw)
+        DATA_TYPE.__init__(self, **kw)
         self.datasize = size
-    def size(self):
+    def __len__(self):
         return self.datasize
     def readValue(self, *arg, **kw):
         return None
-    def isValid(self, *arg, **kw):
+    def isValid(self, patFinder, address, value):
         yield True
 
-class POINTER( dataType ):
+class POINTER( DATA_TYPE ):
     def __init__(self, isNullValid=False, valueRange=None, **kw):
         self.isNullValid = isNullValid
         self.valueRange = valueRange
-        dataType.__init__(self, **kw)
+        DATA_TYPE.__init__(self, **kw)
     def setForSearch(self, patFinder):
         self.pointerSize = patFinder.getPointerSize()
-    def size(self):
+    def __len__(self):
         return self.pointerSize
     def getAlignment(self):
         return self.pointerSize
@@ -295,15 +310,15 @@ class POINTER( dataType ):
         elif patFinder.isAddressValid(value):
             yield True
 
-class STRUCT( dataType ):
+class STRUCT( DATA_TYPE ):
     def __init__(self, content, **kw):
         self.content    = content
-        dataType.__init__(self, **kw)
-    def size(self):
+        DATA_TYPE.__init__(self, **kw)
+    def __len__(self):
         # TODO: add the offsets
         total_size = 0
         for shape in self.content:
-            total_size += shape.getData().size()
+            total_size += len(shape.getData())
         return total_size
     def readValue(self, patFinder, address):
         return None
@@ -312,18 +327,19 @@ class STRUCT( dataType ):
             yield True
 
 class POINTER_TO_STRUCT( POINTER ):
-    def __init__(self, pattern, isNullValid = False, **kw):
+    def __init__(self, pattern, **kw):
         self.pattern        = pattern
-        self.isNullValid    = isNullValid
-        dataType.__init__(self, **kw)
+        POINTER.__init__(self, **kw)
     def readValue(self, patFinder, address):
         ptr = patFinder.readAddr(address)
         if patFinder.isAddressValid(ptr):
             # To prevent reads from invalid memory during pattern search
             try:
                 patFinder.readByte(ptr)
-            except Exception as e:
+            except ReadError as e:
                 return None
+        else:
+            return None
         return ptr
     def isValid(self, patFinder, address, value):
         if self.isNullValid and 0 == value:
@@ -333,7 +349,7 @@ class POINTER_TO_STRUCT( POINTER ):
             for x in self.pattern.isValid(patFinder, value, content):
                 yield True
 
-class NUMBER( dataType ):
+class NUMBER( DATA_TYPE ):
     def __init__(self, value=None, size=None, alignment=None, isSigned=False, endianity='=', **kw):
         self.sizeOfData   = size
         self.alignment    = alignment
@@ -342,7 +358,7 @@ class NUMBER( dataType ):
         if endianity not in [">", "<", "="]:
             raise Exception('Invalid endianity (">", "<", "=")')
         self.endianity = endianity
-        dataType.__init__(self, **kw)
+        DATA_TYPE.__init__(self, **kw)
     def setForSearch(self, patFinder):
         if '=' == self.endianity:
             self.endianity = patFinder.getEndianity()
@@ -398,7 +414,7 @@ class NUMBER( dataType ):
                 yield True
         elif None == validValue:
             yield True
-    def size(self):
+    def __len__(self):
         return self.sizeOfData
     def getAlignment(self):
         return self.alignment
@@ -458,20 +474,20 @@ def IsPrintable(s, isUnicode=False):
                 return False
     return True
 
-class BUFFER( dataType ):
+class BUFFER( DATA_TYPE ):
     def __init__(self, size, **keys):
         self.sizeInBytes = size
-        dataType.__init__(self, **keys)
+        DATA_TYPE.__init__(self, **keys)
     def __repr__(self):
         return 'BUFFER[0x%x]' % self.sizeInBytes
-    def size(self):
+    def __len__(self):
         return self.sizeInBytes
     def readValue(self, patFinder, address):
         return patFinder.readMemory(address, self.sizeInBytes)
     def isValid(self, *arg, **kw):
         yield True
 
-class STRING( dataType ):
+class STRING( DATA_TYPE ):
     NULL_TERM = None
     def __init__(self, size=None, maxSize=0x1000, fixedValue=None, isPrintable=True, isUnicode=False, isCaseSensitive=True, **keys):
         if None != fixedValue:
@@ -484,13 +500,14 @@ class STRING( dataType ):
         self.fixedValue     = fixedValue
         self.maxSize        = maxSize
         self.len            = size
+        DATA_TYPE.__init__(self, **keys)
     def __repr__(self):
         if self.NULL_TERM == self.len:
             return '\\0 STRING'
         elif isinstance(self.len, (int, long)):
             return 'STRING[%d]' % self.len
         return 'STRING'
-    def size(self):
+    def __len__(self):
         if None == self.len:
             return 0
         else:
@@ -507,7 +524,7 @@ class STRING( dataType ):
                     result = patFinder.readMemory(address, self.len * 2)
                 else:
                     result = patFinder.readMemory(address, self.len)
-        except MemoryReadError as e:
+        except ReadError as e:
             #print 'FIXED_SIZE_STRING read overflow'
             return ''
         return result
@@ -537,20 +554,20 @@ class STRING( dataType ):
                     return
         yield True
 
-class ARRAY( dataType ):
+class ARRAY( DATA_TYPE ):
     def __init__(self, size, var, **kw):
         self.arraySize = size
         self.var = var
-        dataType.__init__(self, **kw)
+        DATA_TYPE.__init__(self, **kw)
     def __repr__(self):
         return 'ARRAY_OF_%s[%d]' % (self.var.__class__.__name__,self.arraySize)
-    def size(self):
-        return self.var.size() * self.arraySize
+    def __len__(self):
+        return len(self.var) * self.arraySize
     def readValue(self, patFinder, address):
         result = []
         for i in range(self.arraySize):
             result.append(self.var.readValue(patFinder, address))
-            address += self.var.size()
+            address += len(self.var)
         return result
     def isValid(self, patFinder, address, value, **kw):
         for v in value:
