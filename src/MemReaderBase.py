@@ -18,11 +18,11 @@ class MemReaderBase( RecursiveFind ):
         self.dw = self.readNPrintWords
         self.dq = self.readNPrintQwords
 
-    def resolveOffsetsList( self, start, l, isVerbos=False, isLookingForCycles=True ):
+    def resolveOffsetsList( self, start, l, isVerbose=False, isLookingForCycles=True ):
         """
         A quick way jump from one pointer to another.
         Starting from start address, reading the pointer at (start + l[0]), and then reads the pointer at the last result + l[1] and so on.
-        The verbos option would print all of the pointers including the starting address.
+        The verbose option would print all of the pointers including the starting address.
         The isLookingForCycles option would alert the user in case one pointer is read more than once during the offsets walk.
         """
         result = [start]
@@ -40,7 +40,7 @@ class MemReaderBase( RecursiveFind ):
         except ReadError as e:
             readFail = True
             result.append(-1)
-        if True == isVerbos:
+        if True == isVerbose:
             if None != self.solveAddr:
                 outputString = '['
                 for i in range(len(result)):

@@ -196,7 +196,7 @@ def dotted(ip):
     result = '%d.%d.%d.%d' % ((ip >> 24) & 0xff, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff)
     return result
 
-def getIpcsInfo(isVerbos=True):
+def getIpcsInfo(isVerbose=True):
     if sys.platform.lower().startswith('win32'):
         raise Exception("This function is not supported under Windows platform")
     if sys.platform.lower().startswith('linux'):
@@ -212,7 +212,7 @@ def getIpcsInfo(isVerbos=True):
     p = subprocess.Popen(command, stdout=subprocess.PIPE)
     out,err = p.communicate()
     lines = out.split(os.linesep)
-    if isVerbos:
+    if isVerbose:
         for i in lines:
             print(i)
     return lines 

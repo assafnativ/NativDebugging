@@ -164,7 +164,7 @@ class PatternFinder( object ):
                 shape.extraCheck = self.__genConcatedProc(
                         shape.extraCheck, 
                         self.__genDisplayText(shape.name) )
-    def verbosSearch(self, pattern, startAddress, maxDepth=3, context=None):
+    def verboseSearch(self, pattern, startAddress, maxDepth=3, context=None):
         pattern = copy.deepcopy(pattern)
         self.__textPattern(maxDepth, pattern)
         return self.search(pattern, startAddress, context=context)
