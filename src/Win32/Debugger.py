@@ -130,7 +130,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         self._commandLock.acquire()
         
         # Now we can safly set the command and its' params
-        self._commands.append = (command, params)
+        self._commands.append(command, params)
         
         # Free Mutex
         self._commandLock.release()
