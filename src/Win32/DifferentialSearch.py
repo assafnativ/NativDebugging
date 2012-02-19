@@ -22,6 +22,7 @@
 
 from struct import unpack
 from copy import deepcopy
+from ..Interfaces import ReadError
 
 class DifferentialSearch( object ):
     READ_ALL_WRITABLE_MEMORY    = 1
@@ -52,7 +53,7 @@ class DifferentialSearch( object ):
         for block in self._memoryMap.filteredMap(attributesMask):
             try:
                 self._memory[block.address] = self._readMemory(block.address, block.length)
-            except WindowsError as e:
+            except (WindowsError, ReadError):
                 continue
 
     def filterMemoryOldWithNew(self, comperator, atomSize=None):
@@ -74,7 +75,7 @@ class DifferentialSearch( object ):
                         newBlockSize = 0
                     else:
                         newBlockSize += atomSize
-            except WindowsError as e:
+            except (WindowsError, ReadError) as e:
                 continue
             if newBlockSize > 0:
                 newMemory[newBlockAddress] = \
@@ -93,7 +94,7 @@ class DifferentialSearch( object ):
                             newData,
                             const):
                         newMemory[addr + offset] = newData
-            except WindowsError as e:
+            except (WindowsError, ReadError) as e:
                 continue
         self._memory = newMemory
     
