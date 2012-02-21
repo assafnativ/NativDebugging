@@ -130,7 +130,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         self._commandLock.acquire()
         
         # Now we can safly set the command and its' params
-        self._commands.append(command, params)
+        self._commands.append((command, params))
         
         # Free Mutex
         self._commandLock.release()
@@ -572,18 +572,6 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         """ Wrapper for the disassemble command """
         self.disassemble(address, lines)
         
-    def getProcAddress( self, dllName, procName ):
-        """
-        Gets an address to a proc in a dll.
-        Gets:
-            string      dllName
-            string      procName
-        Return:
-            unsigned long
-        """
-        module_handle = GetModuleHandle( dllName )
-        return( GetProcAddress( module_handle, procName ) )
-
     def breakpointSet( self, address, proc = pause ):
         """
         Set a break point on execution.
