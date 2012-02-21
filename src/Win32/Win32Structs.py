@@ -127,8 +127,21 @@ win32con.EXCEPTION_INVALID_DISPOSITION       = STATUS_INVALID_DISPOSITION
 win32con.EXCEPTION_GUARD_PAGE                = STATUS_GUARD_PAGE_VIOLATION
 win32con.EXCEPTION_INVALID_HANDLE            = STATUS_INVALID_HANDLE
 win32con.CONTROL_C_EXIT                      = STATUS_CONTROL_C_EXIT
-
-
+win32con.PE_POINTER_OFFSET                   = 0x3c
+win32con.PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET = 0x14
+win32con.PE_SIZEOF_NT_HEADER                 = 0x18
+win32con.PE_NUM_OF_SECTIONS_OFFSET           = 0x06
+win32con.IMAGE_SIZEOF_SECTION_HEADER         = 40
+win32con.PE_SECTION_NAME_SIZE                = 0x08
+win32con.PE_SECTION_VOFFSET_OFFSET           = 0x0c
+win32con.PE_SECTION_SIZE_OF_RAW_DATA_OFFSET  = 0x10
+win32con.PE_RVA_OFFSET                       = 0x78
+win32con.PE_RVA_SIZE                         = 0x7c
+win32con.RVA_NUM_PROCS_OFFSET                = 0x14
+win32con.RVA_NUM_PROCS_NAMES_OFFSET          = 0x18
+win32con.RVA_PROCS_ADDRESSES_OFFSET          = 0x1c
+win32con.RVA_PROCS_NAMES_OFFSET              = 0x20
+win32con.RVA_PROCS_ORDINALS_OFFSET           = 0x24
 
 from ctypes import *
 

@@ -28,7 +28,7 @@ class MemReaderBaseWin( MemReaderBase ):
     def getEndianity(self):
         return '<' # Intel is always Little-endian
 
-    def enumModules( self, isVerbos=False ):
+    def enumModules( self, isVerbose=False ):
         """
         Return list of tuples containg infromation about the modules loaded in memory in the form of
         (Address, module_name, module_size)
@@ -45,56 +45,94 @@ class MemReaderBaseWin( MemReaderBase ):
             GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
             module_base = module_info.lpBaseOfDll
             module_size = module_info.SizeOfImage
-            if isVerbos:
+            if isVerbose:
                 print("Module: (0x{0:x}) {1:s} of size (0x{2:x})".format(module_base, module_name, module_size))
             yield (module_base, module_name, module_size)
 
-    def findModule( self, target_module, isVerbos=False ):
+    def findModule( self, target_module, isVerbose=False ):
         target_module = target_module.lower()
-        for base, name, moduleSize in self.enumModules(isVerbos):
+        for base, name, moduleSize in self.enumModules(isVerbose):
             if target_module in name.lower():
                 return base
         raise Exception("Can't find module")
 
-    def getAllSections( self, module_base, isVerbos=False ):
-        PE_POINTER_OFFSET                   = 0x3c
-        PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET = 0x14
-        PE_SIZEOF_NT_HEADER                 = 0x18
-        PE_NUM_OF_SECTIONS_OFFSET           = 0x06
-        IMAGE_SIZEOF_SECTION_HEADER         = 40
-        PE_SECTION_NAME_SIZE                = 0x08
-        PE_SECTION_VOFFSET_OFFSET           = 0x0c
-        PE_SECTION_SIZE_OF_RAW_DATA_OFFSET  = 0x10
+    def _getSomePEInfo( self, module_base ):
+        pe = module_base + self.readDword( module_base + win32con.PE_POINTER_OFFSET )
+        first_section = self.readWord( pe + win32con.PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET) + win32con.PE_SIZEOF_NT_HEADER
+        num_sections = self.readWord( pe + win32con.PE_NUM_OF_SECTIONS_OFFSET )
+        return (pe, first_section, num_sections)
 
+    def getAllSections( self, module_base, isVerbose=False ):
+        pe, first_section, num_sections = self._getSomePEInfo( module_base )
         bytes_read = c_uint(0)
-        pe_offset = module_base
-        pe_offset += self.readDword( module_base + PE_POINTER_OFFSET )
-        first_section = self.readWord( pe_offset + PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET) + PE_SIZEOF_NT_HEADER
-        num_sections = self.readWord( pe_offset + PE_NUM_OF_SECTIONS_OFFSET )
         result = []
         for sections_iter in range(num_sections):
-            if isVerbos:
-                print(hex(pe_offset + first_section + (sections_iter * IMAGE_SIZEOF_SECTION_HEADER)))
+            if isVerbose:
+                print(hex(pe + first_section + (sections_iter * win32con.IMAGE_SIZEOF_SECTION_HEADER)))
             section_name = self.readMemory( \
-                    pe_offset + first_section + (sections_iter * IMAGE_SIZEOF_SECTION_HEADER), \
-                    PE_SECTION_NAME_SIZE )
+                    pe + first_section + (sections_iter * win32con.IMAGE_SIZEOF_SECTION_HEADER), \
+                    win32con.PE_SECTION_NAME_SIZE )
             section_name = section_name.replace('\x00', '')
             section_base = self.readDword( \
-                    pe_offset + first_section + (sections_iter * IMAGE_SIZEOF_SECTION_HEADER) + PE_SECTION_VOFFSET_OFFSET )
+                    pe + first_section + (sections_iter * win32con.IMAGE_SIZEOF_SECTION_HEADER) + win32con.PE_SECTION_VOFFSET_OFFSET )
             section_size = self.readDword( \
-                    pe_offset + first_section + (sections_iter * IMAGE_SIZEOF_SECTION_HEADER) + PE_SECTION_SIZE_OF_RAW_DATA_OFFSET )
+                    pe + first_section + (sections_iter * win32con.IMAGE_SIZEOF_SECTION_HEADER) + win32con.PE_SECTION_SIZE_OF_RAW_DATA_OFFSET )
             result.append( (section_name, section_base, section_size) )
-            if isVerbos:
+            if isVerbose:
                 print("Section: {0:s} @0x{1:x} of 0x{2:x} bytes".format(section_name, section_base, section_size))
         return result
 
-
-    def findSection( self, module_base, target_section, isVerbos=False ):
+    def findSection( self, module_base, target_section, isVerbose=False ):
         target_section = target_section.lower()
-        for section in self.getAllSections( module_base, isVerbos ):
+        for section in self.getAllSections( module_base, isVerbose ):
             if section[0].lower() == target_section:
                 return section
         return ('',0,0)
+
+    def getProcAddress( self, dllName, procName ):
+        """
+        Gets an address to a proc in a dll.
+        Note, that this function is not relocation aware,
+        use findProcAddress to get the real address.
+        """
+        module_handle = GetModuleHandle( dllName )
+        return( GetProcAddress( module_handle, procName ) )
+
+    def findProcAddress(self, dllName, proc):
+        """
+        Search for exported function at the remote process.
+        """
+        base = self.findModule(dllName, isVerbose=False)
+        pe, first_section, num_sections = self._getSomePEInfo( base )
+        rva         = base + self.readDword(pe + win32con.PE_RVA_OFFSET)
+        numProcs    = self.readDword(rva + win32con.RVA_NUM_PROCS_OFFSET)
+        procsTable  = base + self.readDword(rva + win32con.RVA_PROCS_ADDRESSES_OFFSET)
+        ordinalsTable = base + self.readDword(rva + win32con.RVA_PROCS_ORDINALS_OFFSET)
+        procIndex = None
+        if isinstance(proc, (int, long)):
+            # By ordinal
+            # I think there is a bug here, but no one realy uses ordinal load
+            for i in range(numProcs):
+                ordinal = self.readWord(ordinalsTable + (i*2))
+                if ordinal == proc:
+                    # Found
+                    procIndex = ordinal
+                    break
+        else:
+            # By name
+            numNames    = self.readDword(rva + win32con.RVA_NUM_PROCS_NAMES_OFFSET)
+            namesTable  = base + self.readDword(rva + win32con.RVA_PROCS_NAMES_OFFSET)
+            for i in range(numNames):
+                procNameAddr = base + self.readDword(namesTable + (i*4))
+                procName = self.readString(procNameAddr)
+                if procName == proc:
+                    # Found
+                    procIndex = self.readWord(ordinalsTable + (i*2))
+                    break
+        if None != procIndex:
+            addr = base + self.readDword(procsTable + (procIndex * 4))
+            return addr
+        return None
 
     def getHandles( self ):
         handleInfo = SYSTEM_HANDLE_INFORMATION()
