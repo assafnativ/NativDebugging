@@ -34,8 +34,6 @@ except ImportError as e:
     IS_DISASSEMBLER_FOUND = False
 import sys
 import struct
-from pefile import *
-
 
 def attach(targetProcessId):
     return MemoryReader(targetProcessId)
@@ -239,6 +237,10 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
 
         if self._is_win64:
             raise Excpetion("Not supported on x64")
+        try:
+            import pefile
+        except ImportError:
+            raise Exception("You must install the pefile module to use this function")
         result = {}
 
         # Get all modules names, and on the way the size of the binary of each module
@@ -263,7 +265,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
                             self.getAddressAttributes(module_base))
             # Get the sections
             module_bin = self.readMemory(module_base, self.PAGE_SIZE) #module_info.SizeOfImage)
-            parsed_pe = PE(data=module_bin, fast_load=True)
+            parsed_pe = pefile.PE(data=module_bin, fast_load=True)
             for section in parsed_pe.sections:
                 section_addr = (section.VirtualAddress & 0xfffff000) + module_base
                 section_size = section.SizeOfRawData
