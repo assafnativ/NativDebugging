@@ -56,7 +56,7 @@ def CreatePatternsFinder( memReader ):
     return PatternFinder(memReader)
 
 class PatternFinder( object ):
-    def __init__(self, memReader):
+    def __init__(self, memReader, isSafeSearch=False):
         self.memReader          = memReader
         self.isAddressValid     = memReader.isAddressValid
         self.readMemory         = memReader.readMemory
@@ -77,6 +77,10 @@ class PatternFinder( object ):
                 self._ENDIANITY = '<'
             else:
                 raise Exception("Unknown endianity %s" % sys.byteorder)
+        if isSafeSearch:
+            self._search = self._safeSearch
+        else:
+            self._search = self._unSafeSearch
 
     def getPointerSize(self):
         return self._POINTER_SIZE
@@ -94,7 +98,14 @@ class PatternFinder( object ):
         for result in self._search(pattern, startAddress, lastAddress, context):
             yield result
 
-    def _search(self, pattern, startAddress, lastAddress = 0, context=None):
+    def _safeSearch(self, pattern, startAddress, lastAddress=0, context=None):
+        try:
+            for result in self._unSafeSearch(pattern, startAddress, lastAddress, context):
+                yield result
+        except ReadError:
+            return
+
+    def _unSafeSearch(self, pattern, startAddress, lastAddress=0, context=None):
         shape = pattern[0]
         shape_search_range = shape.getValidRange(startAddress, lastAddress)
         for shape_address, shape_offset in shape_search_range:
@@ -106,7 +117,7 @@ class PatternFinder( object ):
                         yield result
                 else:
                     # No more shapes in pattern
-                    yield copy.deepcopy(self.context)
+                    yield copy.copy(self.context)
         # Shape not found
 
     def __genConcatedProc(self, proc1, proc2):
