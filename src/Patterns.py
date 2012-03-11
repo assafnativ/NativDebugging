@@ -325,6 +325,9 @@ class STRUCT( DATA_TYPE ):
     def __init__(self, content, **kw):
         self.content    = content
         DATA_TYPE.__init__(self, **kw)
+    def setForSearch(self, patFinder):
+        for shape in self.content:
+            shape.setForSearch(patFinder)
     def __len__(self):
         # TODO: add the offsets
         total_size = 0
@@ -573,7 +576,10 @@ class ARRAY( DATA_TYPE ):
     def __repr__(self):
         return 'ARRAY_OF_%s[%d]' % (self.var.__class__.__name__,self.arraySize)
     def __len__(self):
+        result = 0
         return len(self.var) * self.arraySize
+    def setForSearch(self, patFinder):
+        self.var.setForSearch(patFinder)
     def readValue(self, patFinder, address):
         result = []
         for i in range(self.arraySize):
