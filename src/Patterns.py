@@ -15,6 +15,7 @@
 #    along with Candy.  If not, see <http://www.gnu.org/licenses/>.
 
 try:
+	# Try to use the psycho compiler
     import psyco
     psyco.full()
 except ImportError:
