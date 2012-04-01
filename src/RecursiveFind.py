@@ -8,6 +8,12 @@ class RecursiveFind( MemReaderInterface ):
     __metaclass__ = ABCMeta
 
     def _makeAddrList(self, data):
+        '''
+        Description : Divides data into a list of addresses
+        Args:
+                        data - binary data to be converted
+        Return Value : list of addresses (cell size is according to pointer size)
+        '''
         if 8 == self.getPointerSize():
             return makeQwordsList(data)
         elif 4 == self.getPointerSize():
@@ -16,9 +22,27 @@ class RecursiveFind( MemReaderInterface ):
             raise Exception("Invalid pointer size %d" % self.getPointerSize())
     
     def printRecursiveFindResult( self, result ):
+        '''
+        Description : prints a result returned from a binary search in a human friendly way
+        Args:
+                        result - list/tuple which holds the result to be displayed (starting address, offsets to data, name ??)
+        Return Value : None, just prints the string
+        '''
         print(('0x{0:x}\t{1:s}\t"{2:s}"'.format(result[0], ''.join(['0x{0:x}, '.format(x) for x in result[1]]), str(result[2]))))
 
     def _recursiveFindInt( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbose = False):
+        '''
+        Description : Searches for an integer in a binary data , tries to find data recursively by jumping into addresses within  data
+        Args:
+                        target			- target int to be found
+                        start_address	- starting address of the binary data
+                        length			- length in bytes of the binary data
+                        hops			- depth of recursive hops allowed within data (decreased by recursion)
+                        delta			- allowed delta from target integer
+                        path			- path of offsets the search is currently in
+                        isVerbose		- display data while searching ?
+        Return Value : yields results (iterator) upon finding target int
+        '''
         try:
             data = self.readMemory(start_address, length)
         except:
@@ -37,6 +61,20 @@ class RecursiveFind( MemReaderInterface ):
         return
 
     def _recursiveFindString( self, target, start_address, length, hops=1, delta = 0, path = [], isVerbose = False):
+        '''
+        Description: Searches for a string in a binary data , also tries to find string recursively by jumping into address within data
+        Args:
+                        target			- target string to be searched
+                        start_address	- starting address of the binary data
+                        length			- llength in bytes of the binary data
+                        hops 			- depth of recursive hops allowed within data (decreased by recursion)
+                        delta			- doesn't mean anything here (TODO : delete it ?)
+                        path			- list of offsets found for data
+                        isVerbose		- should data be displayed while searcing ?
+                        
+        Return Value : yields results (iterator) upon finding target string
+        Remarks : Assumes the string is in ASCII , tries to match the string in UNICODE as well
+        '''
         try:
             data = self.readMemory(start_address, length)
         except:
@@ -71,6 +109,18 @@ class RecursiveFind( MemReaderInterface ):
         return
 
     def _recursiveFindList( self, target, start_address, length, hops = 1, delta = 0, path = [], isVerbose = False):
+        '''
+        Description : Searches for any value from a given list within a binary data, also tries to find string recursively by jumping into address within data
+        Args:
+                        target			- target list to be searched
+                        start_address	- starting address of the binary data
+                        length			- length in bytes of the binary data
+                        hops			- depth of recursive hops allowed within data (decreased by recursion)
+                        delta 			- doesn't mean anything here (TODO : delete it ?)
+                        path			- list of offsets found for data
+                        isVerbose		- should data be displayed while searcing ?
+        Return Value : yields all addresses which hold one of the lists items.
+        '''
         try:
             data = self.readMemory(start_address, length)
         except:
@@ -89,6 +139,19 @@ class RecursiveFind( MemReaderInterface ):
         return
 
     def _recursiveFindWithMust( self, target, start_address, must_jumps, length, hops = 1, delta = 0, path = []):
+        '''
+        Description : Searches for a data (int,long or string) inside a binary data, data must be pointed by a given set of offsets
+        Args:
+                        target			- target data to be found
+                        start_address	- starting address of the binary data
+                        must_jumps		- list of offsets to data
+                        length			- length in bytes of the binary data
+                        hops 			- depth of recursive hops allowed within data (decreased by recursion) 
+                        delta			- delta allowed from target (used only when the target is from int type)
+                        path			- list of offsets found for data
+                        
+        Return Value : yields all the addresses which holds path to the target data
+        '''
         if start_address % 4 != 0:
             raise Exception("Not aligned")
         try:
@@ -129,6 +192,19 @@ class RecursiveFind( MemReaderInterface ):
                     yield x
 
     def recursiveFind( self, target, start_address, length, hops=1, delta=0, must=None, isVerbose=False):
+        '''
+        Description : Main function for recursive search, calls the appropriate function according to the target data type
+        Args:
+                        target			- target data to be found
+                        start_address	- starting address of the binary data
+                        length			- length in bytes of the binary data
+                        hops			- depth of recursive hops allowed within data (decreased by recursion) 
+                        delta			- delta allowed from target (int datatype only)
+                        must			- list of offsets which must be found (with the same order) in order to get to target
+                        isVerbose		-  should data be displayed while searcing ?
+        
+        Return Type : Yields results upon finding addresses which holds the target data
+        '''
         path = []
         if start_address % 4 != 0:
             raise Exception("Not aligned")
