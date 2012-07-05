@@ -29,6 +29,7 @@ from os import linesep
 import struct
 import datetime
 import copy
+from types import FunctionType
 
 class SearchContext( object ):
     def __init__(self):
@@ -138,17 +139,14 @@ class PatternFinder( object ):
             # Check if recursive
             while isinstance(data, POINTER_TO_STRUCT):
                 data = data.pattern
-            dataSize = len(data)
-            if 0 == dataSize:
-                dataSize = 1
             if isinstance(data, STRUCT):
                 self.__paintPattern(depth-1, data.pattern.content, displayContext)
             if None == shape.extraCheck:
-                shape.extraCheck = self.__genSetColor(displayContext, shape.name, dataSize, '#%06x' % self.color)
+                shape.extraCheck = self.__genSetColor(displayContext, shape.name, '#%06x' % self.color)
             else:
                 shape.extraCheck = self.__genConcatedProc(
                         shape.extraCheck, 
-                        self.__genSetColor(displayContext, shape.name, dataSize, '#%06x' % self.color) )
+                        self.__genSetColor(displayContext, shape.name, '#%06x' % self.color) )
             brightness = 0
             while brightness < 0x190:
                 self.color += 0x102030
