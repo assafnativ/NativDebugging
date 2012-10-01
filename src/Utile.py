@@ -90,7 +90,7 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
         spacesLeft = ((itemSize * 2 + 1) * itemsInRow) + 19
         line += ' ' * (spacesLeft - len(line))
         for t in line_data:
-            for x in struct.pack('=L', t):
+            for x in struct.pack('=Q', t):
                 if( x == repr(x)[1] ):
                     line += x
                 else:
