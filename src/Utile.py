@@ -74,6 +74,16 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
     result = ''
     result += ' ' * 17
     itemStr = '%%%dx' % (itemSize * 2)
+
+    if 2 == itemSize:
+        packSize = '=W'
+    elif 4 == itemSize:
+        packSize = '=L'
+    elif 8 == itemSize:
+        packSize = '=Q'
+    else:
+        raise Exception("Invalid size for print table")
+
     for i in range(itemsInRow):
         result += itemStr % (i * itemSize)
         result += ' '
@@ -90,7 +100,7 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
         spacesLeft = ((itemSize * 2 + 1) * itemsInRow) + 19
         line += ' ' * (spacesLeft - len(line))
         for t in line_data:
-            for x in struct.pack('=Q', t):
+            for x in struct.pack(packSize, t):
                 if( x == repr(x)[1] ):
                     line += x
                 else:
