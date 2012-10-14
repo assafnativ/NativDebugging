@@ -31,16 +31,20 @@ class MemoryMap( object ):
     
     def getAddressInfo(self, x):
         for addr, block in self._memoryMap.items():
-            if x > addr and x < (addr + block[1]):
+            if x >= addr and x < (addr + block[1]):
                 return MemoryBlockInfo(addr, block)
         return None
 
-    def filteredMap(self, attributesMask=ALL_ATTRIBUTES_MASK, nameStartsWith=None):
+    def filteredMap(self, attributesMask=ALL_ATTRIBUTES_MASK, nameStartsWith=None, nameContains=None):
         if None != nameStartsWith:
             nameStartsWith = nameStartsWith.lower()
+        if None != nameContains:
+            nameContains = nameContains.lower()
         for addr, block in self._memoryMap.items():
             if block[2] & attributesMask:
                 if None != nameStartsWith and not block[0].lower().startswith(nameStartsWith):
+                    continue
+                if None != nameContains and not nameContains in block[0].lower():
                     continue
                 yield MemoryBlockInfo(addr, block)
     def __iter__(self):
