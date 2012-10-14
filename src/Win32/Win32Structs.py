@@ -142,6 +142,10 @@ win32con.RVA_NUM_PROCS_NAMES_OFFSET          = 0x18
 win32con.RVA_PROCS_ADDRESSES_OFFSET          = 0x1c
 win32con.RVA_PROCS_NAMES_OFFSET              = 0x20
 win32con.RVA_PROCS_ORDINALS_OFFSET           = 0x24
+win32con.PE_MAGIC                            = 'PE'
+win32con.EXE_MAGIC                           = 'MZ'
+win32con.OPTIONAL_HEADER_MAGIC               = '\x0b\x01'
+win32con.ROM_OPTIONAL_HEADER_MAGIC           = '\x07\x01'
 
 from ctypes import *
 

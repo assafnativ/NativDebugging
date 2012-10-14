@@ -1,0 +1,131 @@
+
+from ..Patterns import *
+
+# All information is stolen from winnt.h
+
+VALID_MACHINE_TYPES = {
+        0x014c  : "I386",
+        0x0162  : "R3000",
+        0x0166  : "R4000",
+        0x0168  : "R10000",
+        0x0169  : "WCEMIPSV2",
+        0x0184  : "ALPHA",
+        0x01a2  : "SH3",
+        0x01a3  : "SH3DSP",
+        0x01a4  : "SH3E",
+        0x01a6  : "SH4",
+        0x01a8  : "SH5",
+        0x01c0  : "ARM",
+        0x01c2  : "THUMB",
+        0x01c4  : "ARMNT",
+        0x01d3  : "AM33",
+        0x01F0  : "POWERPC",
+        0x01f1  : "POWERPCFP",
+        0x0200  : "IA64",
+        0x0266  : "MIPS16",
+        0x0284  : "ALPHA64",
+        0x0366  : "MIPSFPU",
+        0x0466  : "MIPSFPU16",
+        0x0520  : "TRICORE",
+        0x0CEF  : "CEF",
+        0x0EBC  : "EBC",
+        0x8664  : "AMD64",
+        0x9041  : "M32R",
+        0xC0EE  : "CEE" }
+
+VALID_SECTION_ALGINMENTS = {
+        0x00100000:  "1BYTES",
+        0x00200000:  "2BYTES",
+        0x00300000:  "4BYTES",
+        0x00400000:  "8BYTES",
+        0x00500000:  "16BYTES",
+        0x00600000:  "32BYTES",
+        0x00700000:  "64BYTES" }
+
+ImageFileHeader = [
+        SHAPE("Machine",            0, WORD(VALID_MACHINE_TYPES.keys())),
+        SHAPE("NumberOfSections",   0, WORD()),
+        SHAPE("TimeDateStamp",      0, CTIME()),
+        SHAPE("PointerToSymTable",  0, DWORD()),
+        SHAPE("NumberOfSymbols",    0, DWORD()),
+        SHAPE("OptionalHeaderSize", 0, WORD()),
+        SHAPE("Characteristics",    0, WORD()) ]
+
+ImageSectionHeader = [
+        SHAPE("Name",           0, STRING(size=8)),
+        SHAPE("VirtualSize",    0, DWORD()),
+        SHAPE("VirtualAddress", 0, DWORD()),
+        SHAPE("RawDataSize",  0, DWORD()),
+        SHAPE("PointerToRawData", 0, DWORD()),
+        SHAPE("PointerToRelocations", 0, DWORD()),
+        SHAPE("PointerToLinenumbers", 0, DWORD()),
+        SHAPE("NumberOfRelocations", 0, WORD()),
+        SHAPE("NumberOfLinenumbers", 0, WORD()),
+        SHAPE("Characteristics", 0, DWORD()) ]
+
+ImageDataDirectory = [
+        SHAPE("VirtualAddress",     0, DWORD()),
+        SHAPE("Size",               0, DWORD()) ]
+
+ImageOptionalHeader = [
+        SHAPE("Magic",              0,  STRING(fixedValue='\x0b\x01')),
+        SHAPE("MajorLinkerVersion", 0,  BYTE()),
+        SHAPE("MinorLinkerVersion", 0,  BYTE()),
+        SHAPE("CodeSize",         0,  DWORD()),
+        SHAPE("InitializedDataSize", 0, DWORD()),
+        SHAPE("UninitializedDataSize", 0, DWORD()),
+        SHAPE("EntryPointAddress", 0, DWORD()),
+        SHAPE("BaseOfCode",         0, DWORD()),
+        SHAPE("BaseOfData",         0, DWORD()),
+        SHAPE("ImageBase",          0, DWORD()),
+        SHAPE("SectionAlignment",   0, DWORD()), #VALID_SECTION_ALGINMENTS.keys())),
+        SHAPE("FileAlignment",      0, DWORD()),
+        SHAPE("MajorOSVersion", 0, WORD()),
+        SHAPE("MinorOSVersion", 0, WORD()),
+        SHAPE("MajorImageVer",  0, WORD()),
+        SHAPE("MinorImageVer",  0, WORD()),
+        SHAPE("MajorSubsystemVer", 0, WORD()),
+        SHAPE("MinorSubsystemVer", 0, WORD()),
+        SHAPE("Win32VersionValue",  0, DWORD()),
+        SHAPE("ImageSize",        0, DWORD()),
+        SHAPE("HeadersSize",      0, DWORD()),
+        SHAPE("CheckSum",           0, DWORD()),
+        SHAPE("Subsystem",          0, WORD()),
+        SHAPE("DllCharacteristics", 0, WORD()),
+        SHAPE("StackReserveSize", 0, DWORD()),
+        SHAPE("StackCommitSize",  0, DWORD()),
+        SHAPE("HeapReserveSize",  0, DWORD()),
+        SHAPE("HeapCommitSize",   0, DWORD()),
+        SHAPE("LoaderFlags",        0, DWORD()),
+        SHAPE("NumOfRvaAndSizes", 0, DWORD()),
+        SHAPE("DataDirectory",      0, ARRAY(0x10, STRUCT(ImageDataDirectory)))
+        ]
+
+ImageNtHeaders = [
+        SHAPE("Signature", 0, STRING(fixedValue='PE\x00\x00')),
+        SHAPE("FileHeader", 0, STRUCT(ImageFileHeader)),
+        SHAPE("OptionalHeader", 0, STRUCT(ImageOptionalHeader)) ]
+
+ImageDosHeader = [
+        SHAPE("e_magic", 0, STRING(fixedValue="MZ")),
+        SHAPE("e_cblp", 0, WORD()),
+        SHAPE("e_cp", 0, WORD()),
+        SHAPE("e_crlc", 0, WORD()),
+        SHAPE("e_cparhdr", 0, WORD()),
+        SHAPE("e_minalloc", 0, WORD()),
+        SHAPE("e_maxalloc", 0, WORD()),
+        SHAPE("e_ss", 0, WORD()),
+        SHAPE("e_sp", 0, WORD()),
+        SHAPE("e_csum", 0, WORD()),
+        SHAPE("e_ip", 0, WORD()),
+        SHAPE("e_cs", 0, WORD()),
+        SHAPE("e_lfarlc", 0, WORD()),
+        SHAPE("e_ovno", 0, WORD()),
+        SHAPE("e_res", 0, ARRAY(4, WORD())),
+        SHAPE("e_oemid", 0, WORD()),
+        SHAPE("e_oeminfo", 0, WORD()),
+        SHAPE("e_res2", 0, ARRAY(10, WORD())),
+        SHAPE("e_lfanew", 0, DWORD()),
+        SHAPE("PE", 0x1000, STRUCT(ImageNtHeaders), lambda ctx, val: ctx.OffsetOfPE == ctx.e_lfanew)
+        ]
+

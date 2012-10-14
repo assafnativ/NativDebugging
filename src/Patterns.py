@@ -36,20 +36,21 @@ class SearchContext( object ):
         pass
     def __repr__(self):
         result = ''
-        for item in list(self.__dict__.keys()):
-            if item.startswith('AddressOf'):
-                continue
-            elif item.startswith('OffsetOf'):
-                continue
-            elif item.startswith('SizeOf'):
-                continue
-            elif item.startswith('__'):
-                continue
-            result += '%-20s@%08x (offset: %08x) of size %04x value=%s\n' % (\
-                    item + ':', self.__dict__['AddressOf'+item], \
-                    self.__dict__['OffsetOf'+item], \
-                    self.__dict__['SizeOf'+item], \
-                    repr(self.__dict__[item]) )
+        items = [x for x in self.__dict__.keys() if \
+                (not x.startswith('AddressOf')) and \
+                (not x.startswith('OffsetOf')) and \
+                (not x.startswith('SizeOf')) and \
+                (not x.startswith('_'))]
+        items = [(\
+                self.__dict__['AddressOf' + item], \
+                self.__dict__['OffsetOf'  + item], \
+                self.__dict__['SizeOf'    + item], \
+                `self.__dict__[item]`, \
+                item) for item in items]
+        items.sort()
+        for addr, offset, sizeOf, value, item in items:
+            result += '%-20s@%08x (offset: %08x) size %04x val %s\n' % (\
+                    item + ':', addr, offset, sizeOf, value)
         return result
 
 def CreatePatternsFinder( memReader ):
@@ -192,6 +193,9 @@ def xrangeWithOffset( start, end, step, addr ):
         yield (pos + addr, pos)
         pos += step
 
+def xrangeFromContext( proc, value, context ):
+    yield proc(value, context)
+
 class SHAPE( object ):
     def __init__(self, name, place, data, extraCheckFunction=None, fromStart=False):
         striped_name = name.replace('_', '')
@@ -203,23 +207,27 @@ class SHAPE( object ):
                 name.startswith('OffsetOf') or \
                 name.startswith('SizeOf'):
             raise Exception("Invalid name for shape")
-        self.name     = name
-        self.place    = place
-        self.iterator = xrangeWithOffset
-        self.data     = data
+        self.name       = name
+        self.place      = place
+        self.iterator   = xrangeWithOffset
+        self.rangeProc  = None
+        self.data       = data
         self.extraCheck = extraCheckFunction
-        self.fromStart = fromStart
+        self.fromStart  = fromStart
         if isinstance(place, tuple):
             self.minOffset = place[0]
             self.maxOffset = place[1]
         elif isinstance(place, (int, long)):
             self.minOffset = 0
             self.maxOffset = place
+        elif hasattr(place, '__call__') and not'mixOffset' not in place.__dict__:
+            self.rangeProc = place
         else:
             self.minOffset = place.minOffset
             self.maxOffset = place.maxOffset
-            self.iterator = place
+            self.iterator  = place
     def setForSearch(self, patFinder):
+        self.patFinder = patFinder
         self.data.setForSearch(patFinder)
         if isinstance(self.place, tuple) and len(self.place) > 2:
             self.alignment = self.place[2]
@@ -232,13 +240,19 @@ class SHAPE( object ):
     def getPlace(self):
         return self.place
     def getValidRange(self, start, lastAddress=0):
-        if 0 != lastAddress and False == self.fromStart:
+        if None != self.rangeProc:
+            self.rangeProc(self.patFinder.context)
+        elif 0 != lastAddress and False == self.fromStart:
             delta = lastAddress - start
             if 0 != (delta % self.alignment):
                 delta += (self.alignment - (delta % self.alignment))
             if 0 != (start % self.alignment):
                 start += (self.alignment - (start % self.alignment))
-            return self.iterator( self.minOffset + delta, self.maxOffset + delta, self.alignment, start )
+            return self.iterator( \
+                    self.minOffset + delta, 
+                    self.maxOffset + delta, 
+                    self.alignment, 
+                    start )
         else:
             if 0 != (start % self.alignment):
                 start += (self.alignment - (start % self.alignment))
@@ -435,6 +449,12 @@ class NUMBER( DATA_TYPE ):
     def getAlignment(self):
         return self.alignment
 
+class CTIME( NUMBER ):
+    def __init__(self, value=None, alignment=4, endianity="=", **kw):
+        NUMBER.__init__(self, value, size=4, alignment=alignment, isSigned=False, endianity=endianity, **kw)
+    def __repr__(self):
+        return "CTime"
+
 class BYTE( NUMBER ):
     def readValue(self, patFinder, address):
         if False == self.isSigned:
@@ -510,7 +530,7 @@ class STRING( DATA_TYPE ):
             size = len(fixedValue)
         elif size > maxSize:
             raise Exception('Invalid size for string')
-        self.isPrintable    = isPrintable
+        self.isPrintable    = isPrintable and (None == fixedValue)
         self.isUnicode      = isUnicode
         self.isCaseSensitive = isCaseSensitive
         self.fixedValue     = fixedValue
@@ -576,7 +596,7 @@ class ARRAY( DATA_TYPE ):
         self.var = var
         DATA_TYPE.__init__(self, **kw)
     def __repr__(self):
-        return 'ARRAY_OF_%s[%d]' % (self.var.__class__.__name__,self.arraySize)
+        return 'ARRAY_OF_%s[%d]' % (self.var.__class__.__name__, self.arraySize)
     def __len__(self):
         result = 0
         return len(self.var) * self.arraySize
