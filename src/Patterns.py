@@ -32,9 +32,13 @@ import copy
 from types import FunctionType
 
 class SearchContext( object ):
-    def __init__(self):
-        pass
+    def __init__(self, perent=None):
+        self._perent = perent
+
     def __repr__(self):
+        return self._repr(0)
+
+    def _repr(self, depth):
         result = ''
         items = [x for x in self.__dict__.keys() if \
                 (not x.startswith('AddressOf')) and \
@@ -45,12 +49,35 @@ class SearchContext( object ):
                 self.__dict__['AddressOf' + item], \
                 self.__dict__['OffsetOf'  + item], \
                 self.__dict__['SizeOf'    + item], \
-                `self.__dict__[item]`, \
                 item) for item in items]
         items.sort()
-        for addr, offset, sizeOf, value, item in items:
-            result += '%-20s@%08x (offset: %08x) size %04x val %s\n' % (\
-                    item + ':', addr, offset, sizeOf, value)
+        for addr, offset, sizeOf, item in items:
+            val = self.__dict__[item]
+            if isinstance(val, SearchContext):
+                result += '\t' * depth
+                result += '%-20s@%08x (offset: %08x) size %04x val:\n' % (\
+                        item + ':', addr, offset, sizeOf)
+                result += val._repr(depth+1)
+            elif isinstance(val, list):
+                result += '\t' * depth
+                result += '%-20s@%08x (offset: %08x) size %04x val:\n' % (\
+                        item + ':', addr, offset, sizeOf)
+                for i, (subAddr, var) in enumerate(val):
+                    result += '\t' * depth
+                    result += '%8x:           @%08x (offset: %08x) val:' % (\
+                            i, subAddr, subAddr - addr)
+                    if isinstance(var, SearchContext):
+                        result += '\n'
+                        result += var._repr(depth+1)
+                    else:
+                        result += '\t' * depth
+                        result += var.__repr__()
+                        result += '\n'
+
+            else:
+                result += '\t' * depth
+                result += '%-20s@%08x (offset: %08x) size %04x val %s\n' % (\
+                        item + ':', addr, offset, sizeOf, self.__dict__[item].__repr__())
         return result
 
 def CreatePatternsFinder( memReader ):
@@ -70,6 +97,7 @@ class PatternFinder( object ):
         self.readAddr           = memReader.readAddr
         self.readMemory         = memReader.readMemory
         self.readString         = memReader.readString
+        self.debugContext       = None
         self._POINTER_SIZE = memReader.getPointerSize()
         self._DEFAULT_DATA_SIZE = memReader.getDefaultDataSize()
         self._ENDIANITY = memReader.getEndianity()
@@ -84,7 +112,7 @@ class PatternFinder( object ):
             self._search = self._safeSearch
         else:
             self._search = self._unSafeSearch
-
+        
     def getPointerSize(self):
         return self._POINTER_SIZE
     def getDefaultDataSize(self):
@@ -95,9 +123,9 @@ class PatternFinder( object ):
     def search(self, pattern, startAddress, lastAddress = 0, context=None):
         if None == context:
             context = SearchContext()
-        self.context = context
+        self.debugContext = context
         for shape in pattern:
-            shape.setForSearch(self)
+            shape.setForSearch(self, context)
         for result in self._search(pattern, startAddress, lastAddress, context):
             yield result
 
@@ -110,17 +138,17 @@ class PatternFinder( object ):
 
     def _unSafeSearch(self, pattern, startAddress, lastAddress=0, context=None):
         shape = pattern[0]
-        shape_search_range = shape.getValidRange(startAddress, lastAddress)
+        shape_search_range = shape.getValidRange(startAddress, lastAddress, context)
         for shape_address, shape_offset in shape_search_range:
             # Is this the shape we are looking for
-            for x in shape.isValid(self, shape_address, shape_offset):
+            for x in shape.isValid(self, shape_address, shape_offset, context):
                 # Search the next shape if needed
                 if len(pattern) > 1:
                     for result in self._search(pattern[1:], startAddress, shape_address + len(shape.getData()), context):
                         yield result
                 else:
                     # No more shapes in pattern
-                    yield copy.copy(self.context)
+                    yield copy.deepcopy(context)
         # Shape not found
 
     def __genConcatedProc(self, proc1, proc2):
@@ -193,8 +221,8 @@ def xrangeWithOffset( start, end, step, addr ):
         yield (pos + addr, pos)
         pos += step
 
-def xrangeFromContext( proc, value, context ):
-    yield proc(value, context)
+def xrangeFromContext( proc, context, addr ):
+    yield proc(context, addr)
 
 class SHAPE( object ):
     def __init__(self, name, place, data, extraCheckFunction=None, fromStart=False):
@@ -205,11 +233,13 @@ class SHAPE( object ):
                 (not striped_name.isalnum()) or \
                 name.startswith('AddressOf') or \
                 name.startswith('OffsetOf') or \
-                name.startswith('SizeOf'):
+                name.startswith('SizeOf') or \
+                name.startswith('_'):
             raise Exception("Invalid name for shape")
         self.name       = name
         self.place      = place
         self.iterator   = xrangeWithOffset
+        self.procIterator = xrangeFromContext
         self.rangeProc  = None
         self.data       = data
         self.extraCheck = extraCheckFunction
@@ -220,15 +250,15 @@ class SHAPE( object ):
         elif isinstance(place, (int, long)):
             self.minOffset = 0
             self.maxOffset = place
-        elif hasattr(place, '__call__') and not'mixOffset' not in place.__dict__:
+        elif hasattr(place, '__call__') and 'mixOffset' not in place.__dict__:
             self.rangeProc = place
         else:
             self.minOffset = place.minOffset
             self.maxOffset = place.maxOffset
             self.iterator  = place
-    def setForSearch(self, patFinder):
+    def setForSearch(self, patFinder, context):
         self.patFinder = patFinder
-        self.data.setForSearch(patFinder)
+        self.data.setForSearch(patFinder, context)
         if isinstance(self.place, tuple) and len(self.place) > 2:
             self.alignment = self.place[2]
         else:
@@ -239,15 +269,15 @@ class SHAPE( object ):
         return self.name
     def getPlace(self):
         return self.place
-    def getValidRange(self, start, lastAddress=0):
-        if None != self.rangeProc:
-            self.rangeProc(self.patFinder.context)
-        elif 0 != lastAddress and False == self.fromStart:
+    def getValidRange(self, start, lastAddress=0, context=None):
+        if 0 != lastAddress and False == self.fromStart:
             delta = lastAddress - start
             if 0 != (delta % self.alignment):
                 delta += (self.alignment - (delta % self.alignment))
             if 0 != (start % self.alignment):
                 start += (self.alignment - (start % self.alignment))
+            if None != self.rangeProc:
+                return self.procIterator(self.rangeProc, context, start)
             return self.iterator( \
                     self.minOffset + delta, 
                     self.maxOffset + delta, 
@@ -259,10 +289,9 @@ class SHAPE( object ):
             return self.iterator( self.minOffset, self.maxOffset, self.alignment, start )
     def getData(self):
         return self.data
-    def isValid(self, patFinder, address, offset):
+    def isValid(self, patFinder, address, offset, context):
         value = self.data.readValue(patFinder, address)
         self.currentValue = value
-        context = patFinder.context
         context.__dict__[self.name] = value
         context.__dict__['AddressOf' + self.name] = address
         context.__dict__['OffsetOf' + self.name] = offset
@@ -282,7 +311,7 @@ class DATA_TYPE( object ):
             return '%s %s' % (self.__class__.__name__, self.desc)
         else:
             return self.__class__.__name__
-    def setForSearch(self, patFinder):
+    def setForSearch(self, patFinder, context):
         """
         Used for Shapes that are need to be aware of machine infromation such as pointer size
         """
@@ -318,7 +347,7 @@ class POINTER( DATA_TYPE ):
         self.isNullValid = isNullValid
         self.valueRange = valueRange
         DATA_TYPE.__init__(self, **kw)
-    def setForSearch(self, patFinder):
+    def setForSearch(self, patFinder, context):
         self.pointerSize = patFinder.getPointerSize()
     def __len__(self):
         return self.pointerSize
@@ -340,20 +369,24 @@ class POINTER( DATA_TYPE ):
 class STRUCT( DATA_TYPE ):
     def __init__(self, content, **kw):
         self.content    = content
+        self.context    = SearchContext()
         DATA_TYPE.__init__(self, **kw)
-    def setForSearch(self, patFinder):
+    def setForSearch(self, patFinder, context):
+        self.context._perent = context
         for shape in self.content:
-            shape.setForSearch(patFinder)
+            shape.setForSearch(patFinder, self.context)
     def __len__(self):
         # TODO: add the offsets
         total_size = 0
         for shape in self.content:
             total_size += len(shape.getData())
         return total_size
+    def __repr__(self):
+        return self.context.__repr__()
     def readValue(self, patFinder, address):
-        return None
+        return self.context
     def isValid(self, patFinder, address, value):
-        for x in patFinder.search(self.content, address, lastAddress=0, context=patFinder.context):
+        for x in patFinder.search(self.content, address, lastAddress=0, context=self.context):
             yield True
 
 class POINTER_TO_STRUCT( POINTER ):
@@ -384,12 +417,12 @@ class NUMBER( DATA_TYPE ):
         self.sizeOfData   = size
         self.alignment    = alignment
         self.value        = value
-        self.isSigned    = isSigned
+        self.isSigned     = isSigned
         if endianity not in [">", "<", "="]:
             raise Exception('Invalid endianity (">", "<", "=")')
         self.endianity = endianity
         DATA_TYPE.__init__(self, **kw)
-    def setForSearch(self, patFinder):
+    def setForSearch(self, patFinder, context):
         if '=' == self.endianity:
             self.endianity = patFinder.getEndianity()
         if None == self.sizeOfData:
@@ -591,26 +624,29 @@ class STRING( DATA_TYPE ):
         yield True
 
 class ARRAY( DATA_TYPE ):
-    def __init__(self, size, var, **kw):
+    def __init__(self, size, varType, varArgs, varKw={}, **kw):
         self.arraySize = size
-        self.var = var
+        self.varType = varType
+        self.array = []
+        for i in range(size):
+            self.array.append(varType(*varArgs, **varKw))
         DATA_TYPE.__init__(self, **kw)
     def __repr__(self):
-        return 'ARRAY_OF_%s[%d]' % (self.var.__class__.__name__, self.arraySize)
+        return 'ARRAY_OF_%s[%d]' % (self.varType.__name__, self.arraySize)
     def __len__(self):
-        result = 0
-        return len(self.var) * self.arraySize
-    def setForSearch(self, patFinder):
-        self.var.setForSearch(patFinder)
+        return sum([len(var) for var in self.array])
+    def setForSearch(self, patFinder, context):
+        for var in self.array:
+            var.setForSearch(patFinder, context)
     def readValue(self, patFinder, address):
         result = []
-        for i in range(self.arraySize):
-            result.append(self.var.readValue(patFinder, address))
-            address += len(self.var)
+        for var in self.array:
+            result.append((address, var.readValue(patFinder, address)))
+            address += len(var)
         return result
     def isValid(self, patFinder, address, value, **kw):
-        for v in value:
-            if len(list(self.var.isValid(patFinder, address, v, **kw))) == 0:
+        for i, (addr, v) in enumerate(value):
+            if len(list(self.array[i].isValid(patFinder, addr, v, **kw))) == 0:
                 return
         yield True
 
