@@ -127,6 +127,7 @@ win32con.EXCEPTION_INVALID_DISPOSITION       = STATUS_INVALID_DISPOSITION
 win32con.EXCEPTION_GUARD_PAGE                = STATUS_GUARD_PAGE_VIOLATION
 win32con.EXCEPTION_INVALID_HANDLE            = STATUS_INVALID_HANDLE
 win32con.CONTROL_C_EXIT                      = STATUS_CONTROL_C_EXIT
+win32con.LIST_MODULES_ALL                    = 3
 win32con.PE_POINTER_OFFSET                   = 0x3c
 win32con.PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET = 0x14
 win32con.PE_SIZEOF_NT_HEADER                 = 0x18
@@ -203,6 +204,15 @@ EnumProcessModules.argtypes = [
     c_uint,     # DWORD cb
     c_void_p ]  # LPDWORD lpcbNeeded
 EnumProcessModules.restype = ErrorIfZero
+
+EnumProcessModulesEx = windll.psapi.EnumProcessModulesEx
+EnumProcessModulesEx.argtypes = [
+    c_void_p,   # HANDLE hProcess
+    c_void_p,   # HMODULE* lphModule
+    c_uint,     # DWORD cb
+    c_void_p,   # LPDWORD lpcbNeeded
+    c_uint]     # DWORD dwFilterFlag
+EnumProcessModulesEx.restype = ErrorIfZero
 
 EnumProcesses = windll.psapi.EnumProcesses
 EnumProcesses.argtypes = [

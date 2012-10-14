@@ -106,12 +106,7 @@ class MemReaderBaseWin( MemReaderBase ):
         pe, first_section, num_sections = self._getSomePEInfo( base )
         return base + self.readDword(pe + win32con.PE_RVA_OFFSET)
 
-    def findProcAddress(self, dllName, proc):
-        """
-        Search for exported function in a remote process.
-        """
-        base = self.findModule(dllName, isVerbose=False)
-        rva = self.findRVA(base)
+    def findProcInRVA(self, base, rva, proc):
         numProcs    = self.readDword(rva + win32con.RVA_NUM_PROCS_OFFSET)
         procsTable  = base + self.readDword(rva + win32con.RVA_PROCS_ADDRESSES_OFFSET)
         ordinalsTable = base + self.readDword(rva + win32con.RVA_PROCS_ORDINALS_OFFSET)
@@ -140,6 +135,14 @@ class MemReaderBaseWin( MemReaderBase ):
             addr = base + self.readDword(procsTable + (procIndex * 4))
             return addr
         return None
+
+    def findProcAddress(self, dllName, proc):
+        """
+        Search for exported function in a remote process.
+        """
+        base = self.findModule(dllName, isVerbose=False)
+        rva = self.findRVA(base)
+        return self.findProcInRVA(base, rva, proc)
 
     def getHandles( self ):
         handleInfo = SYSTEM_HANDLE_INFORMATION()

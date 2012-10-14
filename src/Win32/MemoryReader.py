@@ -246,7 +246,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         # Get all modules names, and on the way the size of the binary of each module
         modules = ARRAY( c_void_p, self.PAGE_SIZE )(0)
         bytes_written = c_uint(0)
-        EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
+        EnumProcessModulesEx( self._process, byref(modules), sizeof(modules), byref(bytes_written), win32con.LIST_MODULES_ALL )
         num_modules = bytes_written.value / sizeof(c_void_p(0))
         for module_iter in range(num_modules):
             module_name = ARRAY( c_char, 1000 )('\x00')
