@@ -67,6 +67,28 @@ ImageDataDirectory = [
         SHAPE("VirtualAddress",     0, DWORD()),
         SHAPE("Size",               0, DWORD()) ]
 
+ImageExportDirectory = [
+        SHAPE("Characteristics", 0, DWORD()),
+        SHAPE("TimeDateStamp", 0, CTIME()),
+        SHAPE("MajorVersion", 0, WORD()),
+        SHAPE("MinorVersion", 0, WORD()),
+        SHAPE("Name", 0, DWORD()),
+        SHAPE("Base", 0, DWORD()),
+        SHAPE("NumberOfFunctions", 0, DWORD()),
+        SHAPE("NumberOfNames", 0, DWORD()),
+        SHAPE("FunctionsAddress", 0, DWORD()),
+        SHAPE("NamesAddress", 0, DWORD()),
+        SHAPE("NameOrdinalsAddress", 0, DWORD())
+        ]
+
+ImageImportDescriptor = [
+        SHAPE("Characteristics", 0, DWORD()),
+        SHAPE("TimeDateStamp", 0, CTIME()),
+        SHAPE("ForwarderChain", 0, DWORD()),
+        SHAPE("Name", 0, DWORD()),
+        SHAPE("FirstThunk", 0, DWORD())
+        ]
+
 ImageOptionalHeader = [
         SHAPE("Magic",              0,  STRING(fixedValue='\x0b\x01')),
         SHAPE("MajorLinkerVersion", 0,  BYTE()),
@@ -98,7 +120,24 @@ ImageOptionalHeader = [
         SHAPE("HeapCommitSize",   0, DWORD()),
         SHAPE("LoaderFlags",        0, DWORD()),
         SHAPE("NumOfRvaAndSizes", 0, DWORD()),
-        SHAPE("DataDirectory",      0, ARRAY(0x10, STRUCT(ImageDataDirectory)))
+        SHAPE("ExportDir",      0, STRUCT(ImageDataDirectory)),
+        SHAPE("ImportDir",      0, STRUCT(ImageDataDirectory)),
+        SHAPE("ResDir",         0, STRUCT(ImageDataDirectory)),
+        SHAPE("ExceptionDir",   0, STRUCT(ImageDataDirectory)),
+        SHAPE("SecurityDir",    0, STRUCT(ImageDataDirectory)),
+        SHAPE("BaserelocDir",   0, STRUCT(ImageDataDirectory)),
+        SHAPE("DebugDir",       0, STRUCT(ImageDataDirectory)),
+        SHAPE("ArchDir",        0, STRUCT(ImageDataDirectory)),
+        SHAPE("GlobalsDir",     0, STRUCT(ImageDataDirectory)),
+        SHAPE("TLSDir",         0, STRUCT(ImageDataDirectory)),
+        SHAPE("LoadConfDir",    0, STRUCT(ImageDataDirectory)),
+        SHAPE("BoundImportDir", 0, STRUCT(ImageDataDirectory)),
+        SHAPE("IATDir",         0, STRUCT(ImageDataDirectory)),
+        SHAPE("DelayImportDir", 0, STRUCT(ImageDataDirectory)),
+        SHAPE("ComDescriptorDir", 0, STRUCT(ImageDataDirectory)),
+        SHAPE("ReservedDir",    0, STRUCT(ImageDataDirectory)),
+        SHAPE("Exports", lambda ctx, addr: (ctx._perent._perent.AddressOfe_magic + ctx.ExportDir.VirtualAddress, ctx.ExportDir.VirtualAddress), STRUCT(ImageExportDirectory)),
+        SHAPE("Imports", lambda ctx, addr: (ctx._perent._perent.AddressOfe_magic + ctx.ImportDir.VirtualAddress, ctx.ImportDir.VirtualAddress), STRUCT(ImageImportDescriptor))
         ]
 
 ImageNtHeaders = [
@@ -121,11 +160,22 @@ ImageDosHeader = [
         SHAPE("e_cs", 0, WORD()),
         SHAPE("e_lfarlc", 0, WORD()),
         SHAPE("e_ovno", 0, WORD()),
-        SHAPE("e_res", 0, ARRAY(4, WORD())),
+        SHAPE("e_res", 0, ARRAY(4, WORD, ())),
         SHAPE("e_oemid", 0, WORD()),
         SHAPE("e_oeminfo", 0, WORD()),
-        SHAPE("e_res2", 0, ARRAY(10, WORD())),
+        SHAPE("e_res2", 0, ARRAY(10, WORD, ())),
         SHAPE("e_lfanew", 0, DWORD()),
-        SHAPE("PE", 0x1000, STRUCT(ImageNtHeaders), lambda ctx, val: ctx.OffsetOfPE == ctx.e_lfanew)
+        SHAPE("PE", lambda ctx, addr: (addr + ctx.e_lfanew, ctx.e_lfanew), STRUCT(ImageNtHeaders))
         ]
+
+#def getImports(baseCtx):
+#    IMPORT_DESCRIPTOR_SIZE = 5 * 4
+#    importsPat = []
+#    importsAddr = baseCtx.PE.OptionalHeader.AddressOfImports
+#    importsSize = baseCtx.PE.OptionalHeader.ImportDir.Size
+#    numDescriptors = importsSize / IMPORT_DESCRIPTOR_SIZE
+#    for i in range(numDescriptors):
+#        importsPat.append(
+#                SHAPE("Import%06x" % i, 0, STRUCT(ImageImportDescriptor)))
+
 
