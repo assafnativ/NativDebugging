@@ -56,6 +56,14 @@ class MemReaderBaseWin( MemReaderBase ):
                 return base
         raise Exception("Can't find module")
 
+    def getModulePath( self, base ):
+        if isinstance(base, str):
+            base = self.findModule(base)
+        file_name = ARRAY(c_char, 10000)('\x00')
+        file_name_size = c_uint(0)
+        GetModuleFileName(base, byref(file_name), byref(file_name_size))
+        return file_name.raw.replace('\x00\x00', '').decode('utf16')
+
     def _getSomePEInfo( self, module_base ):
         pe = module_base + self.readDword( module_base + win32con.PE_POINTER_OFFSET )
         first_section = self.readWord( pe + win32con.PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET) + win32con.PE_SIZEOF_NT_HEADER

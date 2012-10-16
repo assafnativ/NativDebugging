@@ -229,6 +229,13 @@ GetModuleBaseName.argtypes = [
     c_uint ]    # DWORD nSize
 GetModuleBaseName.restype = ErrorIfZero
 
+GetModuleFileName = windll.kernel32.GetModuleFileNameW
+GetModuleFileName.argtypes = [
+    c_void_p,   # HMODULE hModule
+    c_void_p,   # LPTSTR lpFilename
+    c_void_p ]    # DWORD nSize
+GetModuleFileName.restype = ErrorIfZero
+
 GetModuleInformation = windll.psapi.GetModuleInformation
 GetModuleInformation.argtypes = [
     c_void_p,   # HANDLE hProcess
