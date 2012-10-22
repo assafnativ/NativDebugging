@@ -46,17 +46,20 @@ class SearchContext( object ):
                 (not x.startswith('SizeOf')) and \
                 (not x.startswith('_'))]
         items = [(\
-                self.__dict__['AddressOf' + item], \
-                self.__dict__['OffsetOf'  + item], \
-                self.__dict__['SizeOf'    + item], \
+                getattr(self, 'AddressOf' + item),
+                getattr(self, 'OffsetOf'  + item), \
+                getattr(self, 'SizeOf'    + item), \
                 item) for item in items]
         items.sort()
         for addr, offset, sizeOf, item in items:
-            val = self.__dict__[item]
+            val = getattr(self, item)
             if isinstance(val, SearchContext):
                 result += '\t' * depth
-                result += '%-20s@%08x (offset: %08x) size %04x val:\n' % (\
+                result += '%-20s@%08x (offset: %08x) size %04x val' % (\
                         item + ':', addr, offset, sizeOf)
+                if hasattr(val, '_val'):
+                    result += '%x' % val._val
+                result += ':\n'
                 result += val._repr(depth+1)
             elif isinstance(val, list):
                 result += '\t' * depth
@@ -73,11 +76,10 @@ class SearchContext( object ):
                         result += '\t' * depth
                         result += var.__repr__()
                         result += '\n'
-
             else:
                 result += '\t' * depth
                 result += '%-20s@%08x (offset: %08x) size %04x val %s\n' % (\
-                        item + ':', addr, offset, sizeOf, self.__dict__[item].__repr__())
+                        item + ':', addr, offset, sizeOf, repr(getattr(self, item)))
         return result
 
 def CreatePatternsFinder( memReader ):
@@ -156,8 +158,8 @@ class PatternFinder( object ):
     def __genSetColor(self, displayContext, name, size, color):
         return lambda context, value: displayContext.addColorRanges( \
                 (
-                    context.__dict__['AddressOf%s' % name], 
-                    max(context.__dict__['SizeOf%s' % name], 1), 
+                    getattr(context, 'AddressOf' + name), 
+                    max(getattr(context, 'SizeOf' + name), 1), 
                     color, 
                     name) ) or True
     def __paintPattern(self, depth, pattern, displayContext):
@@ -167,7 +169,7 @@ class PatternFinder( object ):
             data = shape.getData()
             # Check if recursive
             while isinstance(data, POINTER_TO_STRUCT):
-                data = data.pattern
+                data = data.content
             if isinstance(data, STRUCT):
                 self.__paintPattern(depth-1, data.pattern.content, displayContext)
             if None == shape.extraCheck:
@@ -189,7 +191,7 @@ class PatternFinder( object ):
         self.__paintPattern(maxDepth, pattern, displayContext)
         return self.search(pattern, startAddress, context=context)
     def __genDisplayText(self, name):
-        return lambda context, value: sys.stdout.write('%s found @%08x%s'  % (name, context.__dict__['AddressOf%s' % name], linesep) ) or True
+        return lambda context, value: sys.stdout.write('%s found @%08x%s'  % (name, getattr(context, 'AddressOf%s' % name), linesep) ) or True
     def __textPattern(self, depth, pattern):
         if 0 == depth:
             return
@@ -197,7 +199,7 @@ class PatternFinder( object ):
             data = shape.getData()
             # Check if recursive
             while isinstance(data, POINTER_TO_STRUCT):
-                data = data.pattern
+                data = data.content
             if isinstance(data, STRUCT):
                 self.__textPattern(depth-1, data.content)
             if None == shape.extraCheck:
@@ -213,7 +215,7 @@ class PatternFinder( object ):
            
 
 def GetOffsetByName( result, name ):
-    return result.__dict__['OffsetOf' + name]
+    return getattr(result, 'OffsetOf' + name)
 
 def xrangeWithOffset( start, end, step, addr ):
     pos = start
@@ -222,7 +224,12 @@ def xrangeWithOffset( start, end, step, addr ):
         pos += step
 
 def xrangeFromContext( proc, context, addr ):
-    yield proc(context, addr)
+    result = proc(context, addr)
+    if hasattr(result, 'next'):
+        for x in result:
+            yield x
+    else:
+        yield proc(context, addr)
 
 class SHAPE( object ):
     def __init__(self, name, place, data, extraCheckFunction=None, fromStart=False):
@@ -273,29 +280,26 @@ class SHAPE( object ):
         if 0 != lastAddress and False == self.fromStart:
             delta = lastAddress - start
             if 0 != (delta % self.alignment):
-                delta += (self.alignment - (delta % self.alignment))
-            if 0 != (start % self.alignment):
-                start += (self.alignment - (start % self.alignment))
-            if None != self.rangeProc:
-                return self.procIterator(self.rangeProc, context, start)
+                delta -= delta % (-self.alignment)
             return self.iterator( \
                     self.minOffset + delta, 
                     self.maxOffset + delta, 
                     self.alignment, 
                     start )
-        else:
-            if 0 != (start % self.alignment):
-                start += (self.alignment - (start % self.alignment))
-            return self.iterator( self.minOffset, self.maxOffset, self.alignment, start )
+        if 0 != (start % self.alignment):
+            start -= start % (-self.alignment)
+        if None != self.rangeProc:
+            return self.procIterator(self.rangeProc, context, start)
+        return self.iterator( self.minOffset, self.maxOffset, self.alignment, start )
     def getData(self):
         return self.data
     def isValid(self, patFinder, address, offset, context):
         value = self.data.readValue(patFinder, address)
         self.currentValue = value
-        context.__dict__[self.name] = value
-        context.__dict__['AddressOf' + self.name] = address
-        context.__dict__['OffsetOf' + self.name] = offset
-        context.__dict__['SizeOf' + self.name] = len(self.data)
+        setattr(context, self.name, value)
+        setattr(context, 'AddressOf' + self.name, address)
+        setattr(context, 'OffsetOf'  + self.name, offset)
+        setattr(context, 'SizeOf'    + self.name, len(self.data))
         for x in self.data.isValid(patFinder, address, value):
             if None != self.extraCheck:
                 if True == self.extraCheck(context, value):
@@ -382,7 +386,7 @@ class STRUCT( DATA_TYPE ):
             total_size += len(shape.getData())
         return total_size
     def __repr__(self):
-        return self.context.__repr__()
+        return repr(self.context)
     def readValue(self, patFinder, address):
         return self.context
     def isValid(self, patFinder, address, value):
@@ -390,9 +394,17 @@ class STRUCT( DATA_TYPE ):
             yield True
 
 class POINTER_TO_STRUCT( POINTER ):
-    def __init__(self, pattern, **kw):
-        self.pattern        = pattern
+    def __init__(self, content, **kw):
+        self.content        = content
+        self.context        = SearchContext()
         POINTER.__init__(self, **kw)
+    def setForSearch(self, patFinder, context):
+        POINTER.setForSearch(self, patFinder, context)
+        self.context._perent = context
+        for shape in self.content:
+            shape.setForSearch(patFinder, self.context)
+    def __repr__(self):
+        return "Ptr:0x%x\n" + repr(self.context)
     def readValue(self, patFinder, address):
         ptr = patFinder.readAddr(address)
         if patFinder.isAddressValid(ptr):
@@ -403,13 +415,16 @@ class POINTER_TO_STRUCT( POINTER ):
                 return None
         else:
             return None
-        return ptr
+        self.context._val = ptr
+        return self.context
     def isValid(self, patFinder, address, value):
-        if self.isNullValid and 0 == value:
+        if None == value:
+            return
+        ptr = value._val
+        if self.isNullValid and 0 == ptr:
             yield True
-        elif None != value and patFinder.isAddressValid(value):
-            content = self.pattern.readValue(patFinder, value)
-            for x in self.pattern.isValid(patFinder, value, content):
+        else:
+            for x in patFinder.search(self.content, ptr, lastAddress=0, context=self.context):
                 yield True
 
 class NUMBER( DATA_TYPE ):
