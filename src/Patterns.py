@@ -214,8 +214,25 @@ class PatternFinder( object ):
         return self.search(pattern, startAddress, context=context)
            
 
-def GetOffsetByName( result, name ):
-    return getattr(result, 'OffsetOf' + name)
+def GetItemsByName( context, name ):
+    if hasattr(context, name):
+        yield getattr(context, name)
+    items = [x for x in context.__dict__.keys() if \
+            (not x.startswith('_'))]
+    for itemName in items:
+        item = getattr(context, itemName)
+        if isinstance(item, SearchContext):
+            for result in GetItemsByName(item, name):
+                yield result
+
+def GetOffsetByName( context, name ):
+    return GetItemsByName(context, 'OffsetOf' + name).next()
+
+def GetAddressByName( context, name ):
+    return GetItemsByName(context, 'AddressOf' + name).next()
+
+def GetSizeOfByName( context, name ):
+    return GetItemsByName(context, 'SizeOf' + name).next()
 
 def xrangeWithOffset( start, end, step, addr ):
     pos = start
