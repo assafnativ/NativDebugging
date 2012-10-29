@@ -58,7 +58,7 @@ class SearchContext( object ):
                 result += '%-20s@%08x (offset: %08x) size %04x val' % (\
                         item + ':', addr, offset, sizeOf)
                 if hasattr(val, '_val'):
-                    result += '%x' % val._val
+                    result += ' %x' % val._val
                 result += ':\n'
                 result += val._repr(depth+1)
             elif isinstance(val, list):
