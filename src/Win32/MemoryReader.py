@@ -241,6 +241,9 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             import pefile
         except ImportError:
             raise Exception("You must install the pefile module to use this function")
+        if None == EnumProcessModulesEx:
+            raise Exception("This function is not supported on this build of Windows")
+        
         result = {}
 
         # Get all modules names, and on the way the size of the binary of each module

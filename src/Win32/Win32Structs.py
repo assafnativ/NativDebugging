@@ -205,14 +205,17 @@ EnumProcessModules.argtypes = [
     c_void_p ]  # LPDWORD lpcbNeeded
 EnumProcessModules.restype = ErrorIfZero
 
-EnumProcessModulesEx = windll.psapi.EnumProcessModulesEx
-EnumProcessModulesEx.argtypes = [
-    c_void_p,   # HANDLE hProcess
-    c_void_p,   # HMODULE* lphModule
-    c_uint,     # DWORD cb
-    c_void_p,   # LPDWORD lpcbNeeded
-    c_uint]     # DWORD dwFilterFlag
-EnumProcessModulesEx.restype = ErrorIfZero
+try:
+    EnumProcessModulesEx = windll.psapi.EnumProcessModulesEx
+    EnumProcessModulesEx.argtypes = [
+        c_void_p,   # HANDLE hProcess
+        c_void_p,   # HMODULE* lphModule
+        c_uint,     # DWORD cb
+        c_void_p,   # LPDWORD lpcbNeeded
+        c_uint]     # DWORD dwFilterFlag
+    EnumProcessModulesEx.restype = ErrorIfZero
+except AttributeError, e:
+    EnumProcessModulesEx = None
 
 EnumProcesses = windll.psapi.EnumProcesses
 EnumProcesses.argtypes = [
