@@ -132,13 +132,20 @@ class SharedMemReader( MemReaderBase ):
                 return True
         return False
 
-    def readString(self, address):
+    def readString( self, addr, maxSize=None, isUnicode=False ):
         result = ''
+        bytesCounter = 0
+
         while True:
-            c = self.readByte(address)
-            address += 1
-            if 0x20 <= c and c < 0x80:
+            if False == isUnicode:
+                c = self.readByte(addr + bytesCounter)
+                bytesCounter += 1
+            else:
+                c = self.readWord(addr + bytesCounter)
+                bytesCounter += 2
+            if 1 < c and c < 0x80:
                 result += chr(c)
             else:
                 return result
-
+            if None != maxSize and bytesCounter > maxSize:
+                return result

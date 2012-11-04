@@ -130,6 +130,7 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
             return c_uint32.from_address(address).value
         else:
             return c_uint64.from_address(address).value
+
     def isAddressValid(self, address, isLocalAddress=False):
         if not isLocalAddress:
             for mem in self.memMap:
@@ -140,13 +141,22 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
                 if address >= mem.localAddress and address < mem.localAddressEnd:
                     return True
         return False
-    def readString(self, address, isLocalAddress=False):
+
+    def readString( self, addr, isLocalAddress=False, maxSize=None, isUnicode=False ):
         result = ''
+        bytesCounter = 0
+
         while True:
-            c = self.readByte(address, isLocalAddress=isLocalAddress)
-            address += 1
-            if 0x20 <= c and c < 0x80:
+            if False == isUnicode:
+                c = self.readByte(addr + bytesCounter, isLocalAddress=isLocalAddress)
+                bytesCounter += 1
+            else:
+                c = self.readWord(addr + bytesCounter, isLocalAddress=isLocalAddress)
+                bytesCounter += 2
+            if 1 < c and c < 0x80:
                 result += chr(c)
             else:
+                return result
+            if None != maxSize and bytesCounter > maxSize:
                 return result
 
