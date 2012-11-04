@@ -168,9 +168,7 @@ class PatternFinder( object ):
         for shape in pattern:
             data = shape.getData()
             # Check if recursive
-            while isinstance(data, POINTER_TO_STRUCT):
-                data = data.content
-            if isinstance(data, STRUCT):
+            if isinstance(data, (POINTER_TO_STRUCT, STRUCT)):
                 self.__paintPattern(depth-1, data.pattern.content, displayContext)
             if None == shape.extraCheck:
                 shape.extraCheck = self.__genSetColor(displayContext, shape.name, '#%06x' % self.color)
@@ -198,9 +196,7 @@ class PatternFinder( object ):
         for shape in pattern:
             data = shape.getData()
             # Check if recursive
-            while isinstance(data, POINTER_TO_STRUCT):
-                data = data.content
-            if isinstance(data, STRUCT):
+            if isinstance(data, (POINTER_TO_STRUCT, STRUCT)):
                 self.__textPattern(depth-1, data.content)
             if None == shape.extraCheck:
                 shape.extraCheck = self.__genDisplayText(shape.name)
