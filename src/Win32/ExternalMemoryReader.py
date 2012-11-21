@@ -112,14 +112,28 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
             if (0xfffff80000000000 & address) or (0 == (0xffffffffffff0000 & address)):
                 return False
         return True
-    def readString(self, address):
+
+    def readString( self, addr, maxSize=None, isUnicode=False ):
         result = ''
+        bytesCounter = 0
         while True:
-            c = self.readByte(address)
-            address += 1
-            if 0x20 <= c and c < 0x80:
-                result += chr(c)
+            if False == isUnicode:
+                try:
+                    char = self.readByte(address + bytesCounter)
+                except WindowsError:
+                    return result
+                bytesCounter += 1
             else:
+                try:
+                    char = self.readWord(address + bytesCounter)
+                except WindowsError:
+                    return result
+                bytesCounter += 2
+            if 1 < char.value and char.value < 0x80:
+                result += chr(char.value)
+            else:
+                return result
+            if None != maxSize and bytesCounter > maxSize:
                 return result
 
     def getSupportedPlatfroms( self ):
