@@ -113,7 +113,7 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
                 return False
         return True
 
-    def readString( self, addr, maxSize=None, isUnicode=False ):
+    def readString( self, address, maxSize=None, isUnicode=False ):
         result = ''
         bytesCounter = 0
         while True:
