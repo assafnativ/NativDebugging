@@ -129,8 +129,8 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
                 except WindowsError:
                     return result
                 bytesCounter += 2
-            if 1 < char.value and char.value < 0x80:
-                result += chr(char.value)
+            if 1 < char and char < 0x80:
+                result += chr(char)
             else:
                 return result
             if None != maxSize and bytesCounter > maxSize:
