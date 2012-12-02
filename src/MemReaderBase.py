@@ -4,6 +4,10 @@ from .Interfaces import MemReaderInterface, ReadError
 from .Utile import *
 from .RecursiveFind import *
 
+if 'WindowsError' not in globals():
+    class WindowsError(Exception):
+        pass
+
 class MemReaderBase( RecursiveFind ):
     """ Few basic functions for memory reader, still abstruct """
     __metaclass__ = ABCMeta
