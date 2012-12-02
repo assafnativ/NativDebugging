@@ -270,7 +270,7 @@ class SHAPE( object ):
         elif isinstance(place, (int, long)):
             self.minOffset = 0
             self.maxOffset = place
-        elif hasattr(place, '__call__') and 'mixOffset' not in place.__dict__:
+        elif hasattr(place, '__call__') and not hasattr(place, 'mixOffset'):
             self.rangeProc = place
         else:
             self.minOffset = place.minOffset
