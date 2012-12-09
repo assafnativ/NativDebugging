@@ -34,6 +34,7 @@ except ImportError as e:
     IS_DISASSEMBLER_FOUND = False
 import sys
 import struct
+import exceptions
 
 def attach(targetProcessId):
     return MemoryReader(targetProcessId)
@@ -144,13 +145,13 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
             if False == isUnicode:
                 try:
                     ReadProcessMemory( self._process, addr + bytesCounter, byref(char), 1, byref(bytes_read) )
-                except WindowsError:
+                except exceptions.WindowsError:
                     return result
                 bytesCounter += 1
             else:
                 try:
                     ReadProcessMemory( self._process, addr + bytesCounter, byref(char), 2, byref(bytes_read) )
-                except WindowsError:
+                except exceptions.WindowsError:
                     return result
                 bytesCounter += 2
             if 1 < char.value and char.value < 0x80:

@@ -23,6 +23,7 @@
 from ..MemReaderBase import *
 from .Win32Structs import *
 from .Win32Utile import *
+import exceptions
 
 class MemReaderBaseWin( MemReaderBase ):
     def getEndianity(self):
@@ -194,7 +195,7 @@ class MemReaderBaseWin( MemReaderBase ):
                     print('Failed to duplicate handle %x' % systemHandles[i].Handle)
                     continue
                 objectHandle = objectHandle.value
-            except WindowsError as e:
+            except exceptions.WindowsError as e:
                 needToClose = False
                 if 5 == e.winerror:
                     objectHandle = systemHandles[i].Handle
