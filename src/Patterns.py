@@ -290,18 +290,19 @@ class SHAPE( object ):
     def getPlace(self):
         return self.place
     def getValidRange(self, start, lastAddress=0, context=None):
-        if 0 != lastAddress and False == self.fromStart:
-            delta = lastAddress - start
-            if 0 != (delta % self.alignment):
-                delta -= delta % (-self.alignment)
-            return self.iterator( \
-                    self.minOffset + delta, 
-                    self.maxOffset + delta, 
-                    self.alignment, 
-                    start )
-        if 0 != (start % self.alignment):
-            start -= start % (-self.alignment)
-        if None != self.rangeProc:
+        if None == self.rangeProc:
+            if 0 != lastAddress and False == self.fromStart:
+                delta = lastAddress - start
+                if 0 != (delta % self.alignment):
+                    delta -= delta % (-self.alignment)
+                return self.iterator( \
+                        self.minOffset + delta, 
+                        self.maxOffset + delta, 
+                        self.alignment, 
+                        start )
+            if 0 != (start % self.alignment):
+                start -= start % (-self.alignment)
+        else:
             return self.procIterator(self.rangeProc, context, start)
         return self.iterator( self.minOffset, self.maxOffset, self.alignment, start )
     def getData(self):

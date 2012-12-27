@@ -6,6 +6,8 @@ __all__ = [
         "QtWidgets",
         "GUIDisplayBase",
         "Utile" ]
+from . import File
+__all__.append('File')
 
 import sys
 if sys.platform.lower().startswith('win'):
