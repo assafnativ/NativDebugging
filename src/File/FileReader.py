@@ -52,9 +52,9 @@ class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
     def readAddr( self, addr ):
         self._file.seek(addr)
         if 4 == self._POINTER_SIZE:
-            return unpack(self._ENDIANITY + 'L', self.read(4))
+            return unpack(self._ENDIANITY + 'L', self._file.read(4))
         elif 8 == self._POINTER_SIZE:
-            return unpack(self._ENDIANITY + 'Q', self.read(8))
+            return unpack(self._ENDIANITY + 'Q', self._file.read(8))
         else:
             raise Exception("Unknown pointer size")
 
