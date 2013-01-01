@@ -90,7 +90,7 @@ ImageImportDescriptor = [
         ]
 
 ImageOptionalHeader = [
-        SHAPE("Magic",              0,  STRING(fixedValue='\x0b\x01')),
+        SHAPE("Magic",              0,  WORD([0x010b, 0x020b])),
         SHAPE("MajorLinkerVersion", 0,  BYTE()),
         SHAPE("MinorLinkerVersion", 0,  BYTE()),
         SHAPE("CodeSize",         0,  DWORD()),

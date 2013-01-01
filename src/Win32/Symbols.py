@@ -1,10 +1,10 @@
 #
 #   Symbols.py
 #
-#   pyMint - Remote process memory inspection python module
-#   https://code.google.com/p/pymint/
-#   Nativ.Assaf+pyMint@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#   Win32 executables symbols handler for python
+#   https://xp-dev.com/svn/nativDebugging/
+#   Nativ.Assaf@gmail.com
+#   Copyright (C) 2013  Assaf Nativ
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,35 +22,104 @@
 
 
 from .Win32Structs import *
+import urllib2
+import time
+import datetime
 
 collectedSymbols = []
 
+def downloadBinaryFromSymbolsServer( filename, date_time, file_size ):
+    if isinstance(date_time, str):
+        date_time = int(time.mktime(time.strptime(date_time)))
+    elif not isinstance(date_time, (int, long)):
+        date_time = int(time.mktime(date_time))
+    url  = "http://msdl.microsoft.com/download/symbols/"
+    url += filename
+    url += "/"
+    url += "%x" % date_time
+    url += "%x" % file_size
+    url += "/"
+    url += filename[:-1] + '_'
+    req = urllib2.Request(url=url)
+    req.add_header("Accept-Encoding", "gzip")
+    req.add_header("User-Agent", "Microsoft-Symbol-Server/6.2.8250.0")
+    req.add_header("Host", "msdl.microsoft.com")
+    req.add_header("Connection", "Keep-Alive")
+    req.add_header("Cache-Control", "no-cache")
+    try:
+        res = urllib2.urlopen(req)
+    except urllib2.HTTPError, e:
+        if 404 == e.getcode():
+            return
+    data = res.read()
+    res.close()
+    return data
+
+def bruteForceDateTimeDownload(filename, date, file_size, is_verbose=True):
+    if isinstance(date, tuple):
+        start = int(time.mktime((date[0], date[1], date[2], 0, 0, 0, 0, 0, 0)))
+    elif isinstance(date, (int, long)):
+        start = date
+    else:
+        raise Exception("Don't know how to translate the date to int")
+    # Make the end time/date the begging of the next day
+    start_date = datetime.date.fromtimestamp(start)
+    end = start_date + datetime.timedelta(days=1)
+    end = int(time.mktime(time.strptime(end.ctime())))
+    if end <= start:
+        raise Exception("Faild to caculate the end date %x" % end)
+    function_timing = time.time()
+    if is_verbose:
+        print "Starting from timestamp %x" % start
+        print "Would end on timestamp  %x" % end
+    for date_time in range(start, end):
+        try:
+            r = downloadBinaryFromSymbolsServer(filename, date_time, file_size)
+            if None != r:
+                print hex(date_time)
+                return r
+            attempts = 0
+            if is_verbose and date_time == (date_time & 0xfffffff0):
+                running_time = time.time() - function_timing
+                number_of_execuations = date_time - start
+                avg = float(number_of_execuations) / running_time
+                if 0 != avg:
+                    left = end - date_time
+                    left_sec = float(left) / avg
+                    print "Last attempt:", hex(date_time), "Secs passed:", int(running_time), "Avg of", avg, "quries/sec. ~%f secs left" % left_sec
+        except Exception, e:
+            print e
+            attempts += 1
+            if attempts > 3:
+                raise e
+            time.sleep(2)
+
 def getSymbols( fileName ):
-	global collectedSymbols
+    global collectedSymbols
 
-	options = SymGetOptions()
-	options |= SYMOPT_DEBUG
-	SymSetOptions( options )
+    options = SymGetOptions()
+    options |= SYMOPT_DEBUG
+    SymSetOptions( options )
 
-	currentProcess = GetCurrentProcess()
-	SymInitialize( currentProcess, None, False )
+    currentProcess = GetCurrentProcess()
+    SymInitialize( currentProcess, None, False )
 
-	base = SymLoadModule64( currentProcess, 0, fileName, None, 0, 0 )
-	collectedSymbols = []
-	SymEnumSymbols( currentProcess, base, None, collectSymbols, None )
+    base = SymLoadModule64( currentProcess, 0, fileName, None, 0, 0 )
+    collectedSymbols = []
+    SymEnumSymbols( currentProcess, base, None, collectSymbols, None )
 
-	SymUnloadModule64( currentProcess, base )
-	SymCleanup( currentProcess )
+    SymUnloadModule64( currentProcess, base )
+    SymCleanup( currentProcess )
 
-	return collectedSymbols
+    return collectedSymbols
 
 def collectSymbols_python( symInfo, symbolSize, ctx ):
-	global collectedSymbols
+    global collectedSymbols
 
-	if False != bool(symInfo):
-		symInfo = symInfo.contents
-		collectedSymbols.append( (symInfo.Name, symInfo.Address) )
-	return True
+    if False != bool(symInfo):
+        symInfo = symInfo.contents
+        collectedSymbols.append( (symInfo.Name, symInfo.Address) )
+    return True
 
 collectSymbols = SYM_ENUMERATESYMBOLS_CALLBACK(collectSymbols_python)
 
@@ -69,42 +138,42 @@ def parseSymbolsDump( symbols_dump ):
     return result
 
 def findSymbol( name, symbols, base=0, isCaseSensitive = True ):
-	if False == isCaseSensitive:
-		name = name.lower()
-	for sym in symbols:
-		if False == isCaseSensitive:
-			symName = sym[0].lower()
-		else:
-			symName = sym[0]
-		if name == symName:
-			return sym[1] + base
-	return 0
+    if False == isCaseSensitive:
+        name = name.lower()
+    for sym in symbols:
+        if False == isCaseSensitive:
+            symName = sym[0].lower()
+        else:
+            symName = sym[0]
+        if name == symName:
+            return sym[1] + base
+    return 0
 
 def findContaining( subText, symbols, base=0, isCaseSensitive = False ):
-	if False == isCaseSensitive:
-		if type(subText) == type(''):
-			subText = subText.lower()
-		elif type(subText) == type([]):
-			subText = [x.lower() for x in subText]
-	for sym in symbols:
-		if False == isCaseSensitive:
-			symName = sym[0].lower()
-		else:
-			symName = sym[0]
-		if type(subText) == type(''):
-			if subText in symName:
-				print('0x{0:x} {1:s}'.format(sym[1]+base, sym[0]))
-		elif type(subText) == type([]):
-			for st in subText:
-				if st not in symName:
-					break
-			else:
-				print('0x{0:x} {1:s}'.format(sym[1]+base, sym[0]))
+    if False == isCaseSensitive:
+        if type(subText) == type(''):
+            subText = subText.lower()
+        elif type(subText) == type([]):
+            subText = [x.lower() for x in subText]
+    for sym in symbols:
+        if False == isCaseSensitive:
+            symName = sym[0].lower()
+        else:
+            symName = sym[0]
+        if type(subText) == type(''):
+            if subText in symName:
+                print('0x{0:x} {1:s}'.format(sym[1]+base, sym[0]))
+        elif type(subText) == type([]):
+            for st in subText:
+                if st not in symName:
+                    break
+            else:
+                print('0x{0:x} {1:s}'.format(sym[1]+base, sym[0]))
 
 def solveAddr( addr, symbols, base = 0 ):
-	for sym in symbols:
-		if sym[1]+base == addr:
-			return( sym[0] )
-	return None
+    for sym in symbols:
+        if sym[1]+base == addr:
+            return( sym[0] )
+    return None
 
 

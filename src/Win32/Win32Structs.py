@@ -495,6 +495,27 @@ SymInitialize.argtypes = [
         c_uint ]    # BOOL fInvadeProcess
 SymInitialize.restype = ErrorIfZero
 
+SYM_FIND_FILE_IN_PATCH_CALLBACK = WINFUNCTYPE( 
+                                        c_char_p, # PCTSTR fileName
+                                        c_void_p) # PVOID context
+SymFindFileInPath = windll.dbghelp.SymFindFileInPath
+SymFindFileInPath.argtypes = [
+        c_uint,     # HANDLE hProcess
+        c_char_p,   # PCTSTR SearchPath
+        c_char_p,   # PCTSTR FileName
+        c_void_p,   # PVOID id
+        c_uint,     # DWORD two
+        c_uint,     # DWORD three
+        c_uint,     # DWORD flags
+        c_void_p,   # PTSTR FilePath
+        c_void_p,   #SYM_FIND_FILE_IN_PATCH_CALLBACK,  # PFINDFILEINPATHCALLBACK callback
+        c_void_p ]  # PVOID contex
+SymFindFileInPath.restype = ErrorIfZero
+
+win32con.SSRVOPT_DWORD      = 0x02 # The id parameter is a DWORD.
+win32con.SSRVOPT_DWORDPTR   = 0x04 # The id parameter is a pointer to a DWORD.
+win32con.SSRVOPT_GUIDPTR    = 0x08 # The id parameter is a pointer to a GUID.
+
 SymLoadModule64 = windll.dbghelp.SymLoadModule64
 SymLoadModule64.argtypes = [
         c_uint,     # HANDLE hProcess
