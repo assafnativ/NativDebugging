@@ -42,6 +42,36 @@ VALID_SECTION_ALGINMENTS = {
         0x00600000:  "32BYTES",
         0x00700000:  "64BYTES" }
 
+PE32_MAGIC  = 0x010b
+PE32P_MAGIC = 0x020b
+VALID_PE_FORMATS = {
+        PE32_MAGIC:  "PE32",
+        PE32P_MAGIC: "PE32P",
+        0x0107: "ROM" }
+
+WINDOWS_SUBSYSTEMS = {
+     0 : "IMAGE_SUBSYSTEM_UNKNOWN",
+     1 : "IMAGE_SUBSYSTEM_NATIVE",
+     2 : "IMAGE_SUBSYSTEM_WINDOWS_GUI",
+     3 : "IMAGE_SUBSYSTEM_WINDOWS_CUI",
+     7 : "IMAGE_SUBSYSTEM_POSIX_CUI",
+     9 : "IMAGE_SUBSYSTEM_WINDOWS_CE_GUI",
+    10 : "IMAGE_SUBSYSTEM_EFI_APPLICATION",
+    11 : "IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER",
+    12 : "IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER",
+    13 : "IMAGE_SUBSYSTEM_EFI_ROM",
+    14 : "IMAGE_SUBSYSTEM_XBOX" }
+
+DLL_CHARACTERISTICS_FALGS = {
+    0x0040  : "DYNAMIC_BASE",
+    0x0080  : "FORCE_INTEGRITY",
+    0x0100  : "NX_COMPAT",
+    0x0200  : "NO_ISOLATION",
+    0x0400  : "NO_SEH",
+    0x0800  : "NO_BIND",
+    0x2000  : "WDM_DRIVER",
+    0x8000  : "TERMINAL_SERVER_AWARE" }
+
 ImageFileHeader = [
         SHAPE("Machine",            0, WORD(VALID_MACHINE_TYPES.keys())),
         SHAPE("NumberOfSections",   0, WORD()),
@@ -52,7 +82,7 @@ ImageFileHeader = [
         SHAPE("Characteristics",    0, WORD()) ]
 
 ImageSectionHeader = [
-        SHAPE("Name",           0, STRING(size=8)),
+        SHAPE("Name",           0, BUFFER(size=8)),
         SHAPE("VirtualSize",    0, DWORD()),
         SHAPE("VirtualAddress", 0, DWORD()),
         SHAPE("RawDataSize",  0, DWORD()),
@@ -89,8 +119,18 @@ ImageImportDescriptor = [
         SHAPE("FirstThunk", 0, DWORD())
         ]
 
+ImageDebugDirectory = [
+        SHAPE("Characteristics",  0, DWORD()),
+        SHAPE("TimeDateStamp",    0, CTIME()),
+        SHAPE("MajorVersion",     0, WORD()),
+        SHAPE("MinorVersion",     0, WORD()),
+        SHAPE("Type",             0, DWORD()),
+        SHAPE("DataSize",         0, DWORD()),
+        SHAPE("AddrOfRawData",    0, DWORD()),
+        SHAPE("PointerToRawData", 0, DWORD()) ]
+
 ImageOptionalHeader = [
-        SHAPE("Magic",              0,  WORD([0x010b, 0x020b])),
+        SHAPE("Magic",              0,  WORD(VALID_PE_FORMATS.keys())),
         SHAPE("MajorLinkerVersion", 0,  BYTE()),
         SHAPE("MinorLinkerVersion", 0,  BYTE()),
         SHAPE("CodeSize",         0,  DWORD()),
@@ -98,8 +138,15 @@ ImageOptionalHeader = [
         SHAPE("UninitializedDataSize", 0, DWORD()),
         SHAPE("EntryPointAddress", 0, DWORD()),
         SHAPE("BaseOfCode",         0, DWORD()),
-        SHAPE("BaseOfData",         0, DWORD()),
-        SHAPE("ImageBase",          0, DWORD()),
+        SHAPE("BaseOfDataImageBase", 0, SWITCH( lambda pf, ctx: ctx.Magic,
+            {
+                PE32_MAGIC  : [
+                    SHAPE("BaseOfData",         0, DWORD()),
+                    SHAPE("ImageBase",          0, DWORD()) ],
+                PE32P_MAGIC : [
+                    SHAPE("ImageBase",          0, QWORD()) ],
+                "default" : [
+                    SHAPE("ImageBase",          0, QWORD()) ] }) ),
         SHAPE("SectionAlignment",   0, DWORD()), #VALID_SECTION_ALGINMENTS.keys())),
         SHAPE("FileAlignment",      0, DWORD()),
         SHAPE("MajorOSVersion", 0, WORD()),
@@ -112,13 +159,22 @@ ImageOptionalHeader = [
         SHAPE("ImageSize",        0, DWORD()),
         SHAPE("HeadersSize",      0, DWORD()),
         SHAPE("CheckSum",           0, DWORD()),
-        SHAPE("Subsystem",          0, WORD()),
-        SHAPE("DllCharacteristics", 0, WORD()),
-        SHAPE("StackReserveSize", 0, DWORD()),
-        SHAPE("StackCommitSize",  0, DWORD()),
-        SHAPE("HeapReserveSize",  0, DWORD()),
-        SHAPE("HeapCommitSize",   0, DWORD()),
-        SHAPE("LoaderFlags",        0, DWORD()),
+        SHAPE("Subsystem",          0, WORD(WINDOWS_SUBSYSTEMS.keys())),
+        SHAPE("DllCharacteristics", 0, FLAGS(DLL_CHARACTERISTICS_FALGS, size=2)),
+        SHAPE("Stack", 0, SWITCH( lambda pf, ctx: ctx.Magic,
+            {
+                PE32_MAGIC  : [
+                    SHAPE("StackReserveSize", 0, DWORD()),
+                    SHAPE("StackCommitSize",  0, DWORD()),
+                    SHAPE("HeapReserveSize",  0, DWORD()),
+                    SHAPE("HeapCommitSize",   0, DWORD()) ],
+                PE32P_MAGIC  : [
+                    SHAPE("StackReserveSize", 0, QWORD()),
+                    SHAPE("StackCommitSize",  0, QWORD()),
+                    SHAPE("HeapReserveSize",  0, QWORD()),
+                    SHAPE("HeapCommitSize",   0, QWORD()) ]
+                }) ),
+        SHAPE("LoaderFlags",        0, DWORD(0)),
         SHAPE("NumOfRvaAndSizes", 0, DWORD()),
         SHAPE("ExportDir",      0, STRUCT(ImageDataDirectory)),
         SHAPE("ImportDir",      0, STRUCT(ImageDataDirectory)),
@@ -134,16 +190,15 @@ ImageOptionalHeader = [
         SHAPE("BoundImportDir", 0, STRUCT(ImageDataDirectory)),
         SHAPE("IATDir",         0, STRUCT(ImageDataDirectory)),
         SHAPE("DelayImportDir", 0, STRUCT(ImageDataDirectory)),
-        SHAPE("ComDescriptorDir", 0, STRUCT(ImageDataDirectory)),
-        SHAPE("ReservedDir",    0, STRUCT(ImageDataDirectory)),
-        SHAPE("Exports", lambda ctx, addr: (ctx._perent._perent.AddressOfe_magic + ctx.ExportDir.VirtualAddress, ctx.ExportDir.VirtualAddress), STRUCT(ImageExportDirectory)),
-        SHAPE("Imports", lambda ctx, addr: (ctx._perent._perent.AddressOfe_magic + ctx.ImportDir.VirtualAddress, ctx.ImportDir.VirtualAddress), STRUCT(ImageImportDescriptor))
-        ]
+        SHAPE("CLRRuntimeDir",  0, STRUCT(ImageDataDirectory)),
+        SHAPE("ReservedDir",    0, STRUCT(ImageDataDirectory)) ]
 
 ImageNtHeaders = [
         SHAPE("Signature", 0, STRING(fixedValue='PE\x00\x00')),
         SHAPE("FileHeader", 0, STRUCT(ImageFileHeader)),
-        SHAPE("OptionalHeader", 0, STRUCT(ImageOptionalHeader)) ]
+        SHAPE("OptionalHeader", 0, STRUCT(ImageOptionalHeader)),
+        SHAPE("Sections", 0, \
+                ARRAY(lambda pf, ctx: ctx.FileHeader.NumberOfSections, STRUCT, [ImageSectionHeader])) ]
 
 ImageDosHeader = [
         SHAPE("e_magic", 0, STRING(fixedValue="MZ")),
