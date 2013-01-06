@@ -38,18 +38,37 @@ class SearchContext( object ):
     def __repr__(self):
         return self._repr(0)
 
-    def _repr(self, depth):
-        result = ''
-        items = [x for x in self.__dict__.keys() if \
+    def _getItemNames(self):
+        return [x for x in self.__dict__.keys() if \
                 (not x.startswith('AddressOf')) and \
                 (not x.startswith('OffsetOf')) and \
                 (not x.startswith('SizeOf')) and \
                 (not x.startswith('_'))]
+
+    def __len__(self):
+        itemNames = self._getItemNames()
         items = [(\
-                getattr(self, 'AddressOf' + item),
+                getattr(self, 'OffsetOf'  + item), \
+                getattr(self, 'SizeOf'    + item)) \
+                for item in itemNames if hasattr(self, 'SizeOf' + item)]
+        if 0 == len(items):
+            return 0
+        items.sort()
+        return items[-1][0] + items[-1][1]
+
+    def _repr(self, depth):
+        result = ''
+        itemNames = self._getItemNames()
+        items = [(\
+                getattr(self, 'AddressOf' + item), \
                 getattr(self, 'OffsetOf'  + item), \
                 getattr(self, 'SizeOf'    + item), \
-                item) for item in items]
+                item) for item in itemNames if hasattr(self, 'SizeOf' + item)]
+        items.extend([(\
+                getattr(self, 'AddressOf' + item), \
+                getattr(self, 'OffsetOf'  + item), \
+                -1, \
+                item) for item in itemNames if not hasattr(self, 'SizeOf' + item)])
         items.sort()
         for addr, offset, sizeOf, item in items:
             val = getattr(self, item)
@@ -65,17 +84,20 @@ class SearchContext( object ):
                 result += '\t' * depth
                 result += '%-20s@%08x (offset: %08x) size %04x val:\n' % (\
                         item + ':', addr, offset, sizeOf)
-                for i, (subAddr, var) in enumerate(val):
-                    result += '\t' * depth
-                    result += '%8x:           @%08x (offset: %08x) val:' % (\
-                            i, subAddr, subAddr - addr)
+                subAddr = 0
+                for i, var in enumerate(val):
                     if isinstance(var, SearchContext):
-                        result += '\n'
-                        result += var._repr(depth+1)
+                        result += '\t' * depth
+                        result += "Index %d: " % i
+                        result += var._repr(depth).lstrip()
                     else:
+                        result += '\t' * depth
+                        result += '%8x:           @%08x (offset: %08x) val:' % (\
+                            i, subAddr, subAddr - addr)
                         result += '\t' * depth
                         result += var.__repr__()
                         result += '\n'
+                    subAddr += len(var)
             else:
                 result += '\t' * depth
                 result += '%-20s@%08x (offset: %08x) size %04x val %s\n' % (\
@@ -255,7 +277,7 @@ class SHAPE( object ):
                 name.startswith('OffsetOf') or \
                 name.startswith('SizeOf') or \
                 name.startswith('_'):
-            raise Exception("Invalid name for shape")
+            raise Exception("Invalid shape name (%s)" % name)
         self.name       = name
         self.place      = place
         self.iterator   = xrangeWithOffset
@@ -313,13 +335,28 @@ class SHAPE( object ):
         setattr(context, self.name, value)
         setattr(context, 'AddressOf' + self.name, address)
         setattr(context, 'OffsetOf'  + self.name, offset)
-        setattr(context, 'SizeOf'    + self.name, len(self.data))
         for x in self.data.isValid(patFinder, address, value):
+            setattr(context, 'SizeOf'    + self.name, len(self.data))
             if None != self.extraCheck:
                 if True == self.extraCheck(context, value):
                     yield True
             else:
                 yield True
+
+def _getPatternSize(context, pattern):
+    # Find top offset
+    topOffset = -1
+    topOffsetShape = None
+    for shape in pattern:
+        offsetName = 'OffsetOf' + shape.name
+        if hasattr(context, offsetName):
+            offset = getattr(context, 'OffsetOf' + shape.name)
+            if offset > topOffset:
+                topOffset = offset
+                topOffsetShape = shape
+    if None == topOffsetShape:
+        return 0
+    return topOffset + len(topOffsetShape.getData())
 
 class DATA_TYPE( object ):
     def __init__(self, desc = ""):
@@ -394,11 +431,7 @@ class STRUCT( DATA_TYPE ):
         for shape in self.content:
             shape.setForSearch(patFinder, self.context)
     def __len__(self):
-        # TODO: add the offsets
-        total_size = 0
-        for shape in self.content:
-            total_size += len(shape.getData())
-        return total_size
+        return _getPatternSize(self.context, self.content)
     def __repr__(self):
         return repr(self.context)
     def readValue(self, patFinder, address):
@@ -441,6 +474,44 @@ class POINTER_TO_STRUCT( POINTER ):
             for x in patFinder.search(self.content, ptr, lastAddress=0, context=self.context):
                 yield True
 
+class DATA_TYPE_FAIL( DATA_TYPE ):
+    def __len__(self):
+        return 0
+    def readValue(self, patFinder, address):
+        return None
+    def isValid(self, patFinder, address, value):
+        return
+
+# At the time of the call to the switch the context must contain all the information needed to decide
+class SWITCH( DATA_TYPE ):
+    def __init__(self, chooseProc, cases, **kw):
+        self.cases = cases
+        self.chooseProc = chooseProc
+        DATA_TYPE.__init__(self, **kw)
+    def setForSearch(self, patFinder, context):
+        self.perentContext = context
+    def __len__(self):
+        return _getPatternSize(self.context, self.currentPattern)
+    def __repr__(self):
+        return repr(self.context)
+    def readValue(self, patFinder, address):
+        self.context = SearchContext()
+        perentContext = self.perentContext
+        self.context._perent = perentContext
+        case = self.chooseProc(patFinder, perentContext)
+        if case not in self.cases:
+            if "default" in self.cases:
+                self.currentPattern = self.cases["default"]
+            else:
+                self.currentPattern = [SHAPE("CASE_NOT_FOUND", 0, DATA_TYPE_FAIL())]
+        self.currentPattern = self.cases[case]
+        for shape in self.currentPattern:
+            shape.setForSearch(patFinder, self.context)
+        return self.context
+    def isValid(self, patFinder, address, value):
+        for x in patFinder.search(self.currentPattern, address, lastAddress=0, context=self.context):
+            yield True
+    
 class NUMBER( DATA_TYPE ):
     def __init__(self, value=None, size=None, alignment=None, isSigned=False, endianity='=', **kw):
         self.sizeOfData   = size
@@ -516,6 +587,21 @@ class CTIME( NUMBER ):
         NUMBER.__init__(self, value, size=4, alignment=alignment, isSigned=False, endianity=endianity, **kw)
     def __repr__(self):
         return "CTime"
+
+class FLAGS( NUMBER ):
+    def __init__(self, flagsDesc, checkInvalidFlags=True, **kw):
+        self.flagsDesc = flagsDesc
+        self.checkInvalidFlags = checkInvalidFlags
+        NUMBER.__init__(self, **kw)
+    def __repr__(self):
+        return "Flags"
+    def isValid(self, patFinder, address, value):
+        if self.checkInvalidFlags:
+            for bitIndex in range(self.sizeOfData * 8):
+                mask = 1 << bitIndex
+                if (0 != (value & mask)) and mask not in self.flagsDesc:
+                    return
+        yield True
 
 class BYTE( NUMBER ):
     def readValue(self, patFinder, address):
@@ -653,29 +739,48 @@ class STRING( DATA_TYPE ):
         yield True
 
 class ARRAY( DATA_TYPE ):
-    def __init__(self, size, varType, varArgs, varKw={}, **kw):
-        self.arraySize = size
+    def __init__(self, count, varType, varArgs, varKw={}, isZeroSizeValid=True, **kw):
+        self.arraySize = count
         self.varType = varType
+        self.varArgs = varArgs
+        self.varKw = varKw
         self.array = []
-        for i in range(size):
-            self.array.append(varType(*varArgs, **varKw))
+        self.contexts = []
+        self.isZeroSizeValid = isZeroSizeValid
         DATA_TYPE.__init__(self, **kw)
     def __repr__(self):
         return 'ARRAY_OF_%s[%d]' % (self.varType.__name__, self.arraySize)
     def __len__(self):
         return sum([len(var) for var in self.array])
     def setForSearch(self, patFinder, context):
+        self.perentContext = context
         for var in self.array:
             var.setForSearch(patFinder, context)
     def readValue(self, patFinder, address):
-        result = []
-        for var in self.array:
-            result.append((address, var.readValue(patFinder, address)))
-            address += len(var)
-        return result
-    def isValid(self, patFinder, address, value, **kw):
-        for i, (addr, v) in enumerate(value):
-            if len(list(self.array[i].isValid(patFinder, addr, v, **kw))) == 0:
-                return
-        yield True
+        if isinstance(self.arraySize, (int, long)):
+            arraySize = self.arraySize
+        else:
+            arraySize = self.arraySize(patFinder, self.perentContext)
+        self.array = []
+        for i in range(arraySize):
+            self.array.append(self.varType(*self.varArgs, **self.varKw))
+            newContext = SearchContext()
+            newContext._perent = self.perentContext
+            self.contexts.append(newContext)
+        return self.contexts
+    def recursiveIsValid(self, patFinder, address, contexts, array):
+        if 0 == len(contexts):
+            yield True
+        else:
+            dt = array[0]
+            ctx = contexts[0]
+            tempShape = SHAPE('Item', 0, dt)
+            for _ in patFinder.search([tempShape], address, lastAddress=0, context=ctx):
+                for _ in self.recursiveIsValid(patFinder, address + len(dt), contexts[1:], array[1:]):
+                    yield True
+    def isValid(self, patFinder, address, values):
+        for x in self.recursiveIsValid(patFinder, address, values, self.array):
+            yield x
+        if 0 == len(values) and isZeroSizeValid:
+            yield True
 
