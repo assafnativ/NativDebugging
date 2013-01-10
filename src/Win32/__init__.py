@@ -6,5 +6,5 @@ __all__ = [
         "ExternalMemoryReader",
         "Symbols",
         "InjectDll",
-        "Win32Utile",
-        "PEPattern" ]
+        "Win32Utile" ]
+        

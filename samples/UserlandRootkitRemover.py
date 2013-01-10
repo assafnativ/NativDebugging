@@ -1,7 +1,7 @@
 
-from NativDebugging.Win32.PEPattern import *
+from NativDebugging.Patterns.PE import *
 from NativDebugging.Win32.MemoryReader import *
-from NativDebugging.Patterns import *
+from NativDebugging.Patterns.PatternsFinder import *
 from NativDebugging.Win32.InjectDll import *
 
 import os

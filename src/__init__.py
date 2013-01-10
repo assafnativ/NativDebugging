@@ -1,5 +1,4 @@
 __all__ = [
-        "Patterns",
         "Interfaces",
         "DebuggerBase",
         "MemReaderBase",

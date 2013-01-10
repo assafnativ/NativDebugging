@@ -1,2 +1,4 @@
 __all__ = [
-        "Macho"]
+        "Macho",
+        "PEPattern",
+        "PatternsFinder"]
