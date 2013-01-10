@@ -336,7 +336,7 @@ class SHAPE( object ):
         setattr(context, 'AddressOf' + self.name, address)
         setattr(context, 'OffsetOf'  + self.name, offset)
         for x in self.data.isValid(patFinder, address, value):
-            setattr(context, 'SizeOf'    + self.name, len(self.data))
+            setattr(context, 'SizeOf' + self.name, len(self.data))
             if None != self.extraCheck:
                 if True == self.extraCheck(context, value):
                     yield True
@@ -354,9 +354,16 @@ def _getPatternSize(context, pattern):
             if offset > topOffset:
                 topOffset = offset
                 topOffsetShape = shape
-    if None == topOffsetShape:
+    if -1 == topOffset:
         return 0
     return topOffset + len(topOffsetShape.getData())
+
+def _genGetValProc(name):
+    def _getValProc(context):
+        if hasattr(context, name):
+            return getattr(context, name)
+        return 'default'
+    return _getValProc
 
 class DATA_TYPE( object ):
     def __init__(self, desc = ""):
@@ -486,7 +493,10 @@ class DATA_TYPE_FAIL( DATA_TYPE ):
 class SWITCH( DATA_TYPE ):
     def __init__(self, chooseProc, cases, **kw):
         self.cases = cases
-        self.chooseProc = chooseProc
+        if isinstance(chooseProc, str):
+            self.chooseProc = _genGetValProc(chooseProc)
+        else:
+            self.chooseProc = chooseProc
         DATA_TYPE.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
         self.perentContext = context
@@ -498,19 +508,23 @@ class SWITCH( DATA_TYPE ):
         self.context = SearchContext()
         perentContext = self.perentContext
         self.context._perent = perentContext
-        case = self.chooseProc(patFinder, perentContext)
+        case = self.chooseProc(perentContext)
         if case not in self.cases:
             if "default" in self.cases:
                 self.currentPattern = self.cases["default"]
             else:
                 self.currentPattern = [SHAPE("CASE_NOT_FOUND", 0, DATA_TYPE_FAIL())]
-        self.currentPattern = self.cases[case]
+        else:
+            self.currentPattern = self.cases[case]
         for shape in self.currentPattern:
             shape.setForSearch(patFinder, self.context)
         return self.context
     def isValid(self, patFinder, address, value):
-        for x in patFinder.search(self.currentPattern, address, lastAddress=0, context=self.context):
+        if [] == self.currentPattern:
             yield True
+        else:
+            for x in patFinder.search(self.currentPattern, address, lastAddress=0, context=self.context):
+                yield True
     
 class NUMBER( DATA_TYPE ):
     def __init__(self, value=None, size=None, alignment=None, isSigned=False, endianity='=', **kw):
@@ -660,54 +674,75 @@ def IsPrintable(s, isUnicode=False):
 
 class BUFFER( DATA_TYPE ):
     def __init__(self, size, **keys):
-        self.sizeInBytes = size
+        if isinstance(size, str):
+            self.sizeInBytes = _genGetValProc(size)
+        else:
+            self.sizeInBytes = size
         DATA_TYPE.__init__(self, **keys)
     def __repr__(self):
         return 'BUFFER[0x%x]' % self.sizeInBytes
     def __len__(self):
-        return self.sizeInBytes
+        if hasattr(self.sizeInBytes, '__call__'):
+            result = self.sizeInBytes(self.searchContext)
+        else:
+            result = self.sizeInBytes
+        return result
+    def setForSearch(self, patFinder, context):
+        self.searchContext = context
     def readValue(self, patFinder, address):
-        return patFinder.readMemory(address, self.sizeInBytes)
+        length = self.sizeInBytes
+        if hasattr(length, '__call__'):
+            length = length(self.searchContext)
+        return patFinder.readMemory(address, length)
     def isValid(self, *arg, **kw):
         yield True
 
 class STRING( DATA_TYPE ):
     NULL_TERM = None
     def __init__(self, size=None, maxSize=0x1000, fixedValue=None, isPrintable=True, isUnicode=False, isCaseSensitive=True, **keys):
-        if None != fixedValue:
+        if isinstance(fixedValue, str):
             size = len(fixedValue)
-        elif size > maxSize:
+        if isinstance(size, (int, long)) and size > maxSize:
             raise Exception('Invalid size for string')
         self.isPrintable    = isPrintable and (None == fixedValue)
         self.isUnicode      = isUnicode
         self.isCaseSensitive = isCaseSensitive
         self.fixedValue     = fixedValue
         self.maxSize        = maxSize
-        self.len            = size
+        if isinstance(size, str):
+            size = _genGetValProc(size)
+        self.length         = size
         DATA_TYPE.__init__(self, **keys)
     def __repr__(self):
-        if self.NULL_TERM == self.len:
+        if self.NULL_TERM == self.length:
             return '\\0 STRING'
-        elif isinstance(self.len, (int, long)):
-            return 'STRING[%d]' % self.len
+        elif isinstance(self.length, (int, long)):
+            return 'STRING[%d]' % self.length
         return 'STRING'
     def __len__(self):
-        if None == self.len:
+        if None == self.length:
             return 0
+        elif hasattr(self.length, '__call__'):
+            return self.length(self.searchContext)
         else:
             if self.isUnicode:
-                return self.len * 2
+                return self.length * 2
             else:
-                return self.len
+                return self.length
+    def setForSearch(self, patFinder, context):
+        self.searchContext = context
     def readValue(self, patFinder, address):
         try:
-            if self.NULL_TERM == self.len:
-                result = patFinder.readString(address, maxSize=self.maxSize, isUnicode=self.isUnicode)
+            if self.NULL_TERM == self.length:
+                return patFinder.readString(address, maxSize=self.maxSize, isUnicode=self.isUnicode)
+            elif hasattr(self.length, '__call__'):
+                length = self.length(self.searchContext)
             else:
-                if self.isUnicode:
-                    result = patFinder.readMemory(address, self.len * 2)
-                else:
-                    result = patFinder.readMemory(address, self.len)
+                length = self.length
+            if self.isUnicode:
+                result = patFinder.readMemory(address, length * 2)
+            else:
+                result = patFinder.readMemory(address, length)
         except ReadError as e:
             #print 'FIXED_SIZE_STRING read overflow'
             return ''
@@ -718,9 +753,9 @@ class STRING( DATA_TYPE ):
                 return
         if None != self.fixedValue:
             if self.isUnicode:
-                if (self.len * 2) > len(value):
+                if (self.length * 2) > len(value):
                     return
-                for i in range(self.len):
+                for i in range(self.length):
                     if self.isCaseSensitive:
                         if value[i*2] != self.fixedValue[i]:
                             return
@@ -740,7 +775,10 @@ class STRING( DATA_TYPE ):
 
 class ARRAY( DATA_TYPE ):
     def __init__(self, count, varType, varArgs, varKw={}, isZeroSizeValid=True, **kw):
-        self.arraySize = count
+        if isinstance(count, str):
+            self.arraySize = _genGetValProc(count)
+        else:
+            self.arraySize = count
         self.varType = varType
         self.varArgs = varArgs
         self.varKw = varKw
@@ -760,8 +798,9 @@ class ARRAY( DATA_TYPE ):
         if isinstance(self.arraySize, (int, long)):
             arraySize = self.arraySize
         else:
-            arraySize = self.arraySize(patFinder, self.perentContext)
+            arraySize = self.arraySize(self.perentContext)
         self.array = []
+        self.contexts = []
         for i in range(arraySize):
             self.array.append(self.varType(*self.varArgs, **self.varKw))
             newContext = SearchContext()

@@ -1,7 +1,11 @@
 
 from ..Patterns import *
 
-# All information is stolen from winnt.h
+# Resources:
+#   winnt.h
+#   corkami.com
+#   Wikipedia
+#   Microsoft docs http://download.microsoft.com/download/9/c/5/9c5b2167-8017-4bae-9fde-d599bac8184a/pecoff_v8.docx
 
 VALID_MACHINE_TYPES = {
         0x014c  : "I386",
@@ -138,7 +142,7 @@ ImageOptionalHeader = [
         SHAPE("UninitializedDataSize", 0, DWORD()),
         SHAPE("EntryPointAddress", 0, DWORD()),
         SHAPE("BaseOfCode",         0, DWORD()),
-        SHAPE("BaseOfDataImageBase", 0, SWITCH( lambda pf, ctx: ctx.Magic,
+        SHAPE("BaseOfDataImageBase", 0, SWITCH( lambda ctx: ctx.Magic,
             {
                 PE32_MAGIC  : [
                     SHAPE("BaseOfData",         0, DWORD()),
@@ -161,7 +165,7 @@ ImageOptionalHeader = [
         SHAPE("CheckSum",           0, DWORD()),
         SHAPE("Subsystem",          0, WORD(WINDOWS_SUBSYSTEMS.keys())),
         SHAPE("DllCharacteristics", 0, FLAGS(DLL_CHARACTERISTICS_FALGS, size=2)),
-        SHAPE("Stack", 0, SWITCH( lambda pf, ctx: ctx.Magic,
+        SHAPE("Stack", 0, SWITCH( lambda ctx: ctx.Magic,
             {
                 PE32_MAGIC  : [
                     SHAPE("StackReserveSize", 0, DWORD()),
@@ -198,7 +202,7 @@ ImageNtHeaders = [
         SHAPE("FileHeader", 0, STRUCT(ImageFileHeader)),
         SHAPE("OptionalHeader", 0, STRUCT(ImageOptionalHeader)),
         SHAPE("Sections", 0, \
-                ARRAY(lambda pf, ctx: ctx.FileHeader.NumberOfSections, STRUCT, [ImageSectionHeader])) ]
+                ARRAY(lambda ctx: ctx.FileHeader.NumberOfSections, STRUCT, [ImageSectionHeader])) ]
 
 ImageDosHeader = [
         SHAPE("e_magic", 0, STRING(fixedValue="MZ")),

@@ -15,7 +15,9 @@ else:
             'NativDebugging/Unix' : 'src/Unix'}
     ExtraDataFiles = []
 packagesNames.append('NativDebugging/File')
+packagesNames.append('NativDebugging/Patterns')
 packagesDirs['NativDebugging/File'] = 'src/File'
+packagesDirs['NativDebugging/Patterns'] = 'src/Patterns'
 
 from distutils.core import setup
 setup(

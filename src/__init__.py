@@ -7,7 +7,9 @@ __all__ = [
         "GUIDisplayBase",
         "Utile" ]
 from . import File
+from . import Patterns
 __all__.append('File')
+__all__.append('Patterns')
 
 import sys
 if sys.platform.lower().startswith('win'):
