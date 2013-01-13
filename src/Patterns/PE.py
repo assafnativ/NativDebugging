@@ -1,5 +1,5 @@
 
-from ..Patterns import *
+from .Finder import *
 
 # Resources:
 #   winnt.h

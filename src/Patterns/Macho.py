@@ -1,5 +1,5 @@
 
-from ..Patterns import *
+from .Finder import *
 
 # Refs:
 #   SDKs/iPhoneOS6.0.sdk/usr/include/mach-o/loader.h
