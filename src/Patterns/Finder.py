@@ -22,7 +22,7 @@ except ImportError:
     pass
 
 from abc import ABCMeta, abstractmethod
-from .Interfaces import MemReaderInterface, ReadError
+from ..Interfaces import MemReaderInterface, ReadError
 
 import sys
 from os import linesep
