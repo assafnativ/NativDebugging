@@ -14,7 +14,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Candy.  If not, see <http://www.gnu.org/licenses/>.
 
-from NativDebugging.Patterns.PatternsFinder import *
+from NativDebugging.Patterns.Finder import *
 from NativDebugging.Win32 import MemoryReader
 import sys
 
