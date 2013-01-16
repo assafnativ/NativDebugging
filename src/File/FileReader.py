@@ -32,9 +32,9 @@ except ImportError as e:
 from struct import pack, unpack
 
 def attach(targetFileName, file_start_offset=0, loading_offset=0, pointer_size=4, endianity='='):
-    return MemoryReader(targetFileName, file_start_offset, loading_offset, pointer_size, endianity)
+    return FileReader(targetFileName, file_start_offset, loading_offset, pointer_size, endianity)
 
-class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
+class FileReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
     def __init__( self, targetFileName, file_start_offset=0, loading_offset=0, pointer_size=4, endianity='='):
         self._file = file(targetFileName, 'rb+')
         MemReaderBase.__init__(self)
@@ -75,7 +75,7 @@ class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
 
     def readByte( self, addr ):
         self._file.seek(addr + self._ADDR_DELTA)
-        return ord(self.readMemory(addr, 1))
+        return ord(self._file.read(1))
 
     def readMemory( self, addr, length ):
         self._file.seek(addr + self._ADDR_DELTA)
@@ -95,7 +95,7 @@ class MemoryReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
                 bytesCounter += 1
             else:
                 char = self._file.read(2)
-                if len(char) != 1:
+                if len(char) != 2:
                     break
                 char = unpack(self._ENDIANITY + 'H', char)
                 bytesCounter += 2
