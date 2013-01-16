@@ -59,6 +59,8 @@ class SearchContext( object ):
     def _repr(self, depth):
         result = ''
         itemNames = self._getItemNames()
+        metaItems = [x for x in itemNames if not hasattr(self, 'AddressOf' + x)]
+        itemNames = [x for x in itemNames if hasattr(self, 'AddressOf' + x)]
         items = [(\
                 getattr(self, 'AddressOf' + item), \
                 getattr(self, 'OffsetOf'  + item), \
@@ -88,7 +90,7 @@ class SearchContext( object ):
                 for i, var in enumerate(val):
                     if isinstance(var, SearchContext):
                         result += '\t' * depth
-                        result += "Index %d: " % i
+                        result += "Index %4d: " % i
                         result += var._repr(depth).lstrip()
                     else:
                         result += '\t' * depth
@@ -102,6 +104,16 @@ class SearchContext( object ):
                 result += '\t' * depth
                 result += '%-20s@%08x (offset: %08x) size %04x val %s\n' % (\
                         item + ':', addr, offset, sizeOf, repr(getattr(self, item)))
+        if 0 != len(metaItems):
+            result += '\t' * depth
+            result += '-' * 10
+            result += '\n'
+            for item in metaItems:
+                val = getattr(self, item)
+                result += '\t' * depth
+                result += '%-20s val %s\n' % (\
+                        item + ':', repr(getattr(self, item)))
+
         return result
 
 def CreatePatternsFinder( memReader ):
@@ -266,19 +278,51 @@ def xrangeFromContext( proc, context, addr ):
     else:
         yield proc(context, addr)
 
-class SHAPE( object ):
-    def __init__(self, name, place, data, extraCheckFunction=None, fromStart=False):
-        striped_name = name.replace('_', '')
-        if         name in dir(SearchContext) or \
-                0 == len(striped_name) or \
-                (not name[0].isalpha) or \
-                (not striped_name.isalnum()) or \
-                name.startswith('AddressOf') or \
-                name.startswith('OffsetOf') or \
-                name.startswith('SizeOf') or \
-                name.startswith('_'):
+def isValidShapeName(name):
+    striped_name = name.replace('_', '')
+    if name in dir(SearchContext) or \
+            (not name[0].isalpha) or \
+            (not striped_name.isalnum()) or \
+            name.startswith('AddressOf') or \
+            name.startswith('OffsetOf') or \
+            name.startswith('SizeOf') or \
+            name.startswith('_'):
+                return False
+    return True
+
+class SHAPE_INTERFACE(object):
+    @abstractmethod
+    def __init__(self):
+        """ Pure virtual """
+        raise NotImplementedError("Pure function call")
+    def setForSearch(self, *arg):
+        return
+    def __repr__(self):
+        return self.__class__.__name__
+    def getName(self):
+        return self.__class__.__name__
+    def getValidRange(self, start, lastAddress=0, context=None):
+        return [(lastAddress,0)]
+    def getData(self):
+        return ''
+    @abstractmethod
+    def isValid(self, patFinder, address, offset, context):
+        """ Pure virtual """
+        raise NotImplementedError("Pure function call")
+
+class SHAPE_WITH_NAME(SHAPE_INTERFACE):
+    def __init__(self, name):
+        if not isValidShapeName(name):
             raise Exception("Invalid shape name (%s)" % name)
-        self.name       = name
+        self.name = name
+    def __repr__(self):
+        return self.name
+    def getName(self):
+        return self.name
+
+class SHAPE( SHAPE_WITH_NAME ):
+    def __init__(self, name, place, data, extraCheckFunction=None, fromStart=False):
+        super(SHAPE, self).__init__(name)
         self.place      = place
         self.iterator   = xrangeWithOffset
         self.procIterator = xrangeFromContext
@@ -305,12 +349,6 @@ class SHAPE( object ):
             self.alignment = self.place[2]
         else:
             self.alignment = self.data.getAlignment()
-    def __repr__(self):
-        return self.name
-    def getName(self):
-        return self.name
-    def getPlace(self):
-        return self.place
     def getValidRange(self, start, lastAddress=0, context=None):
         if None == self.rangeProc:
             if 0 != lastAddress and False == self.fromStart:
@@ -342,6 +380,20 @@ class SHAPE( object ):
                     yield True
             else:
                 yield True
+
+class ASSERT(SHAPE_INTERFACE):
+    def __init__(self, assertFunction):
+        self.assertFunction = assertFunction
+    def isValid(self, patFinder, address, offset, context):
+        yield self.assertFunction(patFinder, context)
+
+class ASSIGN(SHAPE_WITH_NAME):
+    def __init__(self, name, assignFunction):
+        super(ASSIGN, self).__init__(name)
+        self.assignFunction = assignFunction
+    def isValid(self, patFinder, address, offset, context):
+        setattr(context, self.name, self.assignFunction(patFinder, context))
+        yield True
 
 def _getPatternSize(context, pattern):
     # Find top offset
@@ -534,11 +586,13 @@ class NUMBER( DATA_TYPE ):
         self.isSigned     = isSigned
         if endianity not in [">", "<", "="]:
             raise Exception('Invalid endianity (">", "<", "=")')
-        self.endianity = endianity
+        self._endianity = endianity
         DATA_TYPE.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
-        if '=' == self.endianity:
+        if '=' == self._endianity:
             self.endianity = patFinder.getEndianity()
+        else:
+            self.endianity = self._endianity
         if None == self.sizeOfData:
             self.sizeOfData = patFinder.getDefaultDataSize()
         if None == self.alignment:
@@ -550,9 +604,9 @@ class NUMBER( DATA_TYPE ):
         else:
             result = sizesNames[self.sizeOfData]
         result += '_'
-        if self.endianity == '<':
+        if self._endianity == '<':
             result = 'little-endian_' + result
-        elif self.endianity == '>':
+        elif self._endianity == '>':
             result = 'big-endin_' + result
         value = self.value
         if isinstance(value, (int, long)):
