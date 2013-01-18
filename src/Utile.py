@@ -76,7 +76,7 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
     itemStr = '%%%dx' % (itemSize * 2)
 
     if 2 == itemSize:
-        packSize = '=W'
+        packSize = '=H'
     elif 4 == itemSize:
         packSize = '=L'
     elif 8 == itemSize:
