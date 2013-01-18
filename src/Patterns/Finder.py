@@ -705,9 +705,9 @@ class DWORD( NUMBER ):
 class QWORD( NUMBER ):
     def readValue(self, patFinder, address):
         if False == self.isSigned:
-            return struct.unpack(self.endianity + 'Q', patFinder.readMemory(address, 4))[0]
+            return struct.unpack(self.endianity + 'Q', patFinder.readMemory(address, 8))[0]
         else:
-            return struct.unpack(self.endianity + 'q', patFinder.readMemory(address, 4))[0]
+            return struct.unpack(self.endianity + 'q', patFinder.readMemory(address, 8))[0]
     def __init__(self, value=(0, 0x10000000000000000), isSigned=False, alignment=4, endianity='=', **kw):
         NUMBER.__init__(self, value, size=8, alignment=alignment, isSigned=isSigned, endianity=endianity, **kw)
 
