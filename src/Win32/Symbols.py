@@ -20,6 +20,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
+# This class sucks 
+# I need to rewrite it from the begging
+# Meanwhile use the pdbparse module
 
 from .Win32Structs import *
 import urllib2
