@@ -6,6 +6,7 @@ from .Finder import *
 #   corkami.com
 #   Wikipedia
 #   Microsoft docs http://download.microsoft.com/download/9/c/5/9c5b2167-8017-4bae-9fde-d599bac8184a/pecoff_v8.docx
+#   http://www.csn.ul.ie/~caolan/publink/winresdump/winresdump/doc/pefile.html
 
 VALID_MACHINE_TYPES = {
         0x014c  : "I386",
@@ -133,6 +134,97 @@ ImageDebugDirectory = [
         SHAPE("AddrOfRawData",    0, DWORD()),
         SHAPE("PointerToRawData", 0, DWORD()) ]
 
+ResourceDirectoryString = [
+        SHAPE("Length", 0,  WORD()),
+        SHAPE("Data",   0,  STRING(size="Length", isUnicode=True)) ]
+
+ResourceDataEntry = [
+        SHAPE("DataRVA",        0, DWORD()),
+        SHAPE("DataEntrySize",  0, DWORD()),
+        SHAPE("Codepage",       0, DWORD()),
+        SHAPE("Reserved",       0, DWORD(0)) ]
+
+ResourceDirectoryNameEntry = [
+        SHAPE("NameRVA",        0, DWORD()),
+        SHAPE("DataEntryRVA",   0, DWORD()),
+        ASSIGN("isDataEntry",       lambda pf, ctx: 0 == (ctx.DataEntryRVA & 0x80000000)),
+        ASSIGN("subdirectoryRVA",   lambda pf, ctx: ctx.DataEntryRVA & 0x7fffffff) ]
+
+ResourceDirectoryIdEntry = [
+        SHAPE("Id",        0, DWORD()),
+        SHAPE("DataEntryRVA",   0, DWORD()),
+        ASSIGN("isDataEntry",       lambda pf, ctx: 0 == (ctx.DataEntryRVA & 0x80000000)),
+        ASSIGN("subdirectoryRVA",   lambda pf, ctx: ctx.DataEntryRVA & 0x7fffffff) ]
+
+ImageResourceDirectory = [
+        SHAPE("Characteristics",  0, DWORD()),
+        SHAPE("TimeDateStamp",    0, CTIME()),
+        SHAPE("MajorVersion",     0, WORD()),
+        SHAPE("MinorVersion",     0, WORD()),
+        SHAPE("NumOfNamedEntries", 0, WORD()),
+        SHAPE("NumOfIdEntries",   0, WORD()),
+        SHAPE("NamedEntries",   0,  
+            ARRAY("NumOfNamedEntries",  STRUCT, (ResourceDirectoryNameEntry,))),
+        SHAPE("IdEntries",   0,  
+            ARRAY("NumOfIdEntries",     STRUCT, (ResourceDirectoryIdEntry,)))]
+
+RESOURCE_TYPES = {
+         1  : "CURSOR",
+         2  : "BITMAP",
+         3  : "ICON",
+         4  : "MENU",
+         5  : "DIALOG",
+         6  : "STRING",
+         7  : "FONTDIR",
+         8  : "FONT",
+         9  : "ACCELERATOR",
+        10  : "RCDATA",
+        11  : "MESSAGETABLE",
+        16  : "VERSION" }
+
+ResourceVersionInfo = [
+        SHAPE("VersionLength",  0,  WORD()),
+        SHAPE("ValueLength",    0,  WORD()),
+        SHAPE("dataType",       0,  WORD([0,1])),
+        SHAPE("VsVersionInfoStr",   0,  STRING(fixedValue="VS_VERSION_INFO", isUnicode=True)),
+        SHAPE("Algin",          0,  DWORD(0)),
+        SHAPE("Vs_FixedFileInfo",   0,  DWORD(0xfeef04bd)) ]
+
+def getAllResData(pe, offset=0, isDir=True):
+    resAddr = None
+    for item in pe.Sections:
+        item = item.Item
+        if item.Name.startswith('.rsrc\x00'):
+            resAddr = item.PointerToRawData
+    if None == resAddr:
+        raise Exception("Can't find resources data")
+    if isDir:
+        res = p.search(ImageResourceDirectory, resAddr+offset).next()
+    else:
+        res = p.search(ResourceDataEntry, resAddr+offset).next()
+        print res
+        addr = res.DataRVA - pe.OptionalHeader.ResDir.VirtualAddress + resAddr
+        data = m.readMemory(res.DataRVA, res.DataEntrySize)
+        print DATA(data)
+        print '+' * 20
+        return
+    print res
+    print '-' * 20
+    for i, item in enumerate(res.NamedEntries):
+        print i,'.'
+        item = item.Item
+        if item.isDataEntry:
+            getAllResData(resAddr, pe, item.subdirectoryRVA, False)
+        else:
+            getAllResData(resAddr, pe, item.subdirectoryRVA, True)
+    for i, item in enumerate(res.IdEntries):
+        print i,'.'
+        item = item.Item
+        if item.isDataEntry:
+            getAllResData(resAddr, pe, item.subdirectoryRVA, False)
+        else:
+            getAllResData(resAddr, pe, item.subdirectoryRVA, True)
+
 ImageOptionalHeader = [
         SHAPE("Magic",              0,  WORD(VALID_PE_FORMATS.keys())),
         SHAPE("MajorLinkerVersion", 0,  BYTE()),
@@ -142,7 +234,7 @@ ImageOptionalHeader = [
         SHAPE("UninitializedDataSize", 0, DWORD()),
         SHAPE("EntryPointAddress", 0, DWORD()),
         SHAPE("BaseOfCode",         0, DWORD()),
-        SHAPE("BaseOfDataImageBase", 0, SWITCH( lambda ctx: ctx.Magic,
+        SHAPE("BaseOfDataImageBase", 0, SWITCH( "Magic",
             {
                 PE32_MAGIC  : [
                     SHAPE("BaseOfData",         0, DWORD()),
