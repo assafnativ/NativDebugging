@@ -76,7 +76,7 @@ class SearchContext( object ):
             val = getattr(self, item)
             if isinstance(val, SearchContext):
                 result += '\t' * depth
-                result += '%-20s@%08x (offset: %08x) size %04x val' % (\
+                result += '%-20s@%08x (offset: %06x) size %04x val' % (\
                         item + ':', addr, offset, sizeOf)
                 if hasattr(val, '_val'):
                     result += ' %x' % val._val
@@ -84,7 +84,7 @@ class SearchContext( object ):
                 result += val._repr(depth+1)
             elif isinstance(val, list):
                 result += '\t' * depth
-                result += '%-20s@%08x (offset: %08x) size %04x val:\n' % (\
+                result += '%-20s@%08x (offset: %06x) size %04x val:\n' % (\
                         item + ':', addr, offset, sizeOf)
                 subAddr = 0
                 for i, var in enumerate(val):
@@ -94,25 +94,33 @@ class SearchContext( object ):
                         result += var._repr(depth).lstrip()
                     else:
                         result += '\t' * depth
-                        result += '%8x:           @%08x (offset: %08x) val:' % (\
+                        result += '%6x:           @%08x (offset: %06x) val:' % (\
                             i, subAddr, subAddr - addr)
                         result += '\t' * depth
                         result += var.__repr__()
                         result += '\n'
                     subAddr += len(var)
             else:
+                if isinstance(val, (int, long)):
+                    val = hex(val).replace('L', '')
+                else:
+                    val = repr(val)
                 result += '\t' * depth
-                result += '%-20s@%08x (offset: %08x) size %04x val %s\n' % (\
-                        item + ':', addr, offset, sizeOf, repr(getattr(self, item)))
+                result += '%-20s@%08x (offset: %06x) size %04x val %s\n' % (\
+                        item + ':', addr, offset, sizeOf, val)
         if 0 != len(metaItems):
             result += '\t' * depth
             result += '-' * 10
             result += '\n'
             for item in metaItems:
                 val = getattr(self, item)
+                if isinstance(val, (int, long)):
+                    val = hex(val).replace('L', '')
+                else:
+                    val = repr(val)
                 result += '\t' * depth
                 result += '%-20s val %s\n' % (\
-                        item + ':', repr(getattr(self, item)))
+                        item + ':', val)
 
         return result
 
@@ -278,6 +286,14 @@ def xrangeFromContext( proc, context, addr ):
     else:
         yield proc(context, addr)
 
+def _genGetRangeProc(name):
+    def _getRangeProc(context, addr):
+        if hasattr(context, name):
+            offset = getattr(context, name)
+            yield (addr + offset, offset)
+        return
+    return _getRangeProc
+
 def isValidShapeName(name):
     striped_name = name.replace('_', '')
     if name in dir(SearchContext) or \
@@ -336,6 +352,8 @@ class SHAPE( SHAPE_WITH_NAME ):
         elif isinstance(place, (int, long)):
             self.minOffset = 0
             self.maxOffset = place
+        elif isinstance(place, str):
+            self.rangeProc = _genGetRangeProc(place)
         elif hasattr(place, '__call__') and not hasattr(place, 'mixOffset'):
             self.rangeProc = place
         else:
