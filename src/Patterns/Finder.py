@@ -32,8 +32,9 @@ import copy
 from types import FunctionType
 
 class SearchContext( object ):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, root=None):
         self._parent = parent
+        self._root   = root
 
     def __repr__(self):
         return self._repr(0)
@@ -167,6 +168,7 @@ class PatternFinder( object ):
     def search(self, pattern, startAddress, lastAddress = 0, context=None):
         if None == context:
             context = SearchContext()
+            context._root = context
         self.debugContext = context
         for shape in pattern:
             shape.setForSearch(self, context)
@@ -502,9 +504,9 @@ class POINTER( DATA_TYPE ):
 class STRUCT( DATA_TYPE ):
     def __init__(self, content, **kw):
         self.content    = content
-        self.context    = SearchContext()
         DATA_TYPE.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
+        self.context = SearchContext(root=context._root)
         self.context._parent = context
         for shape in self.content:
             shape.setForSearch(patFinder, self.context)
@@ -516,15 +518,16 @@ class STRUCT( DATA_TYPE ):
         return self.context
     def isValid(self, patFinder, address, value):
         for x in patFinder.search(self.content, address, lastAddress=0, context=self.context):
+            self.context._val = address
             yield True
 
 class POINTER_TO_STRUCT( POINTER ):
     def __init__(self, content, **kw):
         self.content        = content
-        self.context        = SearchContext()
         POINTER.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
         POINTER.setForSearch(self, patFinder, context)
+        self.context = SearchContext(root=context._root)
         self.context._parent = context
         for shape in self.content:
             shape.setForSearch(patFinder, self.context)
@@ -576,7 +579,7 @@ class SWITCH( DATA_TYPE ):
     def __repr__(self):
         return repr(self.context)
     def readValue(self, patFinder, address):
-        self.context = SearchContext()
+        self.context = SearchContext(self.parentContext._root)
         parentContext = self.parentContext
         self.context._parent = parentContext
         case = self.chooseProc(parentContext)
@@ -876,7 +879,7 @@ class ARRAY( DATA_TYPE ):
         self.contexts = []
         for i in range(arraySize):
             self.array.append(self.varType(*self.varArgs, **self.varKw))
-            newContext = SearchContext()
+            newContext = SearchContext(root=self.parentContext._root)
             newContext._parent = self.parentContext
             self.contexts.append(newContext)
         return self.contexts
