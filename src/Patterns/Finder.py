@@ -403,7 +403,8 @@ class ASSERT(SHAPE_INTERFACE):
     def __init__(self, assertFunction):
         self.assertFunction = assertFunction
     def isValid(self, patFinder, address, offset, context):
-        yield self.assertFunction(patFinder, context)
+        if self.assertFunction(patFinder, context):
+            yield True
 
 class ASSIGN(SHAPE_WITH_NAME):
     def __init__(self, name, assignFunction):
