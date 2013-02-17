@@ -116,6 +116,7 @@ class CreateBruteForceThread(threading.Thread):
     def run(self):
         self.result = bruteForceDateTimeDownload(self.filename, self.start, self.file_size, self.end)
 
+# Fix this shit
 def runMuntiThreadBruteForce(filename, start, file_size, end_date=None, num_threads=10, is_verbose=True):
     start, end = _setStartAndEndDate(date, end_date)
     last_start = start
@@ -124,11 +125,11 @@ def runMuntiThreadBruteForce(filename, start, file_size, end_date=None, num_thre
     result = None
     while None == result:
         if len(running_threads) < num_threads:
-            t = CreateBruteForceThread(filename, last_start, 
-            running_threads.append()
+            t = CreateBruteForceThread(filename, last_start, last_start + thread_range, file_size, is_verbose)
+            running_threads.append(t)
+            last_start += thread_range
 
-
-def getSymbols( fileName ):
+def getSymbols(fileName):
     global collectedSymbols
 
     options = SymGetOptions()
