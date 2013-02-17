@@ -120,7 +120,7 @@ MACHO_COMMANDS_IDS = dict([(x[1][0], x[0]) for x in MACHO_COMMANDS.items()])
 
 
 def GET_CMD_SIZE(context):
-    return context._perent.size - context._perent.OffsetOfcmd_data
+    return context._parent.size - context._parent.OffsetOfcmd_data
 
 MACHO_COMMAND_DEFAULT_PATTERN = [
         SHAPE("data",   0,  BUFFER(size=GET_CMD_SIZE))
@@ -130,7 +130,7 @@ def IS_EXTENDED_NAME(context):
     return context.name_offset == 0x18
 
 def EXTENDED_NAME_LENGTH(context):
-    return context._perent._perent.size - context._perent.name_offset
+    return context._parent._parent.size - context._parent.name_offset
 
 MACHO_DYLIB_COMMAND_PATTERN = [
         SHAPE("name_offset",            0,  DWORD()),

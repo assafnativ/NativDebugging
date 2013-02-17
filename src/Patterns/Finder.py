@@ -32,8 +32,8 @@ import copy
 from types import FunctionType
 
 class SearchContext( object ):
-    def __init__(self, perent=None):
-        self._perent = perent
+    def __init__(self, parent=None):
+        self._parent = parent
 
     def __repr__(self):
         return self._repr(0)
@@ -505,7 +505,7 @@ class STRUCT( DATA_TYPE ):
         self.context    = SearchContext()
         DATA_TYPE.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
-        self.context._perent = context
+        self.context._parent = context
         for shape in self.content:
             shape.setForSearch(patFinder, self.context)
     def __len__(self):
@@ -525,7 +525,7 @@ class POINTER_TO_STRUCT( POINTER ):
         POINTER.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
         POINTER.setForSearch(self, patFinder, context)
-        self.context._perent = context
+        self.context._parent = context
         for shape in self.content:
             shape.setForSearch(patFinder, self.context)
     def __repr__(self):
@@ -570,16 +570,16 @@ class SWITCH( DATA_TYPE ):
             self.chooseProc = chooseProc
         DATA_TYPE.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
-        self.perentContext = context
+        self.parentContext = context
     def __len__(self):
         return _getPatternSize(self.context, self.currentPattern)
     def __repr__(self):
         return repr(self.context)
     def readValue(self, patFinder, address):
         self.context = SearchContext()
-        perentContext = self.perentContext
-        self.context._perent = perentContext
-        case = self.chooseProc(perentContext)
+        parentContext = self.parentContext
+        self.context._parent = parentContext
+        case = self.chooseProc(parentContext)
         if case not in self.cases:
             if "default" in self.cases:
                 self.currentPattern = self.cases["default"]
@@ -864,20 +864,20 @@ class ARRAY( DATA_TYPE ):
     def __len__(self):
         return sum([len(var) for var in self.array])
     def setForSearch(self, patFinder, context):
-        self.perentContext = context
+        self.parentContext = context
         for var in self.array:
             var.setForSearch(patFinder, context)
     def readValue(self, patFinder, address):
         if isinstance(self.arraySize, (int, long)):
             arraySize = self.arraySize
         else:
-            arraySize = self.arraySize(self.perentContext)
+            arraySize = self.arraySize(self.parentContext)
         self.array = []
         self.contexts = []
         for i in range(arraySize):
             self.array.append(self.varType(*self.varArgs, **self.varKw))
             newContext = SearchContext()
-            newContext._perent = self.perentContext
+            newContext._parent = self.parentContext
             self.contexts.append(newContext)
         return self.contexts
     def recursiveIsValid(self, patFinder, address, contexts, array):
