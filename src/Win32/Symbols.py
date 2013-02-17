@@ -58,7 +58,7 @@ def downloadBinaryFromSymbolsServer( filename, date_time, file_size ):
     res.close()
     return data
 
-def bruteForceDateTimeDownload(filename, date, file_size, is_verbose=True):
+def _setStartAndEndDate(date, end_date=None):
     if isinstance(date, tuple):
         start = int(time.mktime((date[0], date[1], date[2], 0, 0, 0, 0, 0, 0)))
     elif isinstance(date, (int, long)):
@@ -66,11 +66,18 @@ def bruteForceDateTimeDownload(filename, date, file_size, is_verbose=True):
     else:
         raise Exception("Don't know how to translate the date to int")
     # Make the end time/date the begging of the next day
-    start_date = datetime.date.fromtimestamp(start)
-    end = start_date + datetime.timedelta(days=1)
-    end = int(time.mktime(time.strptime(end.ctime())))
+    if None != end_date:
+        end = end_date
+    else:
+        start_date = datetime.date.fromtimestamp(start)
+        end = start_date + datetime.timedelta(days=1)
+        end = int(time.mktime(time.strptime(end.ctime())))
     if end <= start:
         raise Exception("Faild to caculate the end date %x" % end)
+    return (start, end)
+
+def bruteForceDateTimeDownload(filename, date, file_size, end_date=None, is_verbose=True):
+    start, end = _setStartAndEndDate(date, end_date)
     function_timing = time.time()
     if is_verbose:
         print "Starting from timestamp %x" % start
@@ -96,6 +103,30 @@ def bruteForceDateTimeDownload(filename, date, file_size, is_verbose=True):
             if attempts > 3:
                 raise e
             time.sleep(2)
+
+class CreateBruteForceThread(threading.Thread):
+    def __init__(self, filename, start, end, file_size, is_verbose=True):
+        self.filename = filename
+        self.start = start
+        self.end = end
+        self.file_size = file_size
+        self.is_verbose = is_verbose
+        self.result = None
+        threading.Thread.__init__(self)
+    def run(self):
+        self.result = bruteForceDateTimeDownload(self.filename, self.start, self.file_size, self.end)
+
+def runMuntiThreadBruteForce(filename, start, file_size, end_date=None, num_threads=10, is_verbose=True):
+    start, end = _setStartAndEndDate(date, end_date)
+    last_start = start
+    thread_range = 0x1000
+    running_threads = []
+    result = None
+    while None == result:
+        if len(running_threads) < num_threads:
+            t = CreateBruteForceThread(filename, last_start, 
+            running_threads.append()
+
 
 def getSymbols( fileName ):
     global collectedSymbols
