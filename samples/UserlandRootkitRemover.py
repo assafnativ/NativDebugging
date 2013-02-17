@@ -33,12 +33,14 @@ print "NtCopy.dll loaded at 0x%x" % ntCopyAddr
 
 print "Parsing exports of NtCopy.dll"
 ntCopyImg = p.search(ImageDosHeader, ntCopyAddr).next()
+exportsDir = ntCopyImg.PE.OptionalHeader.ExportDir.VirtualAddress + ntCopyAddr
+exportsInfo = p.search(ImageExportDirectory, exportsDir).next()
 exports = []
-numProcs = ntCopyImg.PE.OptionalHeader.Exports.NumberOfFunctions
-numNames = ntCopyImg.PE.OptionalHeader.Exports.NumberOfNames
-names    = ntCopyImg.PE.OptionalHeader.Exports.NamesAddress + ntCopyAddr
-ordinals = ntCopyImg.PE.OptionalHeader.Exports.NameOrdinalsAddress + ntCopyAddr
-procs    = ntCopyImg.PE.OptionalHeader.Exports.FunctionsAddress + ntCopyAddr
+numProcs = exportsInfo.NumberOfFunctions
+numNames = exportsInfo.NumberOfNames
+names    = exportsInfo.NamesAddress + ntCopyAddr
+ordinals = exportsInfo.NameOrdinalsAddress + ntCopyAddr
+procs    = exportsInfo.FunctionsAddress + ntCopyAddr
 for i in range(numProcs):
     ordinal = m.readWord(ordinals + (i * 2))
     if i < numNames:
@@ -54,12 +56,13 @@ for i in range(numProcs):
 
 def fixImports(importsAddr, importsTableSize, dllAddr):
     for offset in range(0, importsTableSize, 0x14):
-        name = m.readAddr(importsAddr + offset + 0xc)
+        name = m.readAddr(importsAddr + offset + dllAddr + 0xc)
         dllName = m.readString(dllAddr + name)
         if dllName.startswith("ntdll"):
             #print "Found imports from ntdll"
-            namesTable = m.readAddr(importsAddr + offset) + dllAddr
-            ptrsTable  = m.readAddr(importsAddr + offset + 0x10) + dllAddr
+            namesTable = m.readAddr(importsAddr + dllAddr + offset) + dllAddr
+            ptrsTable  = m.readAddr(importsAddr + dllAddr + offset + 0x10) + dllAddr
+            print "Ptrs table: 0x%x Names table: 0x%x" % (ptrsTable, namesTable)
             procPtr = m.readAddr(ptrsTable)
             while 0 != procPtr:
                 procName = m.readString(m.readAddr(namesTable) + dllAddr + 2)
@@ -75,7 +78,13 @@ def fixImports(importsAddr, importsTableSize, dllAddr):
                     copyBytes   = m.readMemory(newProcAddr, 3)
                     if ntdllBytes != copyBytes:
                         if copyBytes[0] == '\xb8':
-                            print "Patch %s -> %s fixing from 0x%x to 0x%x name: %s" % (ntdllBytes.encode('hex'), copyBytes.encode('hex'), procPtr, newProcAddr, procName)
+                            print "Patch %s -> %s fixing from 0x%x to 0x%x name: %s (@%x)" % (\
+                                    ntdllBytes.encode('hex'), \
+                                    copyBytes.encode('hex'), \
+                                    procPtr, \
+                                    newProcAddr, \
+                                    procName, \
+                                    ptrsTable)
                             m.writeAddr(ptrsTable, newProcAddr)
                         else:
                             print "Patch %s -> %s not fixing from 0x%x to 0x%x name: %s" % (ntdllBytes.encode('hex'), copyBytes.encode('hex'), procPtr, newProcAddr, procName)
@@ -88,7 +97,7 @@ for base, dllName, dllSize in m.enumModules():
         continue
     print "Scanning 0x%x (%s)" % (base, dllName)
     img = p.search(ImageDosHeader, base).next()
-    importsAddr = img.PE.OptionalHeader.AddressOfImports
+    importsAddr = img.PE.OptionalHeader.ImportDir.VirtualAddress
     importsTableSize = img.PE.OptionalHeader.ImportDir.Size
     #print "Imports table address 0x%x" % importsAddr
     #print "Imports table size 0x%x" % importsTableSize
