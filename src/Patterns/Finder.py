@@ -34,7 +34,10 @@ from types import FunctionType
 class SearchContext( object ):
     def __init__(self, parent=None, root=None):
         self._parent = parent
-        self._root   = root
+        if None == root:
+            self._root = self
+        else:
+            self._root = root
 
     def __repr__(self):
         return self._repr(0)
