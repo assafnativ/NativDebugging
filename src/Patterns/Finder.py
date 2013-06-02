@@ -60,7 +60,7 @@ class SearchContext( object ):
         items.sort()
         return items[-1][0] + items[-1][1]
 
-    def _repr(self, depth):
+    def _repr(self, depth, noAddress=False):
         result = ''
         itemNames = self._getItemNames()
         metaItems = [x for x in itemNames if not hasattr(self, 'AddressOf' + x)]
@@ -78,28 +78,29 @@ class SearchContext( object ):
         items.sort()
         for addr, offset, sizeOf, item in items:
             val = getattr(self, item)
+            result += '\t' * depth
+            result += '%-20s' % (item + ':')
+            if False == noAddress:
+                result += '@%08x ' % addr
+            result += '(offset: %06x) size %04x val:' % (offset, sizeOf)
             if isinstance(val, SearchContext):
-                result += '\t' * depth
-                result += '%-20s@%08x (offset: %06x) size %04x val' % (\
-                        item + ':', addr, offset, sizeOf)
                 if hasattr(val, '_val'):
                     result += ' %x' % val._val
                 result += ':\n'
-                result += val._repr(depth+1)
+                result += val._repr(depth+1, noAddress=noAddress)
             elif isinstance(val, list):
-                result += '\t' * depth
-                result += '%-20s@%08x (offset: %06x) size %04x val:\n' % (\
-                        item + ':', addr, offset, sizeOf)
                 subAddr = 0
                 for i, var in enumerate(val):
                     if isinstance(var, SearchContext):
                         result += '\t' * depth
                         result += "Index %4d: " % i
-                        result += var._repr(depth).lstrip()
+                        result += var._repr(depth, noAddress=noAddress).lstrip()
                     else:
                         result += '\t' * depth
-                        result += '%6x:           @%08x (offset: %06x) val:' % (\
-                            i, subAddr, subAddr - addr)
+                        result += '%6x:           ' % i
+                        if False == noAddress:
+                            result += '@%08x ' % subAddr
+                        result += '(offset: %06x) val:' % (subAddr - addr)
                         result += '\t' * depth
                         result += var.__repr__()
                         result += '\n'
@@ -109,9 +110,7 @@ class SearchContext( object ):
                     val = hex(val).replace('L', '')
                 else:
                     val = repr(val)
-                result += '\t' * depth
-                result += '%-20s@%08x (offset: %06x) size %04x val %s\n' % (\
-                        item + ':', addr, offset, sizeOf, val)
+                result += '%s\n' % val
         if 0 != len(metaItems):
             result += '\t' * depth
             result += '-' * 10
