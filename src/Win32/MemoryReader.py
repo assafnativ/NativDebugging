@@ -74,6 +74,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
         bytes_read = c_uint(0)
         self._process = OpenProcess( 
                 win32con.PROCESS_QUERY_INFORMATION | 
+                win32con.PROCESS_SET_INFORMATION |
                 win32con.PROCESS_VM_READ | 
                 win32con.PROCESS_VM_WRITE |
                 win32con.PROCESS_VM_OPERATION |

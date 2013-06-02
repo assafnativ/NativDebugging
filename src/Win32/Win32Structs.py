@@ -29,11 +29,12 @@ class win32con( object ):
 win32con.NULL = 0
 win32con.TOKEN_QUERY                    = 8
 win32con.TOKEN_ADJUST_PRIVILEGES        = 32
-win32con.PROCESS_VM_OPERATION           = 8
-win32con.PROCESS_VM_READ                = 16
-win32con.PROCESS_VM_WRITE               = 32
-win32con.PROCESS_DUP_HANDLE             = 64
-win32con.PROCESS_QUERY_INFORMATION      = 1024
+win32con.PROCESS_VM_OPERATION           = 0x0008
+win32con.PROCESS_VM_READ                = 0x0010
+win32con.PROCESS_VM_WRITE               = 0x0020
+win32con.PROCESS_DUP_HANDLE             = 0x0040
+win32con.PROCESS_SET_INFORMATION        = 0x0200
+win32con.PROCESS_QUERY_INFORMATION      = 0x0400
 win32con.PROCESS_ALL_ACCESS             = 0x1f0fff
 win32con.MEM_COMMIT                     = 0x1000
 win32con.PAGE_EXECUTE_READWRITE         = 0x40
