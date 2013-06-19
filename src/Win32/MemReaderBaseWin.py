@@ -69,10 +69,12 @@ class MemReaderBaseWin( MemReaderBase ):
         pe = module_base + self.readDword( module_base + win32con.PE_POINTER_OFFSET )
         first_section = self.readWord( pe + win32con.PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET) + win32con.PE_SIZEOF_NT_HEADER
         num_sections = self.readWord( pe + win32con.PE_NUM_OF_SECTIONS_OFFSET )
-        return (pe, first_section, num_sections)
+        isPePlus = (0x20b == self.readWord(pe + win32con.PE_OPTIONAL_HEADER_TYPE) )
+
+        return (pe, first_section, num_sections, isPePlus)
 
     def getAllSections( self, module_base, isVerbose=False ):
-        pe, first_section, num_sections = self._getSomePEInfo( module_base )
+        pe, first_section, num_sections, isPePlus = self._getSomePEInfo( module_base )
         bytes_read = c_uint(0)
         result = []
         for sections_iter in range(num_sections):
@@ -112,8 +114,12 @@ class MemReaderBaseWin( MemReaderBase ):
         Returns a pointer to the RVA section of a specific module
         of the remote process
         """
-        pe, first_section, num_sections = self._getSomePEInfo( base )
-        return base + self.readDword(pe + win32con.PE_RVA_OFFSET)
+        pe, first_section, num_sections, isPePlus = self._getSomePEInfo( base )
+        if isPePlus:
+            extraBytes = win32con.PE_PLUS_EXTRA_BYTES
+        else:
+            extraBytes = 0
+        return base + self.readDword(pe + win32con.PE_RVA_OFFSET + extraBytes)
 
     def findProcInRVA(self, base, rva, proc):
         numProcs    = self.readDword(rva + win32con.RVA_NUM_PROCS_OFFSET)
