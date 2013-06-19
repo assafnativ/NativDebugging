@@ -39,17 +39,25 @@ import exceptions
 def attach(targetProcessId):
     return MemoryReader(targetProcessId)
 
+def memoryReaderFromHandle(handle):
+    return MemoryReader(handle, argIsOpenHandle=True)
+
 class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
     PAGE_SIZE       = 0x1000
     PAGE_SIZE_MASK  = 0x0fff
     READ_ATTRIBUTES_MASK    = 0xee # [0x20, 0x40, 0x80, 0x02, 0x04, 0x08]
     WRITE_ATTRIBUTES_MASK   = 0xcc # [0x40, 0x80, 0x04, 0x08]
     EXECUTE_ATTRIBUTES_MASK = 0xf0 # [0x10, 0x20, 0x40, 0x80]
-    def __init__( self, target_process_id ):
+    def __init__( self, target_process_id, argIsOpenHandle=False ):
         MemReaderBase.__init__(self)
-        adjustDebugPrivileges()
-        self._processId = target_process_id
-        self._openProcess( target_process_id )
+        if argIsOpenHandle:
+            self._process = target_process_id
+            self._processId = GetProcessId(self._process)
+            target_process_id = self._processId
+        else:
+            adjustDebugPrivileges()
+            self._processId = target_process_id
+            self._openProcess( target_process_id )
         temp_void_p = c_void_p(1)
         temp_void_p.value -= 2
         self._is_win64 = (temp_void_p.value > (2**32))

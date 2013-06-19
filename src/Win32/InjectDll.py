@@ -49,30 +49,55 @@ def inject( process_id, dllName, LoadLibraryA_address=-1, isVerbose=False ):
     __injectAndExecute(remoteProcess, dllName, LoadLibraryA_address, isVerbose=isVerbose)
     CloseHandle(remoteProcess)
  
+def createRemoteThreadAtAddress(process_id, remote_address, param=None, creationFlags=0, isVerbose=False):
+    adjustDebugPrivileges()
+
+    printIfVerbose("Opening the target process %d" % process_id, isVerbose)
+    remoteProcess = \
+            OpenProcess(
+                        #PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_WRITE,
+                        win32con.PROCESS_ALL_ACCESS,
+                        0,
+                        process_id )
+
+    if isinstance(param, str):
+        param = __allocateAndWrite( remoteProcess, param )
+    elif isinstance(param, (int, long)):
+        pass
+    elif None==param:
+        param = 0
+    else:
+        raise Exception("Unsupported param")
+
+    return __createRemoteThreadAtAddress(remoteProcess, remote_address, param=param, creationFlags=creationFlags, isVerbose=isVerbose)
+
+def __allocateAndWrite( remoteProcess, buf ):
+        remote_buffer_size = len(buf)
+        remote_memory_address = \
+            VirtualAllocEx( remoteProcess,
+                            None,
+                            remote_buffer_size,
+                            win32con.MEM_COMMIT,
+                            win32con.PAGE_READWRITE ) 
+        bytes_written = c_uint(0)
+        WriteProcessMemory(
+                remoteProcess, 
+                remote_memory_address,
+                buf,
+                remote_buffer_size,
+                byref(bytes_written))
+        if bytes_written.value != remote_buffer_size:
+            raise Exception("Unable to write to process memory")
+        return remote_memory_address
+
 def __injectAndExecute( remoteProcess, dllName, LoadLibraryA_address=-1, creationFlags=0, isVerbose=False ):
     printIfVerbose("Allocating memory inside remote process", isVerbose)
 
     dllName += "\x00"
     remote_buffer_size = len(dllName)
 
-    remote_memory_address = \
-        VirtualAllocEx( remoteProcess,
-                        None,
-                        remote_buffer_size,
-                        win32con.MEM_COMMIT,
-                        win32con.PAGE_READWRITE ) 
+    remote_memory_address = __allocateAndWrite( remoteProcess, dllName )
     printIfVerbose("Memory allocated at 0x%x" % remote_memory_address, isVerbose)
-    printIfVerbose("Writting the dll name to remote process", isVerbose)
-    bytes_written = c_uint(0)
-    WriteProcessMemory(
-                    remoteProcess,
-                    remote_memory_address,
-                    dllName,
-                    remote_buffer_size,
-                    byref(bytes_written))
-    if bytes_written.value != remote_buffer_size:
-        print("Unable to write to process memory")
-        return
 
     if -1 == LoadLibraryA_address:
         printIfVerbose("Verifing the LoadLibrary proc address", isVerbose)
@@ -85,13 +110,16 @@ def __injectAndExecute( remoteProcess, dllName, LoadLibraryA_address=-1, creatio
         # because it's the first dll to be loaded in every process
 
     printIfVerbose("Creating remote thread on LoadLibrary", isVerbose)
+    return __createRemoteThreadAtAddress(remoteProcess, remoteAddress, remote_memory_address, creationFlags=creationFlags, isVerbose=isVerbose)
+
+def __createRemoteThreadAtAddress(remoteProcess, remoteAddress, param=0, creationFlags=0, isVerbose=False):
     remote_thread_id = c_uint(0)
     remote_thread = CreateRemoteThread( \
                         remoteProcess,
                         None,
                         0,
-                        LoadLibraryA_address,
-                        remote_memory_address,
+                        remoteAddress,
+                        param,
                         creationFlags,
                         byref(remote_thread_id) )
     printIfVerbose("Thread %d created" % remote_thread_id.value, isVerbose)
@@ -152,8 +180,4 @@ def createProcessWithDll(
     ResumeThread(remoteThread)
 
     return (processInfo.hProcess, processInfo.hThread, processInfo.dwProcessId, processInfo.dwThreadId)
-
-
-
-
 

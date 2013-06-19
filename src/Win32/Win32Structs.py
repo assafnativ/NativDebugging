@@ -817,3 +817,8 @@ DebugActiveProcessStop.argtypes = [
         c_uint ]    # dwProcessId // process to stop debugging
 DebugActiveProcessStop.restyp = ErrorIfZero
 
+GetProcessId = windll.kernel32.GetProcessId
+GetProcessId.argtypes = [
+        c_int ] # handle
+GetProcessId.restype = ErrorIfZero
+
