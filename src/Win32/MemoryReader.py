@@ -24,6 +24,7 @@ from ..Interfaces import MemWriterInterface, ReadError
 from .MemReaderBaseWin import *
 from ..GUIDisplayBase import *
 
+from .InjectDll import *
 from .MemoryMap import *
 from .Win32Structs import *
 
@@ -37,27 +38,34 @@ import struct
 import exceptions
 
 def attach(targetProcessId):
-    return MemoryReader(targetProcessId)
+    return MemoryReader(target_process_id=targetProcessId)
+
+def createProcess(targetExe):
+    return MemoryReader(cmd_line=targetExe)
 
 def memoryReaderFromHandle(handle):
-    return MemoryReader(handle, argIsOpenHandle=True)
+    return MemoryReader(target_open_handle=handle)
 
-class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
+class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, InjectDll ):
     PAGE_SIZE       = 0x1000
     PAGE_SIZE_MASK  = 0x0fff
     READ_ATTRIBUTES_MASK    = 0xee # [0x20, 0x40, 0x80, 0x02, 0x04, 0x08]
     WRITE_ATTRIBUTES_MASK   = 0xcc # [0x40, 0x80, 0x04, 0x08]
     EXECUTE_ATTRIBUTES_MASK = 0xf0 # [0x10, 0x20, 0x40, 0x80]
-    def __init__( self, target_process_id, argIsOpenHandle=False ):
+    def __init__( self, target_process_id=None, target_open_handle=None, cmd_line=None, create_suspended=False, create_info={} ):
         MemReaderBase.__init__(self)
-        if argIsOpenHandle:
-            self._process = target_process_id
+        if   (None != target_open_handle) and (None == target_process_id) and (None == cmd_line):
+            self._process = target_open_handle
             self._processId = GetProcessId(self._process)
             target_process_id = self._processId
-        else:
+            self._isSuspended = False
+        elif (None == target_open_handle) and (None != target_process_id) and (None == cmd_line):
             adjustDebugPrivileges()
             self._processId = target_process_id
             self._openProcess( target_process_id )
+            self._isSuspended = False
+        elif (None == target_open_handle) and (None == target_process_id) and (None != cmd_line):
+            self._createProcess(cmd_line, create_suspended, create_info)
         temp_void_p = c_void_p(1)
         temp_void_p.value -= 2
         self._is_win64 = (temp_void_p.value > (2**32))
@@ -78,9 +86,79 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
     def _closeProcess( self ):
         CloseHandle( self._process )
 
+    def _createProcess(self, cmdLine, createSuspended, createInfo):
+        cmdLine = c_char_p(cmdLine)
+        if 'STARTUPINFO' not in createInfo:
+            startupInfo = STARTUPINFO()
+            startupInfo.dwFlags = 0
+            startupInfo.wShowWindow = 0x0
+            startupInfo.cb = sizeof(STARTUPINFO)
+        else:
+            startupInfo = createInfo['STARTUPINFO']
+        if 'PROCESSINFO' not in createInfo:
+            processInfo = PROCESS_INFORMATION()
+        else:
+            processInfo = createInfo['PROCESSINFO']
+        if 'SECURITY_ATTRIBUTES' not in createInfo:
+            securityAttributes = SECURITY_ATTRIBUTES()
+            securityAttributes.Length = sizeof(SECURITY_ATTRIBUTES)
+            securityAttributes.SecDescriptior = None
+            securityAttributes.InheritHandle = True
+        else:
+            securityAttributes = createInfo['SECURITY_ATTRIBUTES']
+        if 'SECURITY_ATTRIBUTES' not in createInfo:
+            threadAttributes = SECURITY_ATTRIBUTES()
+            threadAttributes.Length = sizeof(SECURITY_ATTRIBUTES)
+            threadAttributes.SecDescriptior = None
+            threadAttributes.InheritHandle = True
+        else:
+            threadAttributes = createInfo['SECURITY_ATTRIBUTES']
+        if 'CURRENT_DIRECTORY' not in createInfo:
+            currentDirectory = None
+        else:
+            currentDirectory = createInfo['CURRENT_DIRECTORY']
+        if 'ENVIRONMENT' not in createInfo:
+            environment = None
+        else:
+            environment = createInfo['ENVIRONMENT']
+        if 'CREATION_FLAGS' not in createInfo:
+            creationFlags = createInfo['CREATION_FLAGS']
+        else:
+            creationFlags = win32con.NORMAL_PRIORITY_CLASS
+        if createSuspended:
+            creationFlags |= win32con.CREATE_SUSPENDED
+        if 'WITH_DLL' in createInfo:
+            creationFlags |= win32con.CREATE_SUSPENDED
+            dllToInject = createInfo['WITH_DLL']
+        else:
+            dllToInject = None
+
+        CreateProcess( 
+                    pchar_NULL,
+                    cmdLine, 
+                    byref(securityAttributes),
+                    byref(threadAttributes),
+                    TRUE,
+                    creationFlags | win32con.CREATE_SUSPENDED,
+                    environment,
+                    currentDirectory,
+                    byref(startupInfo),
+                    byref(processInfo) )
+        self._process       = processInfo.hProcess
+        self._processId     = processInfo.dwProcessId
+        self._mainThread    = processInfo.hThread
+        self._mainThreadId  = processInfo.dwThreadId
+        self._isSuspended = createSuspended
+        if dllToInject:
+            threadHandle = self.injectDll(dllToInject)
+            ResumeThread(threadHandle)
+            if not createSuspended:
+                self.resumeSuspendedProcess()
+
     def _openProcess( self, target_pid ):
         bytes_read = c_uint(0)
         self._process = OpenProcess( 
+                win32con.PROCESS_CREATE_THREAD |
                 win32con.PROCESS_QUERY_INFORMATION | 
                 win32con.PROCESS_SET_INFORMATION |
                 win32con.PROCESS_VM_READ | 
@@ -89,6 +167,11 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase ):
                 win32con.PROCESS_DUP_HANDLE,
                 0,
                 target_pid )
+
+    def resumeSuspendedProcess(self):
+        if self._isSuspended:
+            self._isSuspended = False
+            ResumeThread(self._mainThread)
 
     def deprotectMem( self, addr, size ):
         old_protection = c_uint(0)

@@ -121,20 +121,31 @@ class MemReaderBaseWin( MemReaderBase ):
             extraBytes = 0
         return base + self.readDword(pe + win32con.PE_RVA_OFFSET + extraBytes)
 
-    def findProcInRVA(self, base, rva, proc):
+    def findProcAddress(self, dllName, target):
+        """
+        Search for exported function in a remote process.
+        """
+        base = self.findModule(dllName, isVerbose=False)
+        rva = self.findRVA(base)
+        if isinstance(target, (int, long)):
+            isOrdinals = True
+        else:
+            isOrdinals = False
+        for proc, procAddr in self._enumRemoteModuleProcs(base, rva, isOrdinals):
+            if proc == target:
+                return procAddr
+
+    def _enumRemoteModuleProcs(self, base, rva, isOrdinals=False):
         numProcs    = self.readDword(rva + win32con.RVA_NUM_PROCS_OFFSET)
         procsTable  = base + self.readDword(rva + win32con.RVA_PROCS_ADDRESSES_OFFSET)
         ordinalsTable = base + self.readDword(rva + win32con.RVA_PROCS_ORDINALS_OFFSET)
         procIndex = None
-        if isinstance(proc, (int, long)):
+        if isOrdinals:
             # By ordinal
             # I think there is a bug here, but no one realy uses ordinal load
             for i in range(numProcs):
                 ordinal = self.readWord(ordinalsTable + (i*2))
-                if ordinal == proc:
-                    # Found
-                    procIndex = ordinal
-                    break
+                yield (ordinal, base + self.readDword(procsTable + (ordinal * 4)))
         else:
             # By name
             numNames    = self.readDword(rva + win32con.RVA_NUM_PROCS_NAMES_OFFSET)
@@ -142,22 +153,17 @@ class MemReaderBaseWin( MemReaderBase ):
             for i in range(numNames):
                 procNameAddr = base + self.readDword(namesTable + (i*4))
                 procName = self.readString(procNameAddr)
-                if procName == proc:
-                    # Found
-                    procIndex = self.readWord(ordinalsTable + (i*2))
-                    break
-        if None != procIndex:
-            addr = base + self.readDword(procsTable + (procIndex * 4))
-            return addr
-        return None
+                procIndex = self.readWord(ordinalsTable + (i*2))
+                yield (procName, base + self.readDword(procsTable + (procIndex * 4)))
 
-    def findProcAddress(self, dllName, proc):
+    def enumRemoteModuleProcs(self, dllName, isOrdinals=False):
         """
-        Search for exported function in a remote process.
+        Iterate on exported function in a remote process.
         """
         base = self.findModule(dllName, isVerbose=False)
         rva = self.findRVA(base)
-        return self.findProcInRVA(base, rva, proc)
+        for proc in self._enumRemoteModuleProcs(base, rva, isOrdinals=isOrdinals):
+            yield proc
 
     def getHandles( self ):
         handleInfo = SYSTEM_HANDLE_INFORMATION()

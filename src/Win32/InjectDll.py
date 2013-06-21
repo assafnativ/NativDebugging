@@ -21,163 +21,65 @@
 #
 
 # Imports
+from abc import ABCMeta, abstractmethod
 from .Win32Structs import *
-from .Win32Utile import *
-from struct import pack
+from .MemReaderBaseWin import *
 
-REMOTE_BUFFER_SIZE = 0x200
-MAX_DLL_NAME_LENGTH = 0x100
+class InjectDll( object ):
+    __metaclass__ = ABCMeta
 
-def printIfVerbose(text, isVerbose):
-    if isVerbose:
-        print(text)
+    @abstractmethod
+    def __init__(self):
+        """ Pure virtual """
+        raise NotImplementedError("Pure function call")
+    @abstractmethod
+    def writeMemory(self, remoteAddress, data):
+        """ Pure virtual """
+        raise NotImplementedError("Pure function call")
+    @abstractmethod
+    def findProcAddress(self, module, proc):
+        """ Pure virtual """
+        raise NotImplementedError("Pure function call")
 
-def inject( process_id, dllName, LoadLibraryA_address=-1, isVerbose=False ):
-    if len(dllName) > MAX_DLL_NAME_LENGTH:
-        print("Dll name too long")
-        return
+    def injectDll(self, dllName, LoadLibraryA_address=None, creationFlags=0):
+        if dllName[-1] != '\x00':
+            dllName += "\x00"
+        if None == LoadLibraryA_address:
+            LoadLibraryA_address = self.findProcAddress("kernel32.dll", "LoadLibraryA")
+        return self.createRemoteThreadAtAddress(LoadLibraryA_address, param=dllName, creationFlags=creationFlags)
 
-    adjustDebugPrivileges()
+    def createRemoteThreadAtAddress(self, remoteAddress, param=None, creationFlags=0):
+        if isinstance(param, str):
+            param = self._allocateAndWrite( param )
+        elif isinstance(param, (int, long)):
+            pass
+        elif None==param:
+            param = 0
+        else:
+            raise Exception("Unsupported param")
 
-    printIfVerbose("Opening the target process %d" % process_id, isVerbose)
-    remoteProcess = \
-            OpenProcess(
-                        #PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_WRITE,
-                        win32con.PROCESS_ALL_ACCESS,
-                        0,
-                        process_id )
-    __injectAndExecute(remoteProcess, dllName, LoadLibraryA_address, isVerbose=isVerbose)
-    CloseHandle(remoteProcess)
- 
-def createRemoteThreadAtAddress(process_id, remote_address, param=None, creationFlags=0, isVerbose=False):
-    adjustDebugPrivileges()
-
-    printIfVerbose("Opening the target process %d" % process_id, isVerbose)
-    remoteProcess = \
-            OpenProcess(
-                        #PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_WRITE,
-                        win32con.PROCESS_ALL_ACCESS,
-                        0,
-                        process_id )
-
-    if isinstance(param, str):
-        param = __allocateAndWrite( remoteProcess, param )
-    elif isinstance(param, (int, long)):
-        pass
-    elif None==param:
-        param = 0
-    else:
-        raise Exception("Unsupported param")
-
-    return __createRemoteThreadAtAddress(remoteProcess, remote_address, param=param, creationFlags=creationFlags, isVerbose=isVerbose)
-
-def __allocateAndWrite( remoteProcess, buf ):
-        remote_buffer_size = len(buf)
-        remote_memory_address = \
-            VirtualAllocEx( remoteProcess,
+        remote_thread_id = c_uint(0)
+        remote_thread = CreateRemoteThread( \
+                            self._process,
                             None,
-                            remote_buffer_size,
+                            0,
+                            remoteAddress,
+                            param,
+                            creationFlags,
+                            byref(remote_thread_id) )
+        return remote_thread, remote_thread_id.value
+
+    def _allocateAndWrite(self, data):
+        remoteAddress = self.allocateRemote(len(data))
+        self.writeMemory(remoteAddress, data)
+        return remoteAddress
+
+    def allocateRemote(self, length):
+        remoteAddress = \
+            VirtualAllocEx( self._process,
+                            None,
+                            length,
                             win32con.MEM_COMMIT,
                             win32con.PAGE_READWRITE ) 
-        bytes_written = c_uint(0)
-        WriteProcessMemory(
-                remoteProcess, 
-                remote_memory_address,
-                buf,
-                remote_buffer_size,
-                byref(bytes_written))
-        if bytes_written.value != remote_buffer_size:
-            raise Exception("Unable to write to process memory")
-        return remote_memory_address
-
-def __injectAndExecute( remoteProcess, dllName, LoadLibraryA_address=-1, creationFlags=0, isVerbose=False ):
-    printIfVerbose("Allocating memory inside remote process", isVerbose)
-
-    dllName += "\x00"
-    remote_buffer_size = len(dllName)
-
-    remote_memory_address = __allocateAndWrite( remoteProcess, dllName )
-    printIfVerbose("Memory allocated at 0x%x" % remote_memory_address, isVerbose)
-
-    if -1 == LoadLibraryA_address:
-        printIfVerbose("Verifing the LoadLibrary proc address", isVerbose)
-        kernel32lib = LoadLibrary( "kernel32.dll" )
-        LoadLibraryA_address = \
-            GetProcAddress( kernel32lib,
-                            "LoadLibraryA" )
-        printIfVerbose("LoadLibraryA found at 0x%x" % LoadLibraryA_address, isVerbose)
-        # We can assume that kernel32 is loaded in the same place in every process
-        # because it's the first dll to be loaded in every process
-
-    printIfVerbose("Creating remote thread on LoadLibrary", isVerbose)
-    return __createRemoteThreadAtAddress(remoteProcess, remoteAddress, remote_memory_address, creationFlags=creationFlags, isVerbose=isVerbose)
-
-def __createRemoteThreadAtAddress(remoteProcess, remoteAddress, param=0, creationFlags=0, isVerbose=False):
-    remote_thread_id = c_uint(0)
-    remote_thread = CreateRemoteThread( \
-                        remoteProcess,
-                        None,
-                        0,
-                        remoteAddress,
-                        param,
-                        creationFlags,
-                        byref(remote_thread_id) )
-    printIfVerbose("Thread %d created" % remote_thread_id.value, isVerbose)
-    return remote_thread
-
-def createProcessWithDll(
-        cmdLine, 
-        dll, 
-        securityAttributes=None, 
-        threadAttributes=None, 
-        inheritHandles=0, 
-        creationFlags=win32con.NORMAL_PRIORITY_CLASS, 
-        environment=None, 
-        currentDirectory=None,
-        startupInfo=None,
-        processInfo=None,
-        isVerbose=False ):
-
-    cmdLine = c_char_p(cmdLine)
-    if None == startupInfo:
-        startupInfo = STARTUPINFO()
-        startupInfo.dwFlags = 0
-        startupInfo.wShowWindow = 0x0
-        startupInfo.cb = sizeof(STARTUPINFO)
-    if None == processInfo:
-        processInfo = PROCESS_INFORMATION()
-    if None == securityAttributes:
-        securityAttributes = SECURITY_ATTRIBUTES()
-        securityAttributes.Length = sizeof(SECURITY_ATTRIBUTES)
-        securityAttributes.SecDescriptior = None
-        securityAttributes.InheritHandle = True
-    if None == threadAttributes:
-        threadAttributes = SECURITY_ATTRIBUTES()
-        threadAttributes.Length = sizeof(SECURITY_ATTRIBUTES)
-        threadAttributes.SecDescriptior = None
-        threadAttributes.InheritHandle = True
-        
-    printIfVerbose('Creating process', isVerbose)
-    CreateProcess( 
-                pchar_NULL,
-                cmdLine, 
-                byref(securityAttributes),
-                byref(threadAttributes),
-                TRUE,
-                creationFlags | win32con.CREATE_SUSPENDED,
-                environment,
-                currentDirectory,
-                byref(startupInfo),
-                byref(processInfo) )
-    printIfVerbose('Process created', isVerbose)
-    printIfVerbose('Process handle: %d' % processInfo.hProcess, isVerbose)
-    printIfVerbose('Process id: %d' % processInfo.dwProcessId, isVerbose)
-    printIfVerbose('Thread handle: %d' % processInfo.hThread, isVerbose)
-    printIfVerbose('Thread id: %d' % processInfo.dwThreadId, isVerbose)
-    remoteThread = __injectAndExecute( processInfo.hProcess, dll, isVerbose=isVerbose, creationFlags=win32con.CREATE_SUSPENDED)
-    ResumeThread(processInfo.hThread)
-    printIfVerbose('Process resumed', isVerbose)
-    ResumeThread(remoteThread)
-
-    return (processInfo.hProcess, processInfo.hThread, processInfo.dwProcessId, processInfo.dwThreadId)
+        return remoteAddress
 

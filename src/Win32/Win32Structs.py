@@ -29,6 +29,7 @@ class win32con( object ):
 win32con.NULL = 0
 win32con.TOKEN_QUERY                    = 8
 win32con.TOKEN_ADJUST_PRIVILEGES        = 32
+win32con.PROCESS_CREATE_THREAD          = 0x0002
 win32con.PROCESS_VM_OPERATION           = 0x0008
 win32con.PROCESS_VM_READ                = 0x0010
 win32con.PROCESS_VM_WRITE               = 0x0020
