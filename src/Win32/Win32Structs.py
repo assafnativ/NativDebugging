@@ -151,6 +151,7 @@ win32con.PE_MAGIC                            = 'PE'
 win32con.EXE_MAGIC                           = 'MZ'
 win32con.OPTIONAL_HEADER_MAGIC               = '\x0b\x01'
 win32con.ROM_OPTIONAL_HEADER_MAGIC           = '\x07\x01'
+win32con.SYSTEM_PROCESS_INFORMATION          = 5
 
 from ctypes import *
 
@@ -424,6 +425,28 @@ class OBJECT_TYPE_INFROMATION( Structure ):
             ('PoolType',                c_uint),
             ('DefaultPagedPoolCharge',  c_uint),
             ('DefaultNonPagedPoolCharge',   c_uint) ]
+
+
+class SYSTEM_PROCESS_INFORMATION_DETAILD( Structure ):
+    _fields_ = [
+            ('NextEntryOffset',     c_uint),
+            ('NumberOfThreads',     c_uint),
+            ('SpareLi1',            c_uint64),
+            ('SpareLi2',            c_uint64),
+            ('SpareLi3',            c_uint64),
+            ('CreateTime',          c_uint64),
+            ('UserTime',            c_uint64),
+            ('KernelTime',          c_uint64),
+            ('ImageName',           UNICODE_STRING),
+            ('BasePriority',        c_uint),
+            ('UniqueProcessId',     c_uint),
+            ('InheritedFromUniqueProcessId', c_uint),
+            ('HandleCount',         c_uint),
+            ('Reserved4',           c_uint),
+            ('Reserved5',           c_void_p*11),
+            ('PeakPagefileUsage',   c_uint),
+            ('PrivatePageCount',    c_uint),
+            ('Reserved6',           c_uint64*6) ]
 
 DuplicateHandle = windll.kernel32.DuplicateHandle
 DuplicateHandle.argtypes = [
@@ -822,4 +845,3 @@ GetProcessId = windll.kernel32.GetProcessId
 GetProcessId.argtypes = [
         c_int ] # handle
 GetProcessId.restype = ErrorIfZero
-

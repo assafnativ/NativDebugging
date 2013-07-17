@@ -20,8 +20,37 @@ def adjustDebugPrivileges():
     CloseHandle( access_token )
 
 def enumProcesses():
+    bufferSize = 0x1000
+    while True:
+        buf = create_string_buffer(bufferSize)
+        returnLength = c_uint(0)
+        status = NtQuerySystemInformation( \
+                win32con.SYSTEM_PROCESS_INFORMATION, \
+                buf, \
+                bufferSize, \
+                byref(returnLength) )
+        if win32con.STATUS_SUCCESS == status:
+            break
+        elif win32con.STATUS_INFO_LENGTH_MISMATCH != status:
+            raise Exception("Query info error")
+        bufferSize *= 2
+    results = []
+    processInfo = cast(addressof(buf), POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
+    offset = processInfo.NextEntryOffset
+    # Skip the first one
+    processInfo = cast(addressof(buf) + offset, POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
+    while True:
+        #print processInfo.UniqueProcessId, processInfo.ImageName.Buffer
+        results.append((processInfo.ImageName.Buffer, processInfo.UniqueProcessId))
+        if 0 == processInfo.NextEntryOffset:
+            break
+        offset += processInfo.NextEntryOffset
+        processInfo = cast(addressof(buf) + offset, POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
+    return results
+        
+def _enumProcessesOld():
     adjustDebugPrivileges()
-
+    
     processesIds = c_uint * 0x400
     processesIds = processesIds()
     cb = sizeof(processesIds)
