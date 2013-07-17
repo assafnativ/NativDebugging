@@ -90,9 +90,9 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
     result += '\n'
     for i in range(0, len(table), itemsInRow):
         if 0 == base:
-            line = '%16x ' % (i * 4 )
+            line = '%16x ' % (i * itemSize )
         else:
-            line = '%16x ' % ((i * 4) + base)
+            line = '%16x ' % ((i * itemSize) + base)
         line_data = table[i:][:itemsInRow]
         for t in line_data:
             line += itemStr % t
