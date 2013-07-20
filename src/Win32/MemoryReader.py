@@ -47,11 +47,10 @@ def memoryReaderFromHandle(handle):
     return MemoryReader(target_open_handle=handle)
 
 class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, InjectDll ):
-    PAGE_SIZE       = 0x1000
-    PAGE_SIZE_MASK  = 0x0fff
     READ_ATTRIBUTES_MASK    = 0xee # [0x20, 0x40, 0x80, 0x02, 0x04, 0x08]
     WRITE_ATTRIBUTES_MASK   = 0xcc # [0x40, 0x80, 0x04, 0x08]
     EXECUTE_ATTRIBUTES_MASK = 0xf0 # [0x10, 0x20, 0x40, 0x80]
+    ALL_ATTRIBUTES_MASK     = 0xff
     def __init__( self, target_process_id=None, target_open_handle=None, cmd_line=None, create_suspended=False, create_info={} ):
         MemReaderBase.__init__(self)
         if   (None != target_open_handle) and (None == target_process_id) and (None == cmd_line):
@@ -79,6 +78,12 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         #self._WRITE_ATTRIBUTES      = [4, 5, 6, 7, 12, 13, 14, 15, 20, 21, 22, 23, 28, 29, 30, 31]
         #self._EXECUTE_ATTRIBUTES    = [2, 3, 6, 7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31]
         self._cache = [(0, [])] * (0x80000000 >> 12)
+        sysInfo = SYSTEM_INFO()
+        GetSystemInfo(byref(sysInfo))
+        self._minVAddress   = sysInfo.lpMinimumApplicationAddress
+        self._maxVAddress   = sysInfo.lpMaximumApplicationAddress
+        self._pageSize      = sysInfo.dwPageSize
+        self._pageSizeMask  = self._pageSize - 1
 
     def __del__( self ):
         self._closeProcess()
@@ -318,6 +323,8 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         return 0 != (self.getAddressAttributes(addr) & self.EXECUTE_ATTRIBUTES_MASK)
 
     def isAddressValid( self, addr ):
+        if addr <= self._minVAddress or addr > self._maxVAddress:
+            return False
         result = c_uint(0)
         bytes_read = c_uint(0)
         returncode = ReadProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
@@ -325,169 +332,38 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             return True
         return False
 
-    def getMemoryMapByQuery( self ):
-        """ Get map of all the memory with names of the modules the memory belongs to """
+    def getMemoryMap(self):
+        """ Get map of all the memory with names of the modules the memory belongs to 
+            Result is of type: {addr: (name, size, attributes)} """
 
-        if self._is_win64:
-            raise Excpetion("Not supported on x64")
-        try:
-            import pefile
-        except ImportError:
-            raise Exception("You must install the pefile module to use this function")
-        if None == EnumProcessModulesEx:
-            raise Exception("This function is not supported on this build of Windows")
-        
         result = {}
 
-        # Get all modules names, and on the way the size of the binary of each module
-        modules = ARRAY( c_void_p, self.PAGE_SIZE )(0)
-        bytes_written = c_uint(0)
-        EnumProcessModulesEx( self._process, byref(modules), sizeof(modules), byref(bytes_written), win32con.LIST_MODULES_ALL )
-        num_modules = bytes_written.value / sizeof(c_void_p(0))
-        for module_iter in range(num_modules):
-            module_name = ARRAY( c_char, 1000 )('\x00')
-            GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
-            module_name = module_name.value
-            module_cut_name = module_name.replace('\x00', '')
-            module_info = MODULEINFO(0)
-            GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
-            module_base = module_info.lpBaseOfDll
-            module_size = module_info.SizeOfImage
-            if module_base & self.PAGE_SIZE_MASK != 0:
-                raise Exception("Module not page aligned")
-            result[module_base] = (
-                            module_cut_name, 
-                            module_size, 
-                            self.getAddressAttributes(module_base))
-            # Get the sections
-            module_bin = self.readMemory(module_base, self.PAGE_SIZE) #module_info.SizeOfImage)
-            parsed_pe = pefile.PE(data=module_bin, fast_load=True)
-            for section in parsed_pe.sections:
-                section_addr = (section.VirtualAddress & 0xfffff000) + module_base
-                section_size = section.SizeOfRawData
-                section_attributes = self.getAddressAttributes(section_addr)
-                section_name = module_cut_name + '!' + section.Name.replace('\x00', '')
-                # Algin to end of page
-                if 0 == section_size:
-                    section_size = self.PAGE_SIZE
-                elif (section_size & self.PAGE_SIZE_MASK) != 0:
-                    section_size += self.PAGE_SIZE - (section_size & self.PAGE_SIZE_MASK)
-                # Append to list
-                sectionInMap = False
-                for addr, block in result.items():
-                    if addr == section_addr:
-                        result[addr] = (
-                                section_name,
-                                section_size, 
-                                section_attributes )
-                        result[addr + section_size] = (
-                                block[0],
-                                block[1] - section_size,
-                                self.getAddressAttributes(addr + section_size))
-                        sectionInMap = True
-                        break
-                    elif addr <= section_addr and (addr + block[1]) > section_addr:
-                        firstPartSize   = section_addr - addr
-                        lastPartSize    = block[1] - firstPartSize - section_size
-                        result[addr] = (
-                                block[0],
-                                firstPartSize,
-                                block[2] )
-                        result[section_addr] = (
-                                section_name,
-                                section_size,
-                                section_attributes )
-                        if 0 < lastPartSize:
-                            result[section_addr + section_size] = (
-                                block[0],
-                                lastPartSize,
-                                self.getAddressAttributes(section_addr + section_size))
-                        sectionInMap = True
-                        break
-                if False == sectionInMap:
-                    result[section_addr] = (
-                                module_cut_name + '!' + section.Name.replace('\x00', ''), 
-                                section_size, 
-                                self.getAddressAttributes(section_addr))
-            
+        # Gather information about loaded images
+        modules = dict([(x[0], x[1]) for x in self.enumModules()])
+    
+        # Find the number of pages in the workingset
+        num_pages = c_uint64(0)
+        QueryWorkingSet(self._process, byref(num_pages), sizeof(c_uint64))
+        
         # Get all other memory and attributes of pages
-        memory_map = ARRAY( c_uint, 0x80000 )(0)
+        memory_map = ARRAY( c_void_p, (num_pages.value + 0x1000) * sizeof(c_void_p) )(0)
         QueryWorkingSet( self._process, byref(memory_map), sizeof(memory_map) )
         number_of_pages = memory_map[0]
-        # Add all pages
-        for page in memory_map[1:1+number_of_pages]:
-            addr = page & (0xfffff000)
-            # We have no intrest in kernel pages
-            if addr > 0x80000000:
-                continue
-            # Check if page is already in the list
-            isPageSet = False
-            for blockAddr, blockInfo in result.items():
-                if blockAddr <= addr and (blockAddr + blockInfo[1]) > addr:
-                    isPageSet = True
-                    break
-            if isPageSet:
-                continue
-            result[addr] = (
-                "_PAGE_", 
-                self.PAGE_SIZE,
-                self.getAddressAttributes(addr))
-
-        # Coalesce blocks
-        keys = list(result.keys())
-        keys.sort()
-        pos = 1
-        while pos < len(keys):
-            prev = result[keys[pos-1]]
-            cur = result[keys[pos]]
-            if  prev[0] == cur[0] and \
-                prev[2] == cur[2] and \
-                keys[pos-1] + prev[1] == keys[pos]:
-
-                result[keys[pos-1]] = (cur[0], cur[1] + prev[1], cur[2])
-                del result[keys[pos]]
-                keys = keys[:pos] + keys[pos+1:]
-            else:
-                pos += 1
-
-        return MemoryMap(result, self)
-
-    def getMemoryMapByEnum( self ):
-        if self._is_win64:
-            raise Exception( "Not supported on x64" )
-        result = {}
-        one_byte = c_uint(0)
-        bytes_read = c_uint(0)
-        currentBlockStart = 0
-        currentBlockSize  = 0
-        currentBlockAttributes = None
-        for i in range( 0, 0x80000000, self.PAGE_SIZE ):
-            read_result = ReadProcessMemory( self._process, i, byref(one_byte), 1, byref(bytes_read) )
-            if 0 != read_result and 0 < currentBlockSize:
-                result[currentBlockStart] = ("", currentBlockSize, currentBlockAttributes)
-            currentBlockSize = 0
-            currentBlockStart = i + self.PAGE_SIZE
-            currentBlockAttributes = None
-            continue
-
-            memBasicInfo = MEMORY_BASIC_INFORMATION()
-            read_result = VirualQueryEx(self._process, i, byref(memBasicInfo), 1)
-            if 0 == read_result:
-                raise Exception("Failed to query memory attributes for address 0x{0:x}".format(i))
-            pageAttributes = memBasicInfo.Protect
-            if None == currentBlockAttributes:
-                currentBlockAttributes = memBasicInfo.Protect
-                currentBlockSize += self.PAGE_SIZE
-            elif currentBlockAttributes != pageAttributes:
-                # This page has different attributes so we would put it in a new block
-                result[currentBlockStart] = ("", currentBlockSize, currentBlockAttributes)
-                currentBlockSize = self.PAGE_SIZE
-                currentBlockStart = i
-                currentBlockAttributes = pageAttributes
-            else:
-                # Block continues
-                currentBlockSize += self.PAGE_SIZE
-        return MemoryMap(result, self)
+        memoryRegionInfo = MEMORY_BASIC_INFORMATION()
+        for page in memory_map[1:]:
+            pageAddr = page
+            if self.isAddressValid(pageAddr) and None != pageAddr and pageAddr not in result:
+                VirtualQueryEx(
+                        self._process, 
+                        pageAddr, 
+                        byref(memoryRegionInfo), 
+                        sizeof(MEMORY_BASIC_INFORMATION))
+                if None != memoryRegionInfo.AllocationBase:
+                    regionStart = memoryRegionInfo.AllocationBase
+                    if regionStart not in result:
+                        name = modules.get(regionStart, '')
+                        result[regionStart] = (name, memoryRegionInfo.RegionSize, memoryRegionInfo.Protect)
+        return result
 
     def disasm(self, addr, length=0x100, decodeType=1):
         if IS_DISASSEMBLER_FOUND:

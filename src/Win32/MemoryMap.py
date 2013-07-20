@@ -22,12 +22,13 @@
 
 
 class MemoryMap( object ):
-    READ_ATTRIBUTES_MASK    = 0xee # [0x20, 0x40, 0x80, 0x02, 0x04, 0x08]
-    WRITE_ATTRIBUTES_MASK   = 0xcc # [0x40, 0x80, 0x04, 0x08]
-    EXECUTE_ATTRIBUTES_MASK = 0xf0 # [0x10, 0x20, 0x40, 0x80]
-    ALL_ATTRIBUTES_MASK     = 0xff
-    def __init__(self, memoryMap, reader, atomSize=4, memory={}):
+    def __init__(self, memoryMap, reader, atomSize=4):
         self._memoryMap = memoryMap
+        self._reader = reader
+        self.READ_ATTRIBUTES_MASK       = reader.READ_ATTRIBUTES_MASK
+        self.WRITE_ATTRIBUTES_MASK      = reader.WRITE_ATTRIBUTES_MASK
+        self.EXECUTE_ATTRIBUTES_MASK    = reader.EXECUTE_ATTRIBUTES_MASK
+        self.ALL_ATTRIBUTES_MASK        = reader.ALL_ATTRIBUTES_MASK
     
     def getAddressInfo(self, x):
         for addr, block in self._memoryMap.items():
@@ -35,7 +36,9 @@ class MemoryMap( object ):
                 return MemoryBlockInfo(addr, block)
         return None
 
-    def filteredMap(self, attributesMask=ALL_ATTRIBUTES_MASK, nameStartsWith=None, nameContains=None):
+    def filteredMap(self, attributesMask=None, nameStartsWith=None, nameContains=None):
+        if None == attributesMask:
+            attributesMask = self.ALL_ATTRIBUTES_MASK
         if None != nameStartsWith:
             nameStartsWith = nameStartsWith.lower()
         if None != nameContains:
@@ -47,6 +50,7 @@ class MemoryMap( object ):
                 if None != nameContains and not nameContains in block[0].lower():
                     continue
                 yield MemoryBlockInfo(addr, block)
+
     def __iter__(self):
         for addr, block in self._memoryMap.items():
             yield MemoryBlockInfo(addr, block)

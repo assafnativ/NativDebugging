@@ -152,6 +152,7 @@ win32con.EXE_MAGIC                           = 'MZ'
 win32con.OPTIONAL_HEADER_MAGIC               = '\x0b\x01'
 win32con.ROM_OPTIONAL_HEADER_MAGIC           = '\x07\x01'
 win32con.SYSTEM_PROCESS_INFORMATION          = 5
+win32con.PROCESS_BASIC_INFORMATION           = 0
 
 from ctypes import *
 
@@ -208,7 +209,16 @@ EnumProcessModules.argtypes = [
     c_void_p,   # HMODULE* lphModule
     c_uint,     # DWORD cb
     c_void_p ]  # LPDWORD lpcbNeeded
-EnumProcessModules.restype = ErrorIfZero
+EnumProcessModules.restype = c_uint
+
+EnumProcessModulesEx = windll.psapi.EnumProcessModulesEx
+EnumProcessModulesEx.argtypes = [
+    c_void_p,   # HANDLE hProcess
+    c_void_p,   # HMODULE* lphModule
+    c_uint,     # DWORD cb
+    c_void_p,   # LPDWORD lpcbNeeded
+    c_uint ]    # DWORD dwFilterFlag
+EnumProcessModulesEx.restype = c_uint
 
 try:
     EnumProcessModulesEx = windll.psapi.EnumProcessModulesEx
@@ -303,7 +313,7 @@ QueryWorkingSet.argtypes = [
     c_void_p,   # HANDLE hProcess
     c_void_p,   # PVOID pv
     c_uint]     # DWORD cb
-QueryWorkingSet.restype = ErrorIfZero
+QueryWorkingSet.restype = c_uint
 
 VirtualProtectEx = windll.kernel32.VirtualProtectEx
 VirtualProtectEx.argtypes = [
@@ -477,7 +487,24 @@ NtQuerySystemInformation.argtypes = [
     c_void_p ]  #  __out_opt  PULONG ReturnLength
 NtQuerySystemInformation.restype = c_uint
     
+class PROCESS_BASIC_INFORMATION( Structure ):
+    _fields_ = [
+            ('ExitStatus',      c_void_p),
+            ('PebBaseAddress',  c_void_p),
+            ('AffinityMask',    c_void_p),
+            ('BasePriority',    c_void_p),
+            ('UniqueProcessId', c_void_p),
+            ('InheritedFromUniqueProcessId', c_void_p)]
 
+NtQueryInformationProcess = windll.ntdll.NtQueryInformationProcess
+NtQueryInformationProcess.argtypes = [
+        c_uint,     # _In_       HANDLE ProcessHandle
+        c_void_p,   # _In_       PROCESSINFOCLASS ProcessInformationClass
+        c_void_p,   # _Out_      PVOID ProcessInformation
+        c_ulong,    # _In_       ULONG ProcessInformationLength
+        c_void_p ]  # _Out_opt_  PULONG ReturnLength
+NtQueryInformationProcess.restype = NtStatusCheck
+    
 GetModuleFileNameEx = windll.psapi.GetModuleFileNameExA
 GetModuleFileNameEx.argtypes = [
         c_int,      #  __in      HANDLE hProcess,
@@ -687,10 +714,10 @@ class MEMORY_BASIC_INFORMATION(Structure):
     _fields_ = [("BaseAddress", c_void_p),
                 ("AllocationBase", c_void_p),
                 ("AllocationProtect", c_uint),
-                ("RegionSize", c_long),
+                ("RegionSize", c_size_t),
                 ("State", c_uint),
                 ("Protect", c_uint),
-                ("Type", c_uint),]
+                ("Type", c_uint)]
 
 class SECURITY_ATTRIBUTES(Structure):
     _fields_ = [("Length", c_uint),
@@ -845,3 +872,21 @@ GetProcessId = windll.kernel32.GetProcessId
 GetProcessId.argtypes = [
         c_int ] # handle
 GetProcessId.restype = ErrorIfZero
+
+class SYSTEM_INFO( Structure ):
+    _fields_ = [
+            ('wProcessorArchitecture', c_uint16),
+            ('wReserved',              c_uint16),
+            ('dwPageSize',             c_uint),
+            ('lpMinimumApplicationAddress', c_void_p),
+            ('lpMaximumApplicationAddress', c_void_p),
+            ('dwActiveProcessorMask',       c_void_p),
+            ('dwNumberOfProcessors',        c_uint),
+            ('dwProcessorType',             c_uint),
+            ('dwAllocationGranularity',     c_uint),
+            ('wProcessorLevel',             c_uint),
+            ('wProcessorRevision',          c_uint) ]
+GetSystemInfo = windll.kernel32.GetSystemInfo
+GetSystemInfo.argtypes = [ c_void_p ] # LPSYSTEM_INFO
+GetSystemInfo.restype = None
+

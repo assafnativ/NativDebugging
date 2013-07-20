@@ -23,6 +23,11 @@
 from struct import unpack
 from copy import deepcopy
 from ..Interfaces import ReadError
+from .MemoryMap import *
+
+def newDifferentialSearch(reader):
+    memMap = MemoryMap(reader.getMemoryMap(), reader, atomSize=reader.getDefaultDataSize())
+    return DifferentialSearch(memMap, reader)
 
 class DifferentialSearch( object ):
     READ_ALL_WRITABLE_MEMORY    = 1
@@ -82,13 +87,17 @@ class DifferentialSearch( object ):
                     self._readMemory(newBlockAddress, newBlockSize)
         self._memory = newMemory
 
-    def filterMemoryWithConst(self, comperator, const, atomSize=None):
+    def filterMemoryWithConst(self, comperator, const, atomSize=None, alignment=None):
         newMemory = {}
         if None == atomSize:
             atomSize = self._atomSize
+        if None == alignment:
+            alignment = atomSize
+        if 0 != (addr % alignment):
+            addr -= (addr % -alignment)
         for addr, data in self._memory.items():
             try:
-                for offset in range(0, len(data), atomSize):
+                for offset in range(0, len(data), alignment):
                     newData = self._readMemory(addr + offset, atomSize)
                     if comperator(
                             newData,
@@ -102,53 +111,78 @@ class DifferentialSearch( object ):
         self.filterMemoryOldWithNew(bytes.__eq__)
     def removeUnchangedMemory(self):
         self.filterMemoryOldWithNew(bytes.__ne__)
-        
-    def searchUInt32(self, x):
+
+    def searchUint64(self, x, alignment=None):
+        if x > 0xffffffffffffffff or x < 0:
+            raise Exception("Uint64 out of range")
+        self.filterMemoryWithConst(
+                (lambda y, z: unpack('=Q', y)[0] == z),
+                x,
+                8,
+                alignment)
+
+    def searchInt64(self, x, alignment=None):
+        if x > 0x7fffffffffffffff or x < -0x80000000000000:
+            raise Exception("Int64 out of range")
+        self.filterMemoryWithConst(
+                (lambda y, z: unpack('=q', y)[0] == z),
+                x,
+                8,
+                alignment)
+
+    def searchUInt32(self, x, alignment=None):
         if x > 0xffffffff or x < 0:
             raise Exception("Uint32 out of range")
         self.filterMemoryWithConst(
             (lambda y, z: unpack('=L', y)[0] == z), 
             x,
-            4)
-    def searchInt32(self, x):
+            4,
+            alignment)
+
+    def searchInt32(self, x, alignment=None):
         if x > 0x7fffffff or x < -0x80000000:
             raise Exception("Int32 out of range")
         self.filterMemoryWithConst(
             (lambda y, z: unpack('=l', y)[0] == z),
             x,
-            4)
+            4,
+            alignment)
 
-    def searchUint16(self, x):
+    def searchUint16(self, x, alignment=None):
         if x > 0xffff or x < 0:
             raise Exception("Uint16 out of range")
         self.filterMemoryWithConst(
             (lambda y, z: unpack('=H', y)[0] == z), 
             x,
-            2)
+            2,
+            alignment)
             
-    def searchInt16(self, x):
+    def searchInt16(self, x, alignment=None):
         if x > 0x7fff or x < 8000:
             raise Exception("Int16 out of range")
         self.filterMemoryWithConst(
             (lambda y, z: unpack('=h', y)[0] == z), 
             x,
-            2)
+            2,
+            alignment)
 
-    def searchUint8(self, x):
+    def searchUint8(self, x, alignment=None):
         if x > 0xff or x < 0:
             raise Exception("Uint8 out of range")
         self.filterMemoryWithConst(
             (lambda y, z: unpack('=B', y)[0] == z), 
             x,
-            1)
+            1,
+            alignment)
             
-    def searchInt8(self, x):
+    def searchInt8(self, x, alignment=None):
         if x > 0x7f or x < 80:
             raise Exception("Int8 out of range")
         self.filterMemoryWithConst(
             (lambda y, z: unpack('=b', y)[0] == z), 
             x,
-            1)
+            1,
+            alignment)
 
     def __len__(self):
         return len(self._memory)
