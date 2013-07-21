@@ -93,8 +93,6 @@ class DifferentialSearch( object ):
             atomSize = self._atomSize
         if None == alignment:
             alignment = atomSize
-        if 0 != (addr % alignment):
-            addr -= (addr % -alignment)
         for addr, data in self._memory.items():
             try:
                 for offset in range(0, len(data), alignment):
