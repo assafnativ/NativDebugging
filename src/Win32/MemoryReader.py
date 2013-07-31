@@ -332,11 +332,33 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             return True
         return False
 
+    def _makeRegionsList(self, pages, names={}):
+        result = {}
+        pages.sort()
+
+        pageSize = self._pageSize
+        pageMask = ~self._pageSizeMask
+        regionSize = pageSize
+        regionStart = pages[0] & pageMask
+        regionProtection = pages[0] & 0x1f
+        for page in pages[1:]:
+            addr = page & pageMask
+            protection = page & 0x1f
+            if addr == (regionStart + regionSize) and protection == regionProtection:
+                regionSize += pageSize
+            else:
+                name = names.get(regionStart, '')
+                result[regionStart] = (name, regionSize, regionProtection)
+                regionSize = pageSize
+                regionStart = addr
+                regionProtection = protection
+        name = names.get(regionStart, '')
+        result[regionStart] = (name, regionSize, regionProtection)
+        return result
+
     def getMemoryMap(self):
         """ Get map of all the memory with names of the modules the memory belongs to 
             Result is of type: {addr: (name, size, attributes)} """
-
-        result = {}
 
         # Gather information about loaded images
         modules = dict([(x[0], x[1]) for x in self.enumModules()])
@@ -346,24 +368,117 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         QueryWorkingSet(self._process, byref(num_pages), sizeof(c_uint64))
         
         # Get all other memory and attributes of pages
-        memory_map = ARRAY( c_void_p, (num_pages.value + 0x1000) * sizeof(c_void_p) )(0)
+        memory_map = ARRAY( c_void_p, (num_pages.value + 0x100) * sizeof(c_void_p) )(0)
         QueryWorkingSet( self._process, byref(memory_map), sizeof(memory_map) )
         number_of_pages = memory_map[0]
         memoryRegionInfo = MEMORY_BASIC_INFORMATION()
-        for page in memory_map[1:]:
-            pageAddr = page
-            if self.isAddressValid(pageAddr) and None != pageAddr and pageAddr not in result:
-                VirtualQueryEx(
-                        self._process, 
-                        pageAddr, 
-                        byref(memoryRegionInfo), 
-                        sizeof(MEMORY_BASIC_INFORMATION))
-                if None != memoryRegionInfo.AllocationBase:
-                    regionStart = memoryRegionInfo.AllocationBase
-                    if regionStart not in result:
-                        name = modules.get(regionStart, '')
-                        result[regionStart] = (name, memoryRegionInfo.RegionSize, memoryRegionInfo.Protect)
-        return result
+        pages = memory_map[1:number_of_pages]
+        return self._makeRegionsList(pages, modules)
+
+### Bad code
+###        for page in memory_map[1:]:
+###            pageAddr = page
+###            if None == pageAddr or 0 == pageAddr:
+###                continue
+###            pageAddr &= ~self._pageSizeMask
+###            if self.isAddressValid(pageAddr) and None != pageAddr and pageAddr not in result:
+###                queryResult = VirtualQueryEx(
+###                                self._process, 
+###                                pageAddr, 
+###                                byref(memoryRegionInfo), 
+###                                sizeof(MEMORY_BASIC_INFORMATION))
+###                if queryResult == sizeof(MEMORY_BASIC_INFORMATION) and None != memoryRegionInfo.AllocationBase:
+###                    regionStart = memoryRegionInfo.AllocationBase
+###                    if regionStart not in result:
+###                        name = modules.get(regionStart, '')
+###                        regionSize = \
+###                                memoryRegionInfo.RegionSize + \
+###                                (memoryRegionInfo.BaseAddress - regionStart)
+###                        result[regionStart] = (name, regionSize, memoryRegionInfo.Protect)
+###        return result
+
+    @staticmethod
+    def isInListChecker(target):
+        def _isInListChecker(x):
+            return x in target
+        return _isInListChecker
+    @staticmethod
+    def isInRangeChecker(target):
+        def _isInRangeChecker(x):
+            return ((x >= target[0]) and (x < target[1]))
+        return _isInRangeChecker
+    @staticmethod
+    def isEqChecker(target):
+        def _isEqChecker(x):
+            return x == target
+        return _isEqChecker
+    @staticmethod
+    def stringCaseInsensetiveCmp(target):
+        def _stringCaseInsensetiveCmp(x, r):
+            return x.replace('\x00', '').lower() == target.lower()
+        return _stringCaseInsensetiveCmp
+
+    def search(self, target, ranges=None, targetLength=None, alignment=None, isVerbose=False):
+        integerTypes = (int, long, tuple, list)
+        if None == ranges:
+            if isVerbose:
+                print("Creating memory map")
+            memMap = self.getMemoryMap()
+            ranges = [(x[0], x[0] + x[1][1]) for x in memMap.items() if 0 != (x[1][2] & self.WRITE_ATTRIBUTES_MASK)]
+            if isVerbose:
+                print("Creating memory map - Done")
+        if isinstance(ranges, tuple):
+            ranges = [ranges]
+        if None==alignment:
+            if isinstance(target, integerTypes):
+                alignment = self._DEFAULT_DATA_SIZE
+            else:
+                alignment = 1
+        if None==targetLength:
+            if isinstance(target, integerTypes):
+                targetLength = self._DEFAULT_DATA_SIZE
+            else:
+                targetLength = len(target)
+        if isinstance(target, integerTypes):
+            if 4 == targetLength:
+                targetReader = self.readDword
+            elif 8 == targetLength:
+                targetReader = self.readQword
+            elif 1 == targetLength:
+                targetReader = self.readByte
+            elif 2 == targetLength:
+                targetReader = self.readWord
+            else:
+                raise Exception("Target length %s not supported with integer target" % repr(targetLength))
+        else:
+            targetReader = lambda addr: self.readMemory(addr, targetLength)
+
+        if isinstance(target, list):
+            targetValidator = MemoryReader.isInListChecker(target)
+        elif isinstance(target, tuple):
+            targetValidator = MemoryReader.isInRangeChecker(target)
+        elif isinstance(target, (int, long)):
+            targetValidator = MemoryReader.isEqChecker(target)
+        elif isinstance(target, str):
+            targetValidator = MemoryReader.isEqChecker(target)
+        else:
+            targetValidator = target
+
+        for r in ranges:
+            if (r[1] - r[0] - targetLength) <= 0:
+                continue
+            if isVerbose:
+                print("Searching in range: 0x%x to 0x%x" % (r[0], r[1]))
+            addr = r[0]
+            rangeEnd = r[1]
+            try:
+                while addr < rangeEnd:
+                    if targetValidator(targetReader(addr)):
+                        yield addr
+                    addr += alignment
+            except ReadError:
+                if isVerbose:
+                    print("Range 0x%x to 0x%x stopped after address 0x%x" % (r[0], r[1], addr))
 
     def disasm(self, addr, length=0x100, decodeType=1):
         if IS_DISASSEMBLER_FOUND:
