@@ -22,7 +22,7 @@
 
 import sys
 import struct
-from ctypes import c_void_p, c_uint32, cdll
+from ctypes import c_void_p, c_uint8, c_uint16, c_uint32, c_uint64, cdll
 import subprocess
 from subprocess import Popen
 
@@ -109,7 +109,7 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
     def readMemory(self, address, length, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)
-        val = (c_ubyte * length).from_address(address)
+        val = (c_uint8 * length).from_address(address)
         val = ''.join(map(chr, val))
         return val
     
