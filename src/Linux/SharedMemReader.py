@@ -22,7 +22,7 @@
 
 import sys
 import struct
-from ctypes import *
+from ctypes import c_void_p, c_uint32, cdll
 import subprocess
 from subprocess import Popen
 
@@ -59,7 +59,13 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
         self._POINTER_SIZE = sizeof(c_void_p)
         self._DEFAULT_DATA_SIZE = 4
         self._ENDIANITY = '='
-        self.libc = cdll.LoadLibrary("libc.so.6")
+        libc = cdll.LoadLibrary("libc.so.6")
+        self.shmat = libc.shmat
+        self.shmat.argv = [c_uint32, c_void_p, c_uint32]
+        self.shmat.restype = c_void_p
+        self.shmdt = libc.shmdt
+        self.shmdt.argv = [c_void_p]
+        self.shmdt.restype = None
         # Support more than one shmid on input
         if not isinstance(memInfos, list):
             memInfos = [memInfos]
@@ -68,8 +74,8 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
                 raise Exception("Meminfo of type (shared mem id, base address, size in bytes) expected")
         self.memMap = []
         for memInfo in memInfos:
-            mem = self.libc.shmat(memInfo[0], 0, 0o10000) # 010000 == SHM_RDONLY
-            if -1 == mem:
+            mem = self.shmat(memInfo[0], 0, 0o10000) # 010000 == SHM_RDONLY
+            if c_void_p(-1).value == mem or None == mem:
                 raise Exception("Attach to shared memory failed")
             self.memMap.append(SharedMemInfo(memInfo[0], mem, memInfo[1], memInfo[2]))
 
@@ -88,7 +94,7 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
 
     def __detach(self):
         for mem in self.memMap:
-            self.libc.shmdt(mem.localAddress)
+            self.shmdt(mem.localAddress)
         self.memMap = []
 
     def getPointerSize(self):
