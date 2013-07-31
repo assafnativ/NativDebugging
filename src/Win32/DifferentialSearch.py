@@ -110,9 +110,9 @@ class DifferentialSearch( object ):
     def removeUnchangedMemory(self):
         self.filterMemoryOldWithNew(bytes.__ne__)
 
-    def searchUint64(self, x, alignment=None):
+    def searchUInt64(self, x, alignment=None):
         if x > 0xffffffffffffffff or x < 0:
-            raise Exception("Uint64 out of range")
+            raise Exception("UInt64 out of range")
         self.filterMemoryWithConst(
                 (lambda y, z: unpack('=Q', y)[0] == z),
                 x,
@@ -130,7 +130,7 @@ class DifferentialSearch( object ):
 
     def searchUInt32(self, x, alignment=None):
         if x > 0xffffffff or x < 0:
-            raise Exception("Uint32 out of range")
+            raise Exception("UInt32 out of range")
         self.filterMemoryWithConst(
             (lambda y, z: unpack('=L', y)[0] == z), 
             x,
@@ -146,9 +146,9 @@ class DifferentialSearch( object ):
             4,
             alignment)
 
-    def searchUint16(self, x, alignment=None):
+    def searchUInt16(self, x, alignment=None):
         if x > 0xffff or x < 0:
-            raise Exception("Uint16 out of range")
+            raise Exception("UInt16 out of range")
         self.filterMemoryWithConst(
             (lambda y, z: unpack('=H', y)[0] == z), 
             x,
@@ -164,9 +164,9 @@ class DifferentialSearch( object ):
             2,
             alignment)
 
-    def searchUint8(self, x, alignment=None):
+    def searchUInt8(self, x, alignment=None):
         if x > 0xff or x < 0:
-            raise Exception("Uint8 out of range")
+            raise Exception("UInt8 out of range")
         self.filterMemoryWithConst(
             (lambda y, z: unpack('=B', y)[0] == z), 
             x,
