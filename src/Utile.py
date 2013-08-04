@@ -285,4 +285,8 @@ def getShmids(ownerFilter=None):
     memInfo = getAllShmidsInfo(ownerFilter)
     return [x[1] for x in memInfo]
 
-
+def getShmidsWithSizes(ownerFilter=None):
+    if sys.platform == 'win32':
+        raise Exception("This function is not supported under Windows platform")
+    memInfo = getAllShmidsInfo(ownerFilter)
+    return [(x[1], x[2])  for x in memInfo]
