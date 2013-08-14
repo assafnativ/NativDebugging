@@ -235,7 +235,7 @@ class PatternFinder( object ):
         self.__paintPattern(maxDepth, pattern, displayContext)
         return self.search(pattern, startAddress, context=context)
     def __genDisplayText(self, name):
-        return lambda context, value: sys.stdout.write('%s found @%08x%s'  % (name, getattr(context, 'AddressOf%s' % name), linesep) ) or True
+        return lambda context, value: sys.stdout.write('%s found @%08x Offset %08x%s'  % (name, getattr(context, 'AddressOf%s' % name), getattr(context, 'OffsetOf%s' % name), linesep) ) or True
     def __textPattern(self, depth, pattern):
         if 0 == depth:
             return
@@ -554,6 +554,19 @@ class POINTER_TO_STRUCT( POINTER ):
         if self.isNullValid and 0 == ptr:
             yield True
         else:
+            for x in patFinder.search(self.content, ptr, lastAddress=0, context=self.context):
+                yield True
+
+class VERBOSE_POINTER_TO_STRUCT( POINTER_TO_STRUCT ):
+    def isValid(self, patFinder, address, value):
+        if None == value:
+            return
+        ptr = value._val
+        if self.isNullValid and 0 == ptr:
+            yield True
+        else:
+            print hex(ptr)
+            print patFinder.memReader.dd(ptr, 0x200)
             for x in patFinder.search(self.content, ptr, lastAddress=0, context=self.context):
                 yield True
 
