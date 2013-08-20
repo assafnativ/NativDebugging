@@ -19,8 +19,14 @@ class RecursiveFind( MemReaderInterface ):
     def _recursiveFind(self, targetValidator, startAddress, searchLength, pointerSize, targetReader, hops, alignment, limiter, path):
         if startAddress % alignment != 0:
             raise Exception("Not aligned")
+        if isinstance(searchLength, list):
+            nextSearchLength = searchLength[1:]
+            currentSearchLenght = searchLength[0]
+        else:
+            nextSearchLength = searchLength
+            currentSearchLenght = searchLength
         try:
-            for offset in xrange(searchLength):
+            for offset in xrange(currentSearchLenght):
                 addr = startAddress + offset
                 if 0 == (addr % alignment):
                     data = targetReader(addr)
@@ -31,7 +37,7 @@ class RecursiveFind( MemReaderInterface ):
                 if 0 == (addr % pointerSize):
                     pointer = self.readAddr(addr)
                     if hops > 0 and (0 == (pointer % alignment)) and self.isAddressValid(pointer):
-                        for result in self._recursiveFind(targetValidator, pointer, searchLength, pointerSize, targetReader, hops-1, alignment, limiter, path + [offset]):
+                        for result in self._recursiveFind(targetValidator, pointer, nextSearchLength, pointerSize, targetReader, hops-1, alignment, limiter, path + [offset]):
                             yield result
         except ReadError, e:
             pass
