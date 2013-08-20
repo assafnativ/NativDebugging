@@ -553,9 +553,13 @@ class POINTER_TO_STRUCT( POINTER ):
         ptr = value._val
         if self.isNullValid and 0 == ptr:
             yield True
-        else:
-            for x in patFinder.search(self.content, ptr, lastAddress=0, context=self.context):
-                yield True
+            return
+        if self.valueRange != None:
+            if  (ptr < self.valueRange[0]) or \
+                (ptr >= self.valueRange[1]):
+                    return
+        for x in patFinder.search(self.content, ptr, lastAddress=0, context=self.context):
+            yield True
 
 class VERBOSE_POINTER_TO_STRUCT( POINTER_TO_STRUCT ):
     def isValid(self, patFinder, address, value):
