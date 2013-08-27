@@ -7,10 +7,10 @@ __all__ = [
         "DumpBase",
         "Utile" ]
 from . import File
-from . import MemDump
+from . import MemoryDump
 from . import Patterns
 __all__.append('File')
-__all__.append('MemDump')
+__all__.append('MemoryDump')
 __all__.append('Patterns')
 
 import sys

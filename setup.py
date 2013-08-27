@@ -15,10 +15,10 @@ else:
             'NativDebugging/Unix' : 'src/Unix'}
     ExtraDataFiles = []
 packagesNames.append('NativDebugging/File')
-packagesNames.append('NativDebugging/MemDump')
+packagesNames.append('NativDebugging/MemoryDump')
 packagesNames.append('NativDebugging/Patterns')
 packagesDirs['NativDebugging/File'] = 'src/File'
-packagesDirs['NativDebugging/MemDump'] = 'src/MemDump'
+packagesDirs['NativDebugging/MemoryDump'] = 'src/MemoryDump'
 packagesDirs['NativDebugging/Patterns'] = 'src/Patterns'
 
 from distutils.core import setup
