@@ -14,7 +14,7 @@ class RecursiveFind( MemReaderInterface ):
                         result - list/tuple which holds the result to be displayed (starting address, offsets to data, name ??)
         Return Value : None, just prints the string
         '''
-        print(('0x{0:x}\t{1:s}\t"{2:s}"'.format(result[0], ''.join(['0x{0:x}, '.format(x) for x in result[1]]), str(result[2]))))
+        print(('{0:s}\t{1:s}\t"{2:s}"'.format(hex(result[0]), ''.join(['{0:s}, '.format(hex(x)) for x in result[1]]), str(result[2]))))
 
     def _recursiveFind(self, targetValidator, startAddress, searchLength, pointerSize, targetReader, hops, alignment, limiter, path):
         if startAddress % alignment != 0:
