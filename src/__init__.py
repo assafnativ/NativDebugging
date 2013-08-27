@@ -4,10 +4,13 @@ __all__ = [
         "MemReaderBase",
         "QtWidgets",
         "GUIDisplayBase",
+        "DumpBase",
         "Utile" ]
 from . import File
+from . import MemDump
 from . import Patterns
 __all__.append('File')
+__all__.append('MemDump')
 __all__.append('Patterns')
 
 import sys

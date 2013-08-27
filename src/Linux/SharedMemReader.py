@@ -97,6 +97,12 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
             self.shmdt(mem.localAddress)
         self.memMap = []
 
+    def getMemoryMap(self):
+        memMap = {}
+        for mem in self.memMap:
+            memMap[mem.base] = ('%d' % mem.id, mem.size, 0xffffffff)
+        return memMap
+
     def getPointerSize(self):
         return self._POINTER_SIZE
 

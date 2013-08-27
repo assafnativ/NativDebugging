@@ -81,6 +81,12 @@ class SharedMemReader( MemReaderBase ):
             mem.reader.stdin.write('0 0' + os.linesep)
             mem.reader.communicate()
 
+    def getMemoryMap(self):
+        memMap = {}
+        for mem in self.memMap:
+            memMap[mem.base] = ('%d' % mem.id, mem.size, 0xffffffff)
+        return memMap
+
     def getPointerSize(self):
         return self._POINTER_SIZE
 

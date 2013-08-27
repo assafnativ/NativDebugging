@@ -3,12 +3,13 @@ from abc import ABCMeta
 from .Interfaces import MemReaderInterface, ReadError
 from .Utile import *
 from .RecursiveFind import *
+from .DumpBase import *
 
 if 'WindowsError' not in globals():
     class WindowsError(Exception):
         pass
 
-class MemReaderBase( RecursiveFind ):
+class MemReaderBase( RecursiveFind, DumpBase ):
     """ Few basic functions for memory reader, still abstruct """
     __metaclass__ = ABCMeta
 
