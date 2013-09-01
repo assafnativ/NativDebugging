@@ -37,6 +37,7 @@ class DumpBase( object ):
         raise NotImplementedError("Pure function call")
 
     def dumpToFile( self, dumpFile, dumpType=None, comments=None, isVerbose=False ):
+        PAGE_SIZE = 0x400
         if None == dumpType:
             dumpType = self.DUMP_TYPE_NATIV_DEBUGGING
         if not isinstance(dumpFile, file):
@@ -51,23 +52,27 @@ class DumpBase( object ):
             regionName = regionInfo[0]
             regionSize = regionInfo[1]
             regionAttrib = regionInfo[2]
-            try:
-                data = self.readMemory(addr, regionSize)
-            except ReadError:
-                if isVerbose:
-                    print("Failed to read data from address %x to %x" % (addr, addr + regionSize))
-                continue
+            bytesLeft = regionSize
             if self.DUMP_TYPE_NATIV_DEBUGGING == dumpType:
                 self._writeAtom(dumpFile, 'REGN', [
                         pack('>Q', addr),
                         pack('>Q', regionSize),
                         pack('>L', regionAttrib),
                         self._makeAtom('NAME', regionName) ] )
-                self._writeAtom(dumpFile, 'DATA', data)
-            elif self.DUMP_TYPE_RAW == dumpType:
-                dumpFile.write(data)
-            else:
-                raise Exception("Unknown dump format")
+                self.dumpFile.write('DATA' + pack('>Q',regionSize))
+            while 0 < bytesLeft:
+                if bytesLeft > PAGE_SIZE:
+                    currentReadSize = PAGE_SIZE
+                else:
+                    currentReadSize = bytesLeft
+                try:
+                    page = self.readMemory(addr, currentReadSize)
+                except ReadError:
+                    if isVerbose:
+                        print("Failed to read data from address %x to %x" % (addr, addr + regionSize))
+                    page = '\x00' * currentReadSize
+                bytesLeft -= currentReadSize
+                dumpFile.write(page)
         if None != comments and self.DUMP_TYPE_NATIV_DEBUGGING == dumpType:
             self._writeAtom(dumpFile, 'CMNT', comments)
 
