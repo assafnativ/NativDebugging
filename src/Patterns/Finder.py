@@ -517,10 +517,10 @@ class STRUCT( DATA_TYPE ):
     def __repr__(self):
         return repr(self.context)
     def readValue(self, patFinder, address):
+        self.context._val = address
         return self.context
     def isValid(self, patFinder, address, value):
         for x in patFinder.search(self.content, address, lastAddress=0, context=self.context):
-            self.context._val = address
             yield True
 
 class POINTER_TO_STRUCT( POINTER ):
@@ -622,8 +622,12 @@ class SWITCH( DATA_TYPE ):
 class NUMBER( DATA_TYPE ):
     def __init__(self, value=None, size=None, alignment=None, isSigned=False, endianity='=', **kw):
         self.sizeOfData   = size
+        if 128 < self.sizeOfData or 0 >= self.sizeOfData:
+            raise Exception('Invalid number size ' + repr(self.sizeOfData))
         self.alignment    = alignment
         self.value        = value
+        if not isinstance(isSigned, bool):
+            raise Exception("Invalid value for isSigned")
         self.isSigned     = isSigned
         if endianity not in [">", "<", "="]:
             raise Exception('Invalid endianity (">", "<", "=")')
