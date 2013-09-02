@@ -58,7 +58,11 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
         MemReaderBase.__init__(self)
         self._POINTER_SIZE = sizeof(c_void_p)
         self._DEFAULT_DATA_SIZE = 4
-        self._ENDIANITY = '='
+        t = pack('=L', 1)
+        if '\x00' == t[0]:
+            self._ENDIANITY = '>'
+        else:
+            self._ENDIANITY = '<'
         libc = cdll.LoadLibrary("libc.so.6")
         self.shmat = libc.shmat
         self.shmat.argv = [c_uint32, c_void_p, c_uint32]
@@ -115,9 +119,8 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
     def readMemory(self, address, length, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)
-        val = (c_uint8 * length).from_address(address)
-        val = ''.join(map(chr, val))
-        return val
+        val = (c_char * length).from_address(address)
+        return val.raw
     
     def readQword(self, address, isLocalAddress=False):
         if not isLocalAddress:

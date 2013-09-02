@@ -5,7 +5,7 @@
 #   https://svn3.xp-dev.com/svn/nativDebugging/
 #   Nativ.Assaf+debugging@gmail.com
 #   Copyright (C) 2011  Assaf Nativ
-
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -168,6 +168,11 @@ class MemReaderInterface( object ):
         >: big-endian, std. size & alignment
         """
         raise NotImplementedError("Pure function call")
+
+class WriteError( Exception ):
+    def __init__(self, address):
+        self.address = address
+        Exception.__init__(self)
 
 class MemWriterInterface( object ):
     """ Pure Interface for Debugger """
