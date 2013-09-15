@@ -91,32 +91,38 @@ class MemReaderBase( RecursiveFind, DumpBase ):
             print("Offsets path contains a cycle")
         return result
 
-    def readNPrintQwords( self, addr, length=0x100, isNoBase=True, itemsInRow=4 ):
+    def readNPrintQwords( self, addr, length=0x100, isNoBase=True, itemsInRow=4, endianity=None ):
         """
         Display memory as QWords tabls, does not return anything
         """
+        if None == endianity:
+            endianity = self.getEndianity()
         if isNoBase:
-            printAsQwordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow)
+            printAsQwordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow, endianity=endianity)
         else:
-            printAsQwordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow)
+            printAsQwordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow, endianity=endianity)
 
-    def readNPrintDwords( self, addr, length=0x100, isNoBase=True, itemsInRow=8 ):
+    def readNPrintDwords( self, addr, length=0x100, isNoBase=True, itemsInRow=8, endianity=None ):
         """
         Display memory as DWords tabls, does not return anything
         """
+        if None == endianity:
+            endianity = self.getEndianity()
         if isNoBase:
-            printAsDwordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow)
+            printAsDwordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow, endianity=endianity)
         else:
-            printAsDwordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow)
+            printAsDwordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow, endianity=endianity)
 
-    def readNPrintWords( self, addr, length=0x100, isNoBase=True, itemsInRow=0x10 ):
+    def readNPrintWords( self, addr, length=0x100, isNoBase=True, itemsInRow=0x10, endianity=None ):
         """
         Display memory as Words tabls, does not return anything
         """
+        if None == endianity:
+            endianity = self.getEndianity()
         if isNoBase:
-            printAsWordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow)
+            printAsWordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow, endianity=endianity)
         else:
-            printAsWordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow)
+            printAsWordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow, endianity=endianity)
 
     def readNPrintBin( self, addr, length=0x100, isNoBase=True, itemsInRow=0x10 ):
         """

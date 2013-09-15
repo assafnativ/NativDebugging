@@ -31,23 +31,22 @@ except ImportError as e:
     IS_DISASSEMBLER_FOUND = False
 from struct import pack, unpack
 
-def attach(targetFileName, file_start_offset=0, loading_offset=0, pointer_size=4, endianity='='):
-    return FileReader(targetFileName, file_start_offset, loading_offset, pointer_size, endianity)
+def loadFile(targetFileName, file_start_offset=0, loading_address=0, pointer_size=4, endianity='='):
+    return FileReader(targetFileName, file_start_offset, loading_address, pointer_size, endianity)
 
 class FileReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
-    def __init__( self, targetFileName, file_start_offset=0, loading_offset=0, pointer_size=4, endianity='='):
+    def __init__( self, targetFileName, file_start_offset=0, loading_address=0, pointer_size=4, endianity='='):
         self._file = file(targetFileName, 'rb+')
         MemReaderBase.__init__(self)
         self._POINTER_SIZE = pointer_size
         self._DEFAULT_DATA_SIZE = 4
         self._ENDIANITY = endianity
         self._START = file_start_offset
-        self._LOADING_ADDR = loading_offset
-        self._ADDR_DELTA = file_start_offset - loading_offset
+        self._LOADING_ADDR = loading_address
+        self._ADDR_DELTA = file_start_offset - loading_address
         # Find end of file
         self._file.seek(0, 2)
         self._file_size = self._file.tell()
-        self._file.seek(self._ADDR_DELTA, 1)
 
     def __del__( self ):
         self._file.close()
@@ -55,9 +54,9 @@ class FileReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
     def readAddr( self, addr ):
         self._file.seek(addr + self._ADDR_DELTA)
         if 4 == self._POINTER_SIZE:
-            return unpack(self._ENDIANITY + 'L', self._file.read(4))
+            return unpack(self._ENDIANITY + 'L', self._file.read(4))[0]
         elif 8 == self._POINTER_SIZE:
-            return unpack(self._ENDIANITY + 'Q', self._file.read(8))
+            return unpack(self._ENDIANITY + 'Q', self._file.read(8))[0]
         else:
             raise Exception("Unknown pointer size")
 

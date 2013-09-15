@@ -52,35 +52,35 @@ def DATA( data, base = 0, itemsInRow=0x10 ):
     return( result )
 
 
-def makeQwordsList( data ):
+def makeQwordsList( data, endianity='=' ):
     if len(data) % 8 != 0:
         data += '\x00' * (8 - (len(data) % 8))
-    return list(struct.unpack('=' + ('Q' * (len(data) / 8)), data))
+    return list(struct.unpack(endianity + ('Q' * (len(data) / 8)), data))
 
-def makeDwordsList( data ):
+def makeDwordsList( data, endianity='=' ):
     if len(data) % 4 != 0:
         data += '\x00' * (4 - (len(data) % 4))
-    return list(struct.unpack('=' + ('L' * (len(data) / 4)), data))
+    return list(struct.unpack(endianity + ('L' * (len(data) / 4)), data))
 
-def makeWordsList( data ):
+def makeWordsList( data, endianity='=' ):
     if len(data) % 2 != 0:
         data += '\x00' * (2 - (len(data) % 2))
-    return list(struct.unpack('=' + ('H' * (len(data) / 2)), data))
+    return list(struct.unpack(endianity + ('H' * (len(data) / 2)), data))
 
 def makeBytesList( data ):
     return list(map(ord, data))
 
-def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
+def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8, endianity='=' ):
     result = ''
     result += ' ' * 17
     itemStr = '%%%dx' % (itemSize * 2)
 
     if 2 == itemSize:
-        packSize = '=H'
+        packSize = endianity + 'H'
     elif 4 == itemSize:
-        packSize = '=L'
+        packSize = endianity + 'L'
     elif 8 == itemSize:
-        packSize = '=Q'
+        packSize = endianity + 'Q'
     else:
         raise Exception("Invalid size for print table")
 
@@ -109,18 +109,18 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8 ):
         result += line
     print(result)
 
-def printAsQwordsTable( data, base = 0, itemsInRow = 0x8 ):
-    table = makeQwordsList(data)
+def printAsQwordsTable( data, base = 0, itemsInRow = 0x8, endianity='=' ):
+    table = makeQwordsList(data, endianity=endianity)
     printIntTable(table, base, itemSize=8, itemsInRow=itemsInRow)
     return table
 
-def printAsDwordsTable( data, base = 0, itemsInRow = 0x8 ):
-    table = makeDwordsList(data)
+def printAsDwordsTable( data, base = 0, itemsInRow = 0x8, endianity='=' ):
+    table = makeDwordsList(data, endianity=endianity)
     printIntTable(table, base, itemSize=4, itemsInRow=itemsInRow)
     return table
 
-def printAsWordsTable( data, base = 0, itemsInRow = 0x8 ):
-    table = makeWordsList(data)
+def printAsWordsTable( data, base = 0, itemsInRow = 0x8, endianity='=' ):
+    table = makeWordsList(data, endianity=endianity)
     printIntTable(table, base, itemSize=2, itemsInRow=itemsInRow)
     return table
 
@@ -132,13 +132,13 @@ def hex2data( h ):
 def data2hex( d ):
     return d.encode('hex')
 
-def data2dword(x):
-    return struct.unpack('=L', x)[0]
+def data2dword(x, endianity='='):
+    return struct.unpack(endianity + 'L', x)[0]
 
-def dword2data(x):
-    return struct.pack('=L', x)
+def dword2data(x, endianity='='):
+    return struct.pack(endianity + 'L', x)
 
-def buffDiff( buffers, chunk_size = 1 ):
+def buffDiff( buffers, chunk_size = 1, endianity='=' ):
     if type(buffers) != type([]):
         print('Invalid type')
         return
@@ -183,12 +183,12 @@ def buffDiff( buffers, chunk_size = 1 ):
                     elif( 2 == chunk_size ):
                         print("Buff diff at {0:04X}: ".format(i)),
                         for chunk in chunks:
-                            print("{0:04X} ".format(struct.unpack('=H',chunk)[0])),
+                            print("{0:04X} ".format(struct.unpack(endianity + 'H',chunk)[0])),
                         print
                     elif( 4 == chunk_size ):
                         print("Buff diff at {0:04X}: ".format(i)),
                         for chunk in chunks:
-                            print("{0:08X} ".format(struct.unpack('=L',chunk)[0])),
+                            print("{0:08X} ".format(struct.unpack(endianity + 'L',chunk)[0])),
                         print
                     else:
                         print("Buff diff at {0:04X}: ".format(i)),
