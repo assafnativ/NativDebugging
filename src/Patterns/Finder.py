@@ -85,7 +85,7 @@ class SearchContext( object ):
             result += '(offset: %06x) size %04x val:' % (offset, sizeOf)
             if isinstance(val, SearchContext):
                 if hasattr(val, '_val'):
-                    result += ' %x' % val._val
+                    result += '0x%x' % val._val
                 result += ':\n'
                 result += val._repr(depth+1, noAddress=noAddress)
             elif isinstance(val, list):
