@@ -59,7 +59,7 @@ class DumpBase( object ):
                         pack('>Q', regionSize),
                         pack('>L', regionAttrib),
                         self._makeAtom('NAME', regionName) ] )
-                self.dumpFile.write('DATA' + pack('>Q',regionSize))
+                dumpFile.write('DATA' + pack('>Q',regionSize))
             while 0 < bytesLeft:
                 if bytesLeft > PAGE_SIZE:
                     currentReadSize = PAGE_SIZE
