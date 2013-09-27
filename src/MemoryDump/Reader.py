@@ -24,6 +24,7 @@ class DumpReader( MemReaderBase, GUIDisplayBase ):
         self._MEM_MAP = {}
         self._REGIONS = []
         self._DATA = {}
+        self._COMMENTS = ""
         if 'NDMD' != self.dumpFile.read(4):
             raise Exception("This is not a NativDebugging dump file. Use FileReader to work with a raw dump")
         # Skip the size
@@ -69,6 +70,9 @@ class DumpReader( MemReaderBase, GUIDisplayBase ):
         return unpack('>L', self.dumpFile.read(4))[0]
     def _dumpReadQword(self):
         return unpack('>Q', self.dumpFile.read(8))[0]
+
+    def getComments(self):
+        return self._COMMENTS
 
     def getMemoryMap(self):
         return self._MEM_MAP.copy()
