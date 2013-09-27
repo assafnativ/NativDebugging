@@ -69,9 +69,10 @@ class DumpBase( object ):
                     page = self.readMemory(addr, currentReadSize)
                 except ReadError:
                     if isVerbose:
-                        print("Failed to read data from address %x to %x" % (addr, addr + regionSize))
+                        print("Failed to read data from address %x to %x" % (addr, addr + currentReadSize))
                     page = '\x00' * currentReadSize
                 bytesLeft -= currentReadSize
+                addr += currentReadSize
                 dumpFile.write(page)
         if None != comments and self.DUMP_TYPE_NATIV_DEBUGGING == dumpType:
             self._writeAtom(dumpFile, 'CMNT', comments)

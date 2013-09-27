@@ -341,12 +341,15 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         regionSize = pageSize
         regionStart = pages[0] & pageMask
         regionProtection = pages[0] & 0x1f
-        for page in pages[1:]:
+        for i in range(1, len(pages)):
+            page = pages[i]
             addr = page & pageMask
             protection = page & 0x1f
             if addr == (regionStart + regionSize) and protection == regionProtection:
                 regionSize += pageSize
             else:
+                if regionStart in result:
+                    raise Exception("Double definition of region! %x" % page)
                 name = names.get(regionStart, '')
                 result[regionStart] = (name, regionSize, regionProtection)
                 regionSize = pageSize
