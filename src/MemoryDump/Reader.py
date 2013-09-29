@@ -118,11 +118,11 @@ class DumpReader( MemReaderBase, GUIDisplayBase ):
         return self._DATA[region[0]][offset:offset+length]
 
     def readQword(self, addr):
-        return unpack(self._ENDIANITY + 'Q', self.readMemory(addr, 8))
+        return unpack(self._ENDIANITY + 'Q', self.readMemory(addr, 8))[0]
     def readDword(self, addr):
-        return unpack(self._ENDIANITY + 'L', self.readMemory(addr, 4))
+        return unpack(self._ENDIANITY + 'L', self.readMemory(addr, 4))[0]
     def readWord(self, addr):
-        return unpack(self._ENDIANITY + 'H', self.readMemory(addr, 2))
+        return unpack(self._ENDIANITY + 'H', self.readMemory(addr, 2))[0]
     def readByte(self, addr):
         start, end = getRegionStartEnd(self, addr)
         return ord(self._DATA[start][addr - start])
