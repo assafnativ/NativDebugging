@@ -83,3 +83,10 @@ class InjectDll( object ):
                             win32con.PAGE_READWRITE ) 
         return remoteAddress
 
+    def injectRPyC(self, pythonDll=None):
+        if None == pythonDll:
+            import sys
+            pythonDll = 'python%d%d.dll' % (sys.version_info.major, sys.version_info.minor)
+        pythonAddr = injectDll(pythonDll)
+
+

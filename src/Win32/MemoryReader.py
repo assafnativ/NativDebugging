@@ -43,6 +43,9 @@ def attach(targetProcessId):
 def createProcess(targetExe):
     return MemoryReader(cmd_line=targetExe)
 
+def createProcessWithInjectedDll(targetExe, targetDll):
+    return MemoryReader(cmd_line=targetExe, create_info={"WITH_DLL":targetDll})
+
 def memoryReaderFromHandle(handle):
     return MemoryReader(target_open_handle=handle)
 
@@ -51,8 +54,15 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     WRITE_ATTRIBUTES_MASK   = 0xcc # [0x40, 0x80, 0x04, 0x08]
     EXECUTE_ATTRIBUTES_MASK = 0xf0 # [0x10, 0x20, 0x40, 0x80]
     ALL_ATTRIBUTES_MASK     = 0xff
-    def __init__( self, target_process_id=None, target_open_handle=None, cmd_line=None, create_suspended=False, create_info={} ):
+    def __init__( self, \
+            target_process_id=None, \
+            target_open_handle=None, \
+            cmd_line=None, \
+            create_suspended=False, \
+            create_info=None ):
         MemReaderBase.__init__(self)
+        if None == create_info:
+            create_info = {}
         if   (None != target_open_handle) and (None == target_process_id) and (None == cmd_line):
             self._process = target_open_handle
             self._processId = GetProcessId(self._process)
@@ -126,7 +136,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             environment = None
         else:
             environment = createInfo['ENVIRONMENT']
-        if 'CREATION_FLAGS' not in createInfo:
+        if 'CREATION_FLAGS' in createInfo:
             creationFlags = createInfo['CREATION_FLAGS']
         else:
             creationFlags = win32con.NORMAL_PRIORITY_CLASS
