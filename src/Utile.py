@@ -176,22 +176,22 @@ def buffDiff( buffers, chunk_size = 1, endianity='=' ):
             for chunk in chunks:
                 if chunk != chunk0:
                     if( 1 == chunk_size ):
-                        print("Buff diff at {0:04X}: ".format(i)),
+                        print("Buff diff at {0:X}: ".format(i)),
                         for chunk in chunks:
                             print("{0:02X} ".format(ord(chunk))),
                         print
                     elif( 2 == chunk_size ):
-                        print("Buff diff at {0:04X}: ".format(i)),
+                        print("Buff diff at {0:X}: ".format(i)),
                         for chunk in chunks:
                             print("{0:04X} ".format(struct.unpack(endianity + 'H',chunk)[0])),
                         print
                     elif( 4 == chunk_size ):
-                        print("Buff diff at {0:04X}: ".format(i)),
+                        print("Buff diff at {0:X}: ".format(i)),
                         for chunk in chunks:
                             print("{0:08X} ".format(struct.unpack(endianity + 'L',chunk)[0])),
                         print
                     else:
-                        print("Buff diff at {0:04X}: ".format(i)),
+                        print("Buff diff at {0:X}: ".format(i)),
                         for chunk in chunks:
                             print("\t{0:s}".format(data2hex(chunk))),
                     total_diffs += 1
