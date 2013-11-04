@@ -27,6 +27,9 @@ import sys
 import os
 import subprocess
 
+if 'nt' == os.name:
+    from .Win32.Win32Utile import *
+
 def DATA( data, base = 0, itemsInRow=0x10 ):
     result = ''
     for i in range(0, len(data), itemsInRow):

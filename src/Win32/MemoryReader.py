@@ -171,7 +171,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
                 self.resumeSuspendedProcess()
 
     def _openProcess( self, target_pid ):
-        bytes_read = c_uint(0)
+        bytes_read = c_uint32(0)
         self._process = OpenProcess( 
                 win32con.PROCESS_CREATE_THREAD |
                 win32con.PROCESS_QUERY_INFORMATION | 
@@ -189,12 +189,12 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             ResumeThread(self._mainThread)
 
     def deprotectMem( self, addr, size ):
-        old_protection = c_uint(0)
+        old_protection = c_uint32(0)
         VirtualProtectEx( self._process, addr, size, win32con.PAGE_EXECUTE_READWRITE, byref(old_protection) )
 
     def readAddr( self, addr ):
         result = c_void_p(0)
-        bytes_read = c_uint(0)
+        bytes_read = c_uint32(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), self._POINTER_SIZE, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
@@ -204,39 +204,39 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
 
     def readQword( self, addr ):
         result = c_ulonglong(0)
-        bytes_read = c_uint(0)
+        bytes_read = c_uint32(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), 8, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         return result.value
 
     def readDword( self, addr ):
-        result = c_uint(0)
-        bytes_read = c_uint(0)
+        result = c_uint32(0)
+        bytes_read = c_uint32(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), 4, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         return result.value
 
     def readWord( self, addr ):
-        result = c_uint(0)
-        bytes_read = c_uint(0)
+        result = c_uint32(0)
+        bytes_read = c_uint32(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), 2, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         return result.value
 
     def readByte( self, addr ):
-        result = c_uint(0)
-        bytes_read = c_uint(0)
+        result = c_uint32(0)
+        bytes_read = c_uint32(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         return result.value
 
     def readMemory( self, addr, length ):
-        result = ARRAY(c_char, length)('\x00')
-        bytes_read = c_uint(0)
+        result = c_ARRAY(c_char, length)('\x00')
+        bytes_read = c_uint32(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), sizeof(result), byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
@@ -244,8 +244,8 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
 
     def readString( self, addr, maxSize=None, isUnicode=False ):
         result = ''
-        bytes_read = c_uint(0)
-        char = c_uint(0)
+        bytes_read = c_uint32(0)
+        char = c_uint32(0)
         bytesCounter = 0
 
         while True:
@@ -280,34 +280,34 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         if isinstance(data, (int, long)):
             data = struct.pack('<Q', data)
         data_to_write = c_buffer(data, 8)
-        bytes_written = c_uint(0)
+        bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 8, byref(bytes_written) )
 
     def writeDword( self, addr, data ):
         if isinstance(data, (int, long)):
             data = struct.pack('<L', data)
         data_to_write = c_buffer(data, 4)
-        bytes_written = c_uint(0)
+        bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 4, byref(bytes_written) )
 
     def writeWord( self, addr, data ):
         if isinstance(data, (int, long)):
             data = struct.pack('<H', data)
         data_to_write = c_buffer(data, 2)
-        bytes_written = c_uint(0)
+        bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 2, byref(bytes_written) )
 
     def writeByte( self, addr, data ):
         if isinstance(data, (int, long)):
             data = struct.pack('<B', data)
         data_to_write = c_buffer(data, 1)
-        bytes_written = c_uint(0)
+        bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 1, byref(bytes_written) )
 
     def writeMemory( self, addr, data ):
-        #data_to_write = ARRAY(c_char, len(data))(tuple(data))
+        #data_to_write = c_ARRAY(c_char, len(data))(tuple(data))
         data_to_write = c_buffer(data)
-        bytes_written = c_uint(0)
+        bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, len(data), byref(bytes_written) )
         return bytes_written.value
 
@@ -335,8 +335,8 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     def isAddressValid( self, addr ):
         if addr <= self._minVAddress or addr > self._maxVAddress:
             return False
-        result = c_uint(0)
-        bytes_read = c_uint(0)
+        result = c_uint32(0)
+        bytes_read = c_uint32(0)
         returncode = ReadProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
         if 0 != returncode and 1 == bytes_read.value:
             return True
@@ -381,7 +381,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         QueryWorkingSet(self._process, byref(num_pages), sizeof(c_uint64))
         
         # Get all other memory and attributes of pages
-        memory_map = ARRAY( c_void_p, (num_pages.value + 0x100) * sizeof(c_void_p) )(0)
+        memory_map = c_ARRAY( c_void_p, (num_pages.value + 0x100) * sizeof(c_void_p) )(0)
         QueryWorkingSet( self._process, byref(memory_map), sizeof(memory_map) )
         number_of_pages = memory_map[0]
         memoryRegionInfo = MEMORY_BASIC_INFORMATION()

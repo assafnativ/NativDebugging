@@ -1,4 +1,4 @@
-from ctypes import *
+from ctypes import c_void_p, c_uint32, c_buffer, byref
 from .Win32Structs import *
 
 def adjustDebugPrivileges():
@@ -23,7 +23,7 @@ def enumProcesses():
     bufferSize = 0x1000
     while True:
         buf = create_string_buffer(bufferSize)
-        returnLength = c_uint(0)
+        returnLength = c_uint32(0)
         status = NtQuerySystemInformation( \
                 win32con.SYSTEM_PROCESS_INFORMATION, \
                 buf, \
@@ -35,35 +35,35 @@ def enumProcesses():
             raise Exception("Query info error")
         bufferSize *= 2
     results = []
-    processInfo = cast(addressof(buf), POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
+    processInfo = cast(addressof(buf), c_POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
     offset = processInfo.NextEntryOffset
     # Skip the first one
-    processInfo = cast(addressof(buf) + offset, POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
+    processInfo = cast(addressof(buf) + offset, c_POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
     while True:
         #print processInfo.UniqueProcessId, processInfo.ImageName.Buffer
         results.append((processInfo.ImageName.Buffer, processInfo.UniqueProcessId))
         if 0 == processInfo.NextEntryOffset:
             break
         offset += processInfo.NextEntryOffset
-        processInfo = cast(addressof(buf) + offset, POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
+        processInfo = cast(addressof(buf) + offset, c_POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
     return results
         
 def _enumProcessesOld():
     adjustDebugPrivileges()
     
-    processesIds = c_uint * 0x400
+    processesIds = c_uint32 * 0x400
     processesIds = processesIds()
     cb = sizeof(processesIds)
-    bytesReturned = c_uint()
+    bytesReturned = c_uint32()
     EnumProcesses(
             byref(processesIds),
             cb,
             byref(bytesReturned))
-    processes = bytesReturned.value / sizeof(c_ulong())
+    processes = bytesReturned.value / sizeof(c_uint32())
 
     results = []
-    module  = c_ulong()
-    count   = c_ulong()
+    module  = c_uint32()
+    count   = c_uint32()
     for i in range(processes):
         if processesIds[i] == 0:
             continue

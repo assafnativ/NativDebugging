@@ -154,7 +154,10 @@ win32con.ROM_OPTIONAL_HEADER_MAGIC           = '\x07\x01'
 win32con.SYSTEM_PROCESS_INFORMATION          = 5
 win32con.PROCESS_BASIC_INFORMATION           = 0
 
-from ctypes import *
+from ctypes import c_char, c_wchar, c_int64, c_int32, c_int16, c_int8, c_uint64, c_uint32, c_uint16, c_uint8, c_size_t, c_void_p, c_char_p, c_wchar_p, c_buffer
+from ctypes import create_string_buffer, byref, cast, addressof, sizeof, windll, Structure, Union, WINFUNCTYPE
+from ctypes import ARRAY as c_ARRAY
+from ctypes import POINTER as c_POINTER
 
 def ErrorIfZero(handle):
     if handle == 0:
@@ -177,9 +180,9 @@ from .Win64Structs import *
 
 OpenProcess = windll.kernel32.OpenProcess
 OpenProcess.argtypes = [
-    c_uint,     # DWORD dwDesiredAccess
-    c_int,      # BOOL bInheritHandle
-    c_uint ]    # DWORD dwProcessId
+    c_uint32,     # DWORD dwDesiredAccess
+    c_int32,      # BOOL bInheritHandle
+    c_uint32 ]    # DWORD dwProcessId
 OpenProcess.restype = ErrorIfZero
 
 GetCurrentProcess = windll.kernel32.GetCurrentProcess
@@ -189,16 +192,16 @@ GetCurrentProcess.restype = ErrorIfZero
 OpenProcessToken = windll.advapi32.OpenProcessToken
 OpenProcessToken.argtypes = [
     c_void_p,   # HANDLE ProcessHandle
-    c_uint,     # DWORD DesiredAccess
+    c_uint32,     # DWORD DesiredAccess
     c_void_p ]  # PHANDLE TokenHandle
 OpenProcessToken.restype = ErrorIfZero
 
 AdjustTokenPrivileges = windll.advapi32.AdjustTokenPrivileges
 AdjustTokenPrivileges.argtypes = [
     c_void_p,   # HANDLE TokenHandle
-    c_int,      # BOOL DisableAllPrivileges
+    c_int32,    # BOOL DisableAllPrivileges
     c_void_p,   # PTOKEN_PRIVILEGES NewState
-    c_uint,     # DWORD BufferLength
+    c_uint32,   # DWORD BufferLength
     c_void_p,   # PTOKEN_PRIVILEGES PreviousState
     c_void_p ]  # PDWORD ReturnLength
 AdjustTokenPrivileges.restype = ErrorIfZero
@@ -207,18 +210,18 @@ EnumProcessModules = windll.psapi.EnumProcessModules
 EnumProcessModules.argtypes = [
     c_void_p,   # HANDLE hProcess
     c_void_p,   # HMODULE* lphModule
-    c_uint,     # DWORD cb
+    c_uint32,   # DWORD cb
     c_void_p ]  # LPDWORD lpcbNeeded
-EnumProcessModules.restype = c_uint
+EnumProcessModules.restype = c_uint32
 
 try:
     EnumProcessModulesEx = windll.psapi.EnumProcessModulesEx
     EnumProcessModulesEx.argtypes = [
         c_void_p,   # HANDLE hProcess
         c_void_p,   # HMODULE* lphModule
-        c_uint,     # DWORD cb
+        c_uint32,   # DWORD cb
         c_void_p,   # LPDWORD lpcbNeeded
-        c_uint]     # DWORD dwFilterFlag
+        c_uint32]   # DWORD dwFilterFlag
     EnumProcessModulesEx.restype = ErrorIfZero
 except AttributeError, e:
     EnumProcessModulesEx = None
@@ -226,7 +229,7 @@ except AttributeError, e:
 EnumProcesses = windll.psapi.EnumProcesses
 EnumProcesses.argtypes = [
     c_void_p,
-    c_uint,
+    c_uint32,
     c_void_p]
 EnumProcesses.restype = ErrorIfZero
 
@@ -235,14 +238,14 @@ GetModuleBaseName.argtypes = [
     c_void_p,   # HANDLE hProcess
     c_void_p,   # HMODULE hModule
     c_void_p,   # LPTSTR lpBaseName
-    c_uint ]    # DWORD nSize
+    c_uint32 ]  # DWORD nSize
 GetModuleBaseName.restype = ErrorIfZero
 
 GetModuleFileName = windll.kernel32.GetModuleFileNameW
 GetModuleFileName.argtypes = [
     c_void_p,   # HMODULE hModule
     c_void_p,   # LPTSTR lpFilename
-    c_void_p ]    # DWORD nSize
+    c_void_p ]  # DWORD nSize
 GetModuleFileName.restype = ErrorIfZero
 
 GetModuleInformation = windll.psapi.GetModuleInformation
@@ -250,21 +253,21 @@ GetModuleInformation.argtypes = [
     c_void_p,   # HANDLE hProcess
     c_void_p,   # HMODULE hModule
     c_void_p,   # LPMODULEINFO lpmodinfo
-    c_uint ]    # DWORD cb
+    c_uint32 ]  # DWORD cb
 GetModuleInformation.restype = ErrorIfZero
 
 GetProcessHeaps = windll.kernel32.GetProcessHeaps
 GetProcessHeaps.argtypes = [
-    c_uint,     # DWORD NumberOfHeaps
+    c_uint32,   # DWORD NumberOfHeaps
     c_void_p ]  # PHANDLE ProcessHeaps
-GetProcessHeaps.restype = c_uint
+GetProcessHeaps.restype = c_uint32
 
 HeapQueryInformation = windll.kernel32.HeapQueryInformation
 HeapQueryInformation.argtypes = [
     c_void_p,   # HANDLE HeapHandle
-    c_int,      # HEAP_INFORMATION_CLASS HeapInformationClass
+    c_int32,    # HEAP_INFORMATION_CLASS HeapInformationClass
     c_void_p,   # PVOID HeapInformation
-    c_longlong, # SIZE_T HeapInformationLength
+    c_uint64,   # SIZE_T HeapInformationLength
     c_void_p ]  # PSIZE_T ReturnLength
 HeapQueryInformation.restype = ErrorIfZero
 
@@ -272,7 +275,7 @@ HeapWalk = windll.kernel32.HeapWalk
 HeapWalk.argtypes = [
     c_void_p,   # HANDLE hHeap
     c_void_p ]  # LPPROCESS_HEAP_ENTRY lpEntry
-HeapWalk.restype = c_uint
+HeapWalk.restype = c_uint32
 
 LookupPrivilegeValue = windll.advapi32.LookupPrivilegeValueA
 LookupPrivilegeValue.argtypes = [
@@ -283,98 +286,98 @@ LookupPrivilegeValue.restype = ErrorIfZero
 
 ReadProcessMemory = windll.kernel32.ReadProcessMemory
 ReadProcessMemory.argtypes = [
-    c_int,      # hProcess // handle to the process
-    c_void_p,     # lpBaseAddress // base of memory area
+    c_int32,    # hProcess // handle to the process
+    c_void_p,   # lpBaseAddress // base of memory area
     c_void_p,   # lpBuffer // data buffer
-    c_uint,     # nSize // number of bytes to read
+    c_uint32,   # nSize // number of bytes to read
     c_void_p]   # lpNumberOfBytesWritten // number of bytes write
-ReadProcessMemory.restype = c_uint
+ReadProcessMemory.restype = c_uint32
 
 WriteProcessMemory = windll.kernel32.WriteProcessMemory
 WriteProcessMemory.argtypes = [
-    c_int,      # hProcess // handle to the process
-    c_uint,     # lpBaseAddress // base of memory area
-    c_void_p,   # lpBuffer // data buffer
-    c_uint,     # nSize // number of bytes to read
-    c_void_p]   # lpNumberOfBytesRead // number of bytes read
+    c_int32,      # hProcess // handle to the process
+    c_uint32,     # lpBaseAddress // base of memory area
+    c_void_p,     # lpBuffer // data buffer
+    c_uint32,     # nSize // number of bytes to read
+    c_void_p]     # lpNumberOfBytesRead // number of bytes read
 WriteProcessMemory.restype = ErrorIfZero
 
 QueryWorkingSet = windll.psapi.QueryWorkingSet
 QueryWorkingSet.argtypes = [
     c_void_p,   # HANDLE hProcess
     c_void_p,   # PVOID pv
-    c_uint]     # DWORD cb
-QueryWorkingSet.restype = c_uint
+    c_uint32]   # DWORD cb
+QueryWorkingSet.restype = c_uint32
 
 VirtualProtectEx = windll.kernel32.VirtualProtectEx
 VirtualProtectEx.argtypes = [
     c_void_p,   # HANDLE
     c_void_p,   # Address
-    c_uint,     # SIZE
-    c_uint,     # Protection
+    c_uint32,   # SIZE
+    c_uint32,   # Protection
     c_void_p ]  # Old protection
 VirtualProtectEx.restype = ErrorIfZero
 
 VirtualQueryEx = windll.kernel32.VirtualQueryEx
 VirtualQueryEx.argtypes = [
-    c_int,      # HANDLE hProces
+    c_int32,    # HANDLE hProces
     c_void_p,   # LPCVOID lpAddress
     c_void_p,   # PMEMORY_BASIC_INFORMATION lpBuffer
-    c_ulong ] # SIZE_T dwLength
+    c_uint32 ]  # SIZE_T dwLength
 VirtualQueryEx.restype = ErrorIfZero
 
 # VirtualAllocEx
 VirtualAllocEx = windll.kernel32.VirtualAllocEx
 VirtualAllocEx.argtypes = [
-        c_uint,         # HANDLE hProcess
+        c_uint32,       # HANDLE hProcess
         c_void_p,       # LPVOID lpAddress
-        c_uint,         # SIZE_T dwSize
-        c_uint,         # DWORD flAllocationType
-        c_uint ]        # DWORD flProtect
+        c_uint32,       # SIZE_T dwSize
+        c_uint32,       # DWORD flAllocationType
+        c_uint32 ]      # DWORD flProtect
 VirtualAllocEx.restype = ErrorIfZero
 
 # WriteProcessMemory
 WriteProcessMemory = windll.kernel32.WriteProcessMemory
 WriteProcessMemory.argtypes = [
-        c_uint,         # HANDLE hProcess
-        c_uint,         # LPVOID lpBaseAddress
+        c_uint32,       # HANDLE hProcess
+        c_uint32,       # LPVOID lpBaseAddress
         c_char_p,       # LPCVOID lpBuffer
-        c_uint,         # SIZE_T nSize
+        c_uint32,       # SIZE_T nSize
         c_void_p ]      # SIZE_T* lpNumberOfBytesWritten
 WriteProcessMemory.restype = ErrorIfZero
 
 CloseHandle = windll.kernel32.CloseHandle
-CloseHandle.argtypes = [ c_int ]
+CloseHandle.argtypes = [ c_int32 ]
 CloseHandle.restype = ErrorIfZero
 
 class MODULEINFO( Structure ):
     _fields_ = [
             ('lpBaseOfDll',     c_void_p),
-            ('SizeOfImage',     c_uint),
+            ('SizeOfImage',     c_uint32),
             ('EntryPoint',      c_void_p) ]
 
 class LUID( Structure ):
     _fields_ = [
-            ('LowPart',         c_uint),
-            ('HighPart',        c_uint)]
+            ('LowPart',         c_uint32),
+            ('HighPart',        c_uint32)]
 
 class TOKEN_PRIVILEGES( Structure ):
     _fields_ = [
-            ('PrivilegeCount',  c_uint),
+            ('PrivilegeCount',  c_uint32),
             ('Luid',            LUID),
-            ('Attributes',      c_uint) ]
+            ('Attributes',      c_uint32) ]
     
 class PROCESS_HEAP_ENTRY( Structure ):
     _fields_ = [
             ('lpData',          c_void_p),
-            ('cbData',          c_uint),
-            ('cbOverhead',      c_byte),
-            ('iRegionIndex',    c_byte),
+            ('cbData',          c_uint32),
+            ('cbOverhead',      c_uint8),
+            ('iRegionIndex',    c_uint8),
             ('wFalgs',          c_uint16),
-            ('more_info1',      c_uint),
-            ('more_info2',      c_uint),
-            ('more_info3',      c_uint),
-            ('more_info4',      c_uint) ]
+            ('more_info1',      c_uint32),
+            ('more_info2',      c_uint32),
+            ('more_info3',      c_uint32),
+            ('more_info4',      c_uint32) ]
 
 class UNICODE_STRING( Structure ):
     _fields_ = [
@@ -384,17 +387,17 @@ class UNICODE_STRING( Structure ):
 
 class OBJECT_BASIC_INFORMATION( Structure ):
     _fields_ = [
-            ('Attributes',          c_uint),
-            ('DesiredAccess',       c_uint),
-            ('HandleCount',         c_uint),
-            ('ReferenceCount',      c_uint),
-            ('PagedPoolUsage',      c_uint),
-            ('NonPagedPoolUsage',   c_uint),
-            ('Reserved',            c_uint * 3),
-            ('NameInformationLength',   c_uint),
-            ('TypeInformationLength',   c_uint),
-            ('SecurityDescriptorLength',    c_uint),
-            ('CreationTime',        c_ulonglong) ]
+            ('Attributes',          c_uint32),
+            ('DesiredAccess',       c_uint32),
+            ('HandleCount',         c_uint32),
+            ('ReferenceCount',      c_uint32),
+            ('PagedPoolUsage',      c_uint32),
+            ('NonPagedPoolUsage',   c_uint32),
+            ('Reserved',            c_uint32 * 3),
+            ('NameInformationLength',   c_uint32),
+            ('TypeInformationLength',   c_uint32),
+            ('SecurityDescriptorLength',    c_uint32),
+            ('CreationTime',        c_uint64) ]
 
 class OBJECT_NAME_INFORMATION( Structure ):
     _fields_ = [
@@ -403,35 +406,35 @@ class OBJECT_NAME_INFORMATION( Structure ):
 
 class GENERIC_MAPPING( Structure ):
     _fields_ = [
-            ('GenericRead',     c_uint),
-            ('GenericWrite',    c_uint),
-            ('GenericExecute',  c_uint),
-            ('GenericAll',      c_uint)]
+            ('GenericRead',     c_uint32),
+            ('GenericWrite',    c_uint32),
+            ('GenericExecute',  c_uint32),
+            ('GenericAll',      c_uint32)]
 
 class OBJECT_TYPE_INFROMATION( Structure ):
     _fields_ = [
             ('TypeName',                UNICODE_STRING),
-            ('TotalNumberOfHandles',    c_uint),
-            ('TotalNumberOfObjects',    c_uint),
+            ('TotalNumberOfHandles',    c_uint32),
+            ('TotalNumberOfObjects',    c_uint32),
             ('Unused1',                 c_uint16*8),
-            ('HighWaterNumberOfHandles',    c_uint),
-            ('HighWaterNumberOfObjects',    c_uint),
+            ('HighWaterNumberOfHandles',    c_uint32),
+            ('HighWaterNumberOfObjects',    c_uint32),
             ('Unused2',                 c_uint16*8),
-            ('InvalidAttributes',       c_uint),
+            ('InvalidAttributes',       c_uint32),
             ('GenericMapping',          GENERIC_MAPPING),
-            ('ValidAttributes',         c_uint),
-            ('SecurityRequired',        c_int),
-            ('MaintainHandleCount',     c_int),
+            ('ValidAttributes',         c_uint32),
+            ('SecurityRequired',        c_int32),
+            ('MaintainHandleCount',     c_int32),
             ('MaintainTypeList',        c_uint16),
-            ('PoolType',                c_uint),
-            ('DefaultPagedPoolCharge',  c_uint),
-            ('DefaultNonPagedPoolCharge',   c_uint) ]
+            ('PoolType',                c_uint32),
+            ('DefaultPagedPoolCharge',  c_uint32),
+            ('DefaultNonPagedPoolCharge',   c_uint32) ]
 
 
 class SYSTEM_PROCESS_INFORMATION_DETAILD( Structure ):
     _fields_ = [
-            ('NextEntryOffset',     c_uint),
-            ('NumberOfThreads',     c_uint),
+            ('NextEntryOffset',     c_uint32),
+            ('NumberOfThreads',     c_uint32),
             ('SpareLi1',            c_uint64),
             ('SpareLi2',            c_uint64),
             ('SpareLi3',            c_uint64),
@@ -439,44 +442,44 @@ class SYSTEM_PROCESS_INFORMATION_DETAILD( Structure ):
             ('UserTime',            c_uint64),
             ('KernelTime',          c_uint64),
             ('ImageName',           UNICODE_STRING),
-            ('BasePriority',        c_uint),
-            ('UniqueProcessId',     c_uint),
-            ('InheritedFromUniqueProcessId', c_uint),
-            ('HandleCount',         c_uint),
-            ('Reserved4',           c_uint),
+            ('BasePriority',        c_uint32),
+            ('UniqueProcessId',     c_uint32),
+            ('InheritedFromUniqueProcessId', c_uint32),
+            ('HandleCount',         c_uint32),
+            ('Reserved4',           c_uint32),
             ('Reserved5',           c_void_p*11),
-            ('PeakPagefileUsage',   c_uint),
-            ('PrivatePageCount',    c_uint),
+            ('PeakPagefileUsage',   c_uint32),
+            ('PrivatePageCount',    c_uint32),
             ('Reserved6',           c_uint64*6) ]
 
 DuplicateHandle = windll.kernel32.DuplicateHandle
 DuplicateHandle.argtypes = [
-    c_int,      #  __in   HANDLE hSourceProcessHandle,
-    c_int,      #  __in   HANDLE hSourceHandle,
-    c_int,      #  __in   HANDLE hTargetProcessHandle,
-    c_void_p,   #  __out  LPHANDLE lpTargetHandle,
-    c_uint,     #  __in   DWORD dwDesiredAccess,
-    c_int,      #  __in   BOOL bInheritHandle,
-    c_uint ]    #  __in   DWORD dwOptions
+    c_int32,      #  __in   HANDLE hSourceProcessHandle,
+    c_int32,      #  __in   HANDLE hSourceHandle,
+    c_int32,      #  __in   HANDLE hTargetProcessHandle,
+    c_void_p,     #  __out  LPHANDLE lpTargetHandle,
+    c_uint32,     #  __in   DWORD dwDesiredAccess,
+    c_int32,      #  __in   BOOL bInheritHandle,
+    c_uint32 ]    #  __in   DWORD dwOptions
 DuplicateHandle.restype = ErrorIfZero
 
 
 NtQueryObject = windll.ntdll.NtQueryObject
 NtQueryObject.argtypes = [
     c_void_p,   #  __in_opt   HANDLE Handle,
-    c_uint,     #  __in       OBJECT_INFORMATION_CLASS ObjectInformationClass,
+    c_uint32,   #  __in       OBJECT_INFORMATION_CLASS ObjectInformationClass,
     c_void_p,   #  __out_opt  PVOID ObjectInformation,
-    c_uint,     #  __in       ULONG ObjectInformationLength,
+    c_uint32,   #  __in       ULONG ObjectInformationLength,
     c_void_p ]  #  __out_opt  PULONG ReturnLength
-NtQueryObject.restype = c_uint
+NtQueryObject.restype = c_uint32
 
 NtQuerySystemInformation = windll.ntdll.NtQuerySystemInformation
 NtQuerySystemInformation.argtypes = [
     c_void_p,   #  __in       SYSTEM_INFORMATION_CLASS SystemInformationClass,
     c_void_p,   #  __inout    PVOID SystemInformation,
-    c_uint,     #  __in       ULONG SystemInformationLength,
+    c_uint32,     #  __in       ULONG SystemInformationLength,
     c_void_p ]  #  __out_opt  PULONG ReturnLength
-NtQuerySystemInformation.restype = c_uint
+NtQuerySystemInformation.restype = c_uint32
     
 class PROCESS_BASIC_INFORMATION( Structure ):
     _fields_ = [
@@ -489,55 +492,55 @@ class PROCESS_BASIC_INFORMATION( Structure ):
 
 NtQueryInformationProcess = windll.ntdll.NtQueryInformationProcess
 NtQueryInformationProcess.argtypes = [
-        c_uint,     # _In_       HANDLE ProcessHandle
+        c_uint32,   # _In_       HANDLE ProcessHandle
         c_void_p,   # _In_       PROCESSINFOCLASS ProcessInformationClass
         c_void_p,   # _Out_      PVOID ProcessInformation
-        c_ulong,    # _In_       ULONG ProcessInformationLength
+        c_uint32,   # _In_       ULONG ProcessInformationLength
         c_void_p ]  # _Out_opt_  PULONG ReturnLength
 NtQueryInformationProcess.restype = NtStatusCheck
     
 GetModuleFileNameEx = windll.psapi.GetModuleFileNameExA
 GetModuleFileNameEx.argtypes = [
-        c_int,      #  __in      HANDLE hProcess,
-        c_uint,     #  __in_opt  HMODULE hModule,
+        c_int32,      #  __in      HANDLE hProcess,
+        c_uint32,     #  __in_opt  HMODULE hModule,
         c_void_p,   #  __out     LPTSTR lpFilename,
-        c_uint ]    #  __in      DWORD nSize
+        c_uint32 ]    #  __in      DWORD nSize
 GetModuleFileNameEx.restype = ErrorIfZero
 
 class SYSTEM_HANDLE( Structure ):
     _fields_ = [
-            ('uIdProcess',  c_uint),
-            ('ObjectType',  c_byte),
-            ('Flags',       c_byte),
+            ('uIdProcess',  c_uint32),
+            ('ObjectType',  c_uint8),
+            ('Flags',       c_uint8),
             ('Handle',      c_uint16),
             ('object',      c_void_p),
-            ('GrantedAccess',   c_uint) ]
+            ('GrantedAccess',   c_uint32) ]
 
 class SYSTEM_HANDLE_INFORMATION( Structure ):
     _fields_ = [
-            ('uCount',      c_uint),
+            ('uCount',      c_uint32),
             ('Handle',      SYSTEM_HANDLE) ]
 
 class SYSTEM_HANDLE_INFORMATION( Structure ):
     _fields_ = [
-            ('uCount',          c_uint),
+            ('uCount',          c_uint32),
             ('SystemHandle',    SYSTEM_HANDLE) ]
 
 SYMOPT_DEBUG = 0x80000000
 
 SymGetOptions = windll.dbghelp.SymGetOptions
 SymGetOptions.argtypes = []
-SymGetOptions.restype = c_uint
+SymGetOptions.restype = c_uint32
 
 SymSetOptions = windll.dbghelp.SymSetOptions
-SymSetOptions.argtypes = [ c_uint ]
-SymSetOptions.restype = c_uint
+SymSetOptions.argtypes = [ c_uint32 ]
+SymSetOptions.restype = c_uint32
 
 SymInitialize = windll.dbghelp.SymInitialize
 SymInitialize.argtypes = [
-        c_uint,     # HANDLE hProcess
+        c_uint32,     # HANDLE hProcess
         c_char_p,   # PCTSTR UserSearchPath
-        c_uint ]    # BOOL fInvadeProcess
+        c_uint32 ]    # BOOL fInvadeProcess
 SymInitialize.restype = ErrorIfZero
 
 SYM_FIND_FILE_IN_PATCH_CALLBACK = WINFUNCTYPE( 
@@ -545,13 +548,13 @@ SYM_FIND_FILE_IN_PATCH_CALLBACK = WINFUNCTYPE(
                                         c_void_p) # PVOID context
 SymFindFileInPath = windll.dbghelp.SymFindFileInPath
 SymFindFileInPath.argtypes = [
-        c_uint,     # HANDLE hProcess
+        c_uint32,     # HANDLE hProcess
         c_char_p,   # PCTSTR SearchPath
         c_char_p,   # PCTSTR FileName
         c_void_p,   # PVOID id
-        c_uint,     # DWORD two
-        c_uint,     # DWORD three
-        c_uint,     # DWORD flags
+        c_uint32,     # DWORD two
+        c_uint32,     # DWORD three
+        c_uint32,     # DWORD flags
         c_void_p,   # PTSTR FilePath
         c_void_p,   #SYM_FIND_FILE_IN_PATCH_CALLBACK,  # PFINDFILEINPATHCALLBACK callback
         c_void_p ]  # PVOID contex
@@ -563,38 +566,38 @@ win32con.SSRVOPT_GUIDPTR    = 0x08 # The id parameter is a pointer to a GUID.
 
 SymLoadModule64 = windll.dbghelp.SymLoadModule64
 SymLoadModule64.argtypes = [
-        c_uint,     # HANDLE hProcess
-        c_uint,     # HANDLE hFile
+        c_uint32,     # HANDLE hProcess
+        c_uint32,     # HANDLE hFile
         c_char_p,   # PCSTR ImageNmae
         c_char_p,   # PCSTR ModuleName
         c_uint64,   # DWORD64 BaseOfDll
-        c_uint ]    # SizeOfDll
+        c_uint32 ]    # SizeOfDll
 SymLoadModule64.restype = c_uint64
 
 class SYMBOL_INFO( Structure ):
     _fields_ = [
-            ('SuzeOfStruct',        c_uint),
-            ('TypeIndex',           c_uint),
+            ('SuzeOfStruct',        c_uint32),
+            ('TypeIndex',           c_uint32),
             ('reserved1',           c_uint64),
             ('reserved2',           c_uint64),
-            ('Index',               c_uint),
-            ('Size',                c_uint),
+            ('Index',               c_uint32),
+            ('Size',                c_uint32),
             ('ModBase',             c_uint64),
-            ('Flags',               c_uint),
+            ('Flags',               c_uint32),
             ('Value',               c_uint64),
             ('Address',             c_uint64),
-            ('Register',            c_uint),
-            ('Scope',               c_uint),
-            ('Tag',                 c_uint),
-            ('NameLen',             c_uint),
-            ('MaxNameLen',          c_uint),
-            ('Name',                ARRAY(c_char, 0x1000)) ]
+            ('Register',            c_uint32),
+            ('Scope',               c_uint32),
+            ('Tag',                 c_uint32),
+            ('NameLen',             c_uint32),
+            ('MaxNameLen',          c_uint32),
+            ('Name',                c_ARRAY(c_char, 0x1000)) ]
                 
-SYM_ENUMERATESYMBOLS_CALLBACK = WINFUNCTYPE( c_uint, POINTER(SYMBOL_INFO), c_uint, c_void_p )
+SYM_ENUMERATESYMBOLS_CALLBACK = WINFUNCTYPE( c_uint32, c_POINTER(SYMBOL_INFO), c_uint32, c_void_p )
 
 SymEnumSymbols = windll.dbghelp.SymEnumSymbols
 SymEnumSymbols.argtypes = [
-        c_uint,     # HANDLE hProcess
+        c_uint32,     # HANDLE hProcess
         c_uint64,   # ULONG64 BaseOfDll
         c_char_p,   # PCTSTR Mask
         SYM_ENUMERATESYMBOLS_CALLBACK, # PSYM_ENUMERATESYMBOLS_CALLBACK EnumSymbolsCallback
@@ -603,41 +606,41 @@ SymEnumSymbols.restype = ErrorIfZero
 
 SymUnloadModule64 = windll.dbghelp.SymUnloadModule64
 SymUnloadModule64.argtypes = [
-        c_uint,     # HANDLE hProcess
+        c_uint32,     # HANDLE hProcess
         c_uint64 ]  # DWORD64 BaseOfDll
 SymUnloadModule64.restype = ErrorIfZero
 
 SymCleanup = windll.dbghelp.SymCleanup
-SymCleanup.argtypes = [ c_uint ] # HANDLE hProcess
+SymCleanup.argtypes = [ c_uint32 ] # HANDLE hProcess
 SymCleanup.restype = ErrorIfZero
 
 class STARTUPINFO( Structure ):
     _fields_ = [
-        ('cb',          c_uint),
+        ('cb',          c_uint32),
         ('lpReserved',      c_char_p),
         ('lpDesktop',       c_char_p),
         ('lpTitle',     c_char_p),
-        ('dwX',         c_uint),
-        ('dwY',         c_uint),
-        ('dwXSize',     c_uint),
-        ('dwYSize',     c_uint),
-        ('dwXCountChars',   c_uint),
-        ('dwYCountChars',   c_uint),
-        ('dwFillAttribute', c_uint),
-        ('dwFlags',     c_uint),
-        ('wShowWindow',     c_ushort),
-        ('cbReserved2',     c_ushort),
+        ('dwX',         c_uint32),
+        ('dwY',         c_uint32),
+        ('dwXSize',     c_uint32),
+        ('dwYSize',     c_uint32),
+        ('dwXCountChars',   c_uint32),
+        ('dwYCountChars',   c_uint32),
+        ('dwFillAttribute', c_uint32),
+        ('dwFlags',     c_uint32),
+        ('wShowWindow',     c_uint16),
+        ('cbReserved2',     c_uint16),
         ('lpReserved2',     c_void_p),
-        ('hStdInput',       c_int),
-        ('hStdOutput',      c_int),
-        ('hStdError',       c_int) ]
+        ('hStdInput',       c_int32),
+        ('hStdOutput',      c_int32),
+        ('hStdError',       c_int32) ]
 
 class PROCESS_INFORMATION( Structure ):
     _fields_ = [
-        ('hProcess',    c_int),
-        ('hThread', c_int),
-        ('dwProcessId', c_uint),
-        ('dwThreadId',  c_uint) ]
+        ('hProcess',    c_int32),
+        ('hThread', c_int32),
+        ('dwProcessId', c_uint32),
+        ('dwThreadId',  c_uint32) ]
         
 CreateProcess = windll.kernel32.CreateProcessA
 CreateProcess.argtypes = [
@@ -646,7 +649,7 @@ CreateProcess.argtypes = [
     c_void_p,   # lpProcessAttributes   // SD
     c_void_p,   # lpThreadAttributes    // SD
     c_char,     # bInheritHandles   // handle inheritance option
-    c_uint,     # dwCreationFlags   // creation flags
+    c_uint32,   # dwCreationFlags   // creation flags
     c_void_p,   # lpEnvironment     // new environment block
     c_char_p,   # lpCurrentDirectory    // current directory name
     c_void_p,   # lpStartupInfo     // startup information
@@ -654,83 +657,83 @@ CreateProcess.argtypes = [
 CreateProcess.restype = ErrorIfZero
 
 ResumeThread = windll.kernel32.ResumeThread
-ResumeThread.argtypes = [c_uint]
-ResumeThread.restype = c_uint
+ResumeThread.argtypes = [c_uint32]
+ResumeThread.restype = c_uint32
 
 CreateRemoteThread = windll.kernel32.CreateRemoteThread
 CreateRemoteThread.argtypes = [
-        c_uint,         # HANDLE hProcess
+        c_uint32,       # HANDLE hProcess
         c_void_p,       # LPSECURITY_ATTRIBUTES lpThreadAttributes
-        c_uint,         # SIZE_T dwStackSize
+        c_uint32,       # SIZE_T dwStackSize
         c_void_p,       # LPTHREAD_START_ROUTINE lpStartAddress
         c_void_p,       # LPVOID lpParameter
-        c_uint,         # DWORD dwCreationFlags
+        c_uint32,       # DWORD dwCreationFlags
         c_void_p ]      # LPDWORD lpThreadId        
 CreateRemoteThread.restype = ErrorIfZero
 
 class EXCEPTION_RECORD( Structure ):
     _fields_ = [
-        ('ExceptionCode',           c_int ),
-        ('ExceptionFlags',          c_uint ),
+        ('ExceptionCode',           c_int32 ),
+        ('ExceptionFlags',          c_uint32 ),
         ('pExceptionRecord',        c_void_p ),
         ('ExceptionAddress',        c_void_p ),
-        ('NumberParameters',        c_uint ),
-        ('ExceptionInformation',    ARRAY( c_void_p, 15 )) ]
+        ('NumberParameters',        c_uint32 ),
+        ('ExceptionInformation',    c_ARRAY( c_void_p, 15 )) ]
 
 class EXCEPTION_DEBUG_INFO( Structure ):
     _fields_ = [
         ('ExceptionRecord', EXCEPTION_RECORD),
-        ('dwFirstChance',   c_uint ) ]
+        ('dwFirstChance',   c_uint32 ) ]
 
 class CREATE_THREAD_DEBUG_INFO( Structure ):
     _fields_ = [
-        ('hThread',             c_int ),
-        ('lpThreadLocalBase',   c_uint ),
-        ('lpStartAddress',      c_uint ) ]
+        ('hThread',             c_int32 ),
+        ('lpThreadLocalBase',   c_uint32 ),
+        ('lpStartAddress',      c_uint32 ) ]
     
 class CREATE_PROCESS_DEBUG_INFO( Structure ):
     _fields_ = [
-        ('hFile',                   c_int ),
-        ('hProcess',                c_int ),
-        ('hThread',                 c_int ),
-        ('lpBaseOfImage',           c_uint ),
-        ('dwDebugInfoFileOffset',   c_uint ),
-        ('nDebugInfoSize',          c_uint ),
-        ('lpThreadLocalBase',       c_uint ),
-        ('lpStartAddress',          c_uint ),
-        ('lpImageName',             c_uint ),
-        ('fUnicode',                c_ushort ) ]
+        ('hFile',                   c_int32 ),
+        ('hProcess',                c_int32 ),
+        ('hThread',                 c_int32 ),
+        ('lpBaseOfImage',           c_uint32 ),
+        ('dwDebugInfoFileOffset',   c_uint32 ),
+        ('nDebugInfoSize',          c_uint32 ),
+        ('lpThreadLocalBase',       c_uint32 ),
+        ('lpStartAddress',          c_uint32 ),
+        ('lpImageName',             c_uint32 ),
+        ('fUnicode',                c_uint16 ) ]
         
 class MEMORY_BASIC_INFORMATION(Structure):
-    _fields_ = [("BaseAddress", c_void_p),
-                ("AllocationBase", c_void_p),
-                ("AllocationProtect", c_uint),
-                ("RegionSize", c_size_t),
-                ("State", c_uint),
-                ("Protect", c_uint),
-                ("Type", c_uint)]
+    _fields_ = [("BaseAddress",         c_void_p),
+                ("AllocationBase",      c_void_p),
+                ("AllocationProtect",   c_uint32),
+                ("RegionSize",          c_size_t),
+                ("State",               c_uint32),
+                ("Protect",             c_uint32),
+                ("Type",                c_uint32)]
 
 class SECURITY_ATTRIBUTES(Structure):
-    _fields_ = [("Length", c_uint),
+    _fields_ = [("Length", c_uint32),
                 ("SecDescriptor", c_void_p),
-                ("InheritHandle", c_uint)]
+                ("InheritHandle", c_uint32)]
     
 class EXIT_THREAD_DEBUG_INFO( Structure ):
     _fields_ = [
-        ('dwExitCode',  c_uint ) ]
+        ('dwExitCode',  c_uint32 ) ]
 
 class EXIT_PROCESS_DEBUG_INFO( Structure ):
     _fields_ = [
-        ('dwExitCode',  c_uint ) ]
+        ('dwExitCode',  c_uint32 ) ]
 
 class LOAD_DLL_DEBUG_INFO( Structure ):
     _fields_ = [
-        ('hFile',                   c_uint),
-        ('lpBaseOfDll',             c_uint),
-        ('dwDebugInfoFileOffset',   c_uint),
-        ('nDebugInfoSize',          c_uint),
-        ('lpImageName',             c_uint),
-        ('fUnicode',                c_ushort)]
+        ('hFile',                   c_uint32),
+        ('lpBaseOfDll',             c_uint32),
+        ('dwDebugInfoFileOffset',   c_uint32),
+        ('nDebugInfoSize',          c_uint32),
+        ('lpImageName',             c_uint32),
+        ('fUnicode',                c_uint16)]
 
 class UNLOAD_DLL_DEBUG_INFO( Structure ):
     _fields_ = [('lpBaseOfDll', c_void_p)]
@@ -738,8 +741,8 @@ class UNLOAD_DLL_DEBUG_INFO( Structure ):
 class OUTPUT_DEBUG_STRING_INFO( Structure ):
     _fields_ = [
         ('lpDebugStringData',   c_char_p),
-        ('fUnicode',            c_ushort),
-        ('nDebugStringLength',  c_ushort) ]
+        ('fUnicode',            c_uint16),
+        ('nDebugStringLength',  c_uint16) ]
         
 
 class DEBUG_EVENT_u( Union ):
@@ -756,82 +759,82 @@ class DEBUG_EVENT_u( Union ):
     
 class DEBUG_EVENT( Structure ):
     _fields_ = [
-        ('dwDebugEventCode',    c_int),
-        ('dwProcessId',         c_uint),
-        ('dwThreadId',          c_uint),
+        ('dwDebugEventCode',    c_int32),
+        ('dwProcessId',         c_uint32),
+        ('dwThreadId',          c_uint32),
         ('u',                   DEBUG_EVENT_u) ]
 
 ContinueDebugEvent = windll.kernel32.ContinueDebugEvent
 ContinueDebugEvent.argtypes = [
-    c_uint,     # dwProcessId // process to continue
-    c_uint,     # dwThreadId // thread to continue
-    c_uint ]    # dwContinueStatus // continuation status
+    c_uint32,     # dwProcessId // process to continue
+    c_uint32,     # dwThreadId // thread to continue
+    c_uint32 ]    # dwContinueStatus // continuation status
 ContinueDebugEvent.restype = ErrorIfZero
 
 WaitForDebugEvent = windll.kernel32.WaitForDebugEvent
 WaitForDebugEvent.argtypes = [
     c_void_p,   # lpDebugEvent // debug event information
-    c_uint]     # dwMilliseconds // time-out value
+    c_uint32]   # dwMilliseconds // time-out value
 WaitForDebugEvent.restype = ErrorIfZero
 
 GetThreadContext = windll.kernel32.GetThreadContext
 GetThreadContext.argtypes = [
-    c_int,      # hThread // handle to thread with context
+    c_int32,      # hThread // handle to thread with context
     c_void_p]   # lpContext // context structure
 GetThreadContext.restype = ErrorIfZero
 
 SetThreadContext = windll.kernel32.SetThreadContext
 SetThreadContext.argtypes = [
-    c_int,      # hThread // handle to thread
+    c_int32,      # hThread // handle to thread
     c_void_p]   # *lpContext // context structure
 SetThreadContext.restype = ErrorIfZero
 
 class FLOATING_SAVE_AREA( Structure ):
     _fields_ = [
-        ('ControlWord',     c_uint),
-        ('StatusWord',      c_uint),
-        ('TagWord',     c_uint),
-        ('ErrorOffset',     c_uint),
-        ('ErrorSelector',   c_uint),
-        ('DataOffset',      c_uint),
-        ('DataSelector',    c_uint),
-        ('RegisterArea',    ARRAY( c_char, 80 )),
-        ('Cr0NpxState',     c_uint) ]
+        ('ControlWord',     c_uint32),
+        ('StatusWord',      c_uint32),
+        ('TagWord',     c_uint32),
+        ('ErrorOffset',     c_uint32),
+        ('ErrorSelector',   c_uint32),
+        ('DataOffset',      c_uint32),
+        ('DataSelector',    c_uint32),
+        ('RegisterArea',    c_ARRAY( c_char, 80 )),
+        ('Cr0NpxState',     c_uint32) ]
 
 class CONTEXT( Structure ):
     _fields_ = [
-###     ('data',    ARRAY(c_uint, 1000) )]
-        ('ContextFlags',    c_uint),
-    ('dr0',         c_uint),
-    ('dr1',         c_uint),
-    ('dr2',         c_uint),
-    ('dr3',         c_uint),
-    ('dr6',         c_uint),
-    ('dr7',         c_uint),
+###     ('data',    c_ARRAY(c_uint32, 1000) )]
+        ('ContextFlags',    c_uint32),
+    ('dr0',         c_uint32),
+    ('dr1',         c_uint32),
+    ('dr2',         c_uint32),
+    ('dr3',         c_uint32),
+    ('dr6',         c_uint32),
+    ('dr7',         c_uint32),
     ('floatsave',   FLOATING_SAVE_AREA),
-    ('seggs',       c_uint),
-    ('segfs',       c_uint),
-    ('seges',       c_uint),
-    ('segds',       c_uint),
-    ('edi',         c_uint),
-    ('esi',         c_uint),
-    ('ebx',         c_uint),
-    ('edx',         c_uint),
-    ('ecx',         c_uint),
-    ('eax',         c_uint),
-    ('ebp',         c_uint),
-    ('eip',         c_uint),
-    ('segcs',       c_uint),
-    ('eflags',      c_uint),
-    ('esp',         c_uint),
-    ('segss',       c_uint),
-    ('ExtendedRegisters',   ARRAY( c_char, 512 )) ]
+    ('seggs',       c_uint32),
+    ('segfs',       c_uint32),
+    ('seges',       c_uint32),
+    ('segds',       c_uint32),
+    ('edi',         c_uint32),
+    ('esi',         c_uint32),
+    ('ebx',         c_uint32),
+    ('edx',         c_uint32),
+    ('ecx',         c_uint32),
+    ('eax',         c_uint32),
+    ('ebp',         c_uint32),
+    ('eip',         c_uint32),
+    ('segcs',       c_uint32),
+    ('eflags',      c_uint32),
+    ('esp',         c_uint32),
+    ('segss',       c_uint32),
+    ('ExtendedRegisters',   c_ARRAY( c_char, 512 )) ]
 
 FlushInstructionCache = windll.kernel32.FlushInstructionCache
 FlushInstructionCache.argtypes = [
-    c_int,      # hProcess // handle to the process
+    c_int32,      # hProcess // handle to the process
     c_void_p,   # lpBaseAddress // A pointer to the base of the region to be flushed
-    c_uint ]    # dwSize // The size of the region to be flushed
+    c_uint32 ]    # dwSize // The size of the region to be flushed
 FlushInstructionCache.restype = ErrorIfZero
 
 GetModuleHandle = windll.kernel32.GetModuleHandleA
@@ -845,38 +848,38 @@ LoadLibrary.restype = ErrorIfZero
 
 GetProcAddress = windll.kernel32.GetProcAddress
 GetProcAddress.argtypes = [
-    c_int,      # hModule // handle to DLL module
+    c_int32,      # hModule // handle to DLL module
     c_char_p ]  # lpProcName // function name
 GetProcAddress.restype = ErrorIfZero
 
 DebugActiveProcess = windll.kernel32.DebugActiveProcess
 DebugActiveProcess.argtypes = [
-    c_uint ]    # dwProcessId // process to be debugged
+    c_uint32 ]    # dwProcessId // process to be debugged
 DebugActiveProcess.restype = ErrorIfZero
 
 DebugActiveProcessStop = windll.kernel32.DebugActiveProcessStop
 DebugActiveProcessStop.argtypes = [
-        c_uint ]    # dwProcessId // process to stop debugging
+        c_uint32 ]    # dwProcessId // process to stop debugging
 DebugActiveProcessStop.restyp = ErrorIfZero
 
 GetProcessId = windll.kernel32.GetProcessId
 GetProcessId.argtypes = [
-        c_int ] # handle
+        c_int32 ] # handle
 GetProcessId.restype = ErrorIfZero
 
 class SYSTEM_INFO( Structure ):
     _fields_ = [
             ('wProcessorArchitecture', c_uint16),
             ('wReserved',              c_uint16),
-            ('dwPageSize',             c_uint),
+            ('dwPageSize',             c_uint32),
             ('lpMinimumApplicationAddress', c_void_p),
             ('lpMaximumApplicationAddress', c_void_p),
             ('dwActiveProcessorMask',       c_void_p),
-            ('dwNumberOfProcessors',        c_uint),
-            ('dwProcessorType',             c_uint),
-            ('dwAllocationGranularity',     c_uint),
-            ('wProcessorLevel',             c_uint),
-            ('wProcessorRevision',          c_uint) ]
+            ('dwNumberOfProcessors',        c_uint32),
+            ('dwProcessorType',             c_uint32),
+            ('dwAllocationGranularity',     c_uint32),
+            ('wProcessorLevel',             c_uint32),
+            ('wProcessorRevision',          c_uint32) ]
 GetSystemInfo = windll.kernel32.GetSystemInfo
 GetSystemInfo.argtypes = [ c_void_p ] # LPSYSTEM_INFO
 GetSystemInfo.restype = None

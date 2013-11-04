@@ -21,7 +21,7 @@
 #
 
 # Imports  
-from ctypes import *
+from ctypes import c_int32, c_void_p, windll
 
 def ErrorIfZero(handle):
     if handle == 0:
@@ -31,6 +31,6 @@ def ErrorIfZero(handle):
 
 IsWow64Process = windll.kernel32.IsWow64Process
 IsWow64Process.argtypes = [
-		c_int,
+		c_int32,
 		c_void_p ]
 IsWow64Process.restype = ErrorIfZero
