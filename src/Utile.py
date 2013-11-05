@@ -27,7 +27,7 @@ import sys
 import os
 import subprocess
 
-if 'nt' == os.name:
+if sys.platform == 'win32':
     from .Win32.Win32Utile import *
 
 def DATA( data, base = 0, itemsInRow=0x10 ):
@@ -293,3 +293,31 @@ def getShmidsWithSizes(ownerFilter=None):
         raise Exception("This function is not supported under Windows platform")
     memInfo = getAllShmidsInfo(ownerFilter)
     return [(x[1], x[2])  for x in memInfo]
+
+def clipHex(x):
+    if sys.platform != 'win32':
+        raise Exception("This funciton is not supported under *nix platforms")
+    if hasattr(x, 'value'):
+        value = hex(x.value)
+    elif hasattr(x, 'address'):
+        value = hex(x.address)
+    else:
+        value = hex(x)
+    import ctypes
+    strcpy = ctypes.cdll.msvcrt.strcpy
+    ocb = ctypes.windll.user32.OpenClipboard    #Basic Clipboard functions
+    ecb = ctypes.windll.user32.EmptyClipboard
+    scd = ctypes.windll.user32.SetClipboardData
+    ccb = ctypes.windll.user32.CloseClipboard
+    ga = ctypes.windll.kernel32.GlobalAlloc    # Global Memory allocation
+    gl = ctypes.windll.kernel32.GlobalLock     # Global Memory Locking
+    gul = ctypes.windll.kernel32.GlobalUnlock
+    ocb(None) # Open Clip, Default task
+    ecb()
+    hCd = ga( 0x2000, len(value)+1 )
+    pchData = gl(hCd)
+    strcpy(ctypes.c_char_p(pchData),value)
+    gul(hCd)
+    scd(1,hCd)
+    ccb()
+
