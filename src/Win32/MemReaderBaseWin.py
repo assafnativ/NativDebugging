@@ -34,12 +34,12 @@ class MemReaderBaseWin( MemReaderBase ):
         Return list of tuples containg infromation about the modules loaded in memory in the form of
         (Address, module_name, module_size)
         """
-        modules = ARRAY( c_void_p, 10000 )(0)
-        bytes_written = c_uint(0)
+        modules = c_ARRAY( c_void_p, 10000 )(0)
+        bytes_written = c_uint32(0)
         EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
         num_modules = bytes_written.value / sizeof(c_void_p(0))
         for module_iter in range(num_modules):
-            module_name = ARRAY( c_char, 10000 )('\x00')
+            module_name = c_ARRAY( c_char, 10000 )('\x00')
             GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
             module_name = module_name.raw.replace('\x00', '')
             module_info = MODULEINFO(0)
@@ -60,8 +60,8 @@ class MemReaderBaseWin( MemReaderBase ):
     def getModulePath( self, base ):
         if isinstance(base, str):
             base = self.findModule(base)
-        file_name = ARRAY(c_char, 10000)('\x00')
-        file_name_size = c_uint(0)
+        file_name = c_ARRAY(c_char, 10000)('\x00')
+        file_name_size = c_uint32(0)
         GetModuleFileName(base, byref(file_name), byref(file_name_size))
         return file_name.raw.replace('\x00\x00', '').decode('utf16')
 
@@ -75,7 +75,7 @@ class MemReaderBaseWin( MemReaderBase ):
 
     def getAllSections( self, module_base, isVerbose=False ):
         pe, first_section, num_sections, isPePlus = self._getSomePEInfo( module_base )
-        bytes_read = c_uint(0)
+        bytes_read = c_uint32(0)
         result = []
         for sections_iter in range(num_sections):
             if isVerbose:
@@ -167,7 +167,7 @@ class MemReaderBaseWin( MemReaderBase ):
 
     def getHandles( self ):
         handleInfo = SYSTEM_HANDLE_INFORMATION()
-        bytesNeeded = c_uint(0)
+        bytesNeeded = c_uint32(0)
         ntstatus = NtQuerySystemInformation(
                         win32con.SystemHandleInformation,
                         byref(handleInfo),
@@ -176,7 +176,7 @@ class MemReaderBaseWin( MemReaderBase ):
         if (win32con.STATUS_INFO_LENGTH_MISMATCH == ntstatus):
             class SYSTEM_HANDLE_INFORMATION_TAG( Structure ):
                 _fields_ = [
-                        ('uCount',      c_uint),
+                        ('uCount',      c_uint32),
                         ('SystemHandle', SYSTEM_HANDLE * ((bytesNeeded.value - 4) / sizeof(SYSTEM_HANDLE))) ]
             handleInfo = SYSTEM_HANDLE_INFORMATION_TAG()
             ntstatus = NtQuerySystemInformation(
@@ -192,7 +192,7 @@ class MemReaderBaseWin( MemReaderBase ):
         for i in range(handleInfo.uCount):
             if (self._processId != systemHandles[i].uIdProcess):
                 continue
-            objectHandle = c_int(0)
+            objectHandle = c_int32(0)
             try:
                 needToClose = True
                 DuplicateHandle(
@@ -213,7 +213,7 @@ class MemReaderBaseWin( MemReaderBase ):
                     objectHandle = systemHandles[i].Handle
 
             objectBasicInfo = OBJECT_BASIC_INFORMATION()
-            bytesNeeded = c_uint(0)
+            bytesNeeded = c_uint32(0)
             ntstatus = NtQueryObject(
                             objectHandle,
                             win32con.ObjectBasicInformation,
@@ -227,7 +227,7 @@ class MemReaderBaseWin( MemReaderBase ):
                 class OBJECT_TYPE_INFROMATION_TAG( Structure ):
                     _fields_ = [
                             ('typeInfo',    OBJECT_TYPE_INFROMATION),
-                            ('data',        c_byte * (objectBasicInfo.TypeInformationLength - sizeof(OBJECT_TYPE_INFROMATION)))]
+                            ('data',        c_uint8 * (objectBasicInfo.TypeInformationLength - sizeof(OBJECT_TYPE_INFROMATION)))]
                 objectType = OBJECT_TYPE_INFROMATION_TAG()
                 ntstatus = NtQueryObject(
                                 objectHandle,
@@ -244,7 +244,7 @@ class MemReaderBaseWin( MemReaderBase ):
                 class OBJECT_NAME_INFORMATION_TAG( Structure ):
                     _fields_ = [
                             ('nameInfo',    OBJECT_NAME_INFORMATION),
-                            ('data',        c_byte * (objectBasicInfo.NameInformationLength - sizeof(OBJECT_NAME_INFORMATION)))]
+                            ('data',        c_uint8 * (objectBasicInfo.NameInformationLength - sizeof(OBJECT_NAME_INFORMATION)))]
                 objectName = OBJECT_NAME_INFORMATION_TAG()
                 ntstatus = NtQueryObject(
                                 objectHandle,

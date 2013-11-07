@@ -58,7 +58,7 @@ class InjectDll( object ):
         else:
             raise Exception("Unsupported param")
 
-        remote_thread_id = c_uint(0)
+        remote_thread_id = c_uint32(0)
         remote_thread = CreateRemoteThread( \
                             self._process,
                             None,
