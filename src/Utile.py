@@ -294,6 +294,54 @@ def getShmidsWithSizes(ownerFilter=None):
     memInfo = getAllShmidsInfo(ownerFilter)
     return [(x[1], x[2])  for x in memInfo]
 
+def getMemMapFromPMaap(pid):
+    if sys.platform == 'win32':
+        raise Exception("This function is not supported under Windows platform")
+    elif sys.platform.startswith('aix'):
+        raise Exception("This function is not supported under AIX")
+    lines = subprocess.Popen("pmap %d" % pid, stdout=PIPE, shell=True).communicate()[0].split('\n')
+    memInfo = []
+    for l in lines:
+        l = l.strip()
+        if l.startswith('%d: ' % pid):
+            continue
+        if l.lower().startswith('start'):
+            continue
+        if len(l) < 2:
+            continue
+        values = l.split()
+        if sys.platform.lower().startswith('linux') or sys.platform.lower().startswith('sunos'):
+            startAddr = int(values[0], 16)
+            segmentSize = values[1].lower()
+            permStr = values[2].lower()
+            name = values[3]
+        elif sys.platform.startswith('hp-ux'):
+            startAddr = int(values[0], 16)
+            segmentSize = values[1].lower()
+            permStr = values[4].lower()
+            name = values[5]
+        else:
+            raise Exception("Platform %s not supported for this function" % sys.platform)
+        if segmentSize.endswith('b'):
+            segmentSize = int(segmentSize[:-1])
+        elif segmentSize.endswith('k'):
+            segmentSize = int(segmentSize[:-1]) * 1024
+        elif segmentSize.endswith('m'):
+            segmentSize = int(segmentSize[:-1]) * 1024 * 1024
+        elif segmentSize.endswith('g'):
+            segmentSize = int(segmentSize[:-1]) * 1024 * 1024 * 1024
+        else:
+            segmentSize = int(segmentSize)
+        perm = 0
+        if 'r' in permStr:
+            perm |= 0x40
+        elif 'w' in permStr:
+            perm |= 0x80
+        elif 'x' in permStr:
+            perm |= 0x20
+        memInfo.append((name, startAddr, segmentSize, perm))
+    return memInfo
+
 def clipHex(x):
     if sys.platform != 'win32':
         raise Exception("This funciton is not supported under *nix platforms")
