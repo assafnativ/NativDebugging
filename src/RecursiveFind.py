@@ -47,6 +47,9 @@ class RecursiveFind( MemReaderInterface ):
         if isinstance(searchLength, list):
             nextSearchLength = searchLength[1:]
             currentSearchLenght = searchLength[0]
+        elif hasattr(searchLength, '__call__'):
+            nextSearchLength = searchLength
+            currentSearchLenght = searchLength(startAddress)
         else:
             nextSearchLength = searchLength
             currentSearchLenght = searchLength
