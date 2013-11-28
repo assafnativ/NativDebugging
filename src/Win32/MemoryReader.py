@@ -154,7 +154,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
                     byref(securityAttributes),
                     byref(threadAttributes),
                     TRUE,
-                    creationFlags | win32con.CREATE_SUSPENDED,
+                    creationFlags,
                     environment,
                     currentDirectory,
                     byref(startupInfo),

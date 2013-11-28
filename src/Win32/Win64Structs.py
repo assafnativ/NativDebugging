@@ -21,7 +21,7 @@
 #
 
 # Imports  
-from ctypes import c_int32, c_void_p, windll
+from ctypes import c_int32, c_void_p, windll, WinError
 
 def ErrorIfZero(handle):
     if handle == 0:

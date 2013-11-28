@@ -158,6 +158,7 @@ from ctypes import c_char, c_wchar, c_int64, c_int32, c_int16, c_int8, c_uint64,
 from ctypes import create_string_buffer, byref, cast, addressof, sizeof, windll, Structure, Union, WINFUNCTYPE
 from ctypes import ARRAY as c_ARRAY
 from ctypes import POINTER as c_POINTER
+from ctypes import WinError
 
 def ErrorIfZero(handle):
     if handle == 0:
