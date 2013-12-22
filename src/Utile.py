@@ -386,7 +386,7 @@ def exceptionUp(step=1):
     l = frame.f_locals
     for item in l.keys():
         if not item.startswith('_'):
-            print("Adding: %s" % item)
+            #print("Adding: %s" % item)
             setattr(__main__, item, l[item])
 
 
