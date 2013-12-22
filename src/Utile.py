@@ -369,3 +369,25 @@ def clipHex(x):
     scd(1,hCd)
     ccb()
 
+_LAST_TRACEBACK = None
+def loadExcptionLocals(step=1):
+    global _LAST_TRACEBACK
+    _LAST_TRACEBACK = sys.last_traceback
+    exceptionUp(step)
+
+def exceptionUp(step=1):
+    global _LAST_TRACEBACK
+    import __main__
+    _LAST_TRACEBACK = _LAST_TRACEBACK
+    for i in range(step):
+        _LAST_TRACEBACK = _LAST_TRACEBACK.tb_next
+    frame = _LAST_TRACEBACK.tb_frame
+    print("Loading exception locals of file %s, line %d, in %s" % (frame.f_code.co_filename, _LAST_TRACEBACK.tb_lineno, frame.f_code.co_name))
+    l = frame.f_locals
+    for item in l.keys():
+        if not item.startswith('_'):
+            print("Adding: %s" % item)
+            setattr(__main__, item, l[item])
+
+
+
