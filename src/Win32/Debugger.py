@@ -37,7 +37,11 @@ import sys
 # For making debugger blocking free
 from thread import *
 # Arkon's disassembler
-import distorm3
+try:
+    import distorm3
+    IS_DISTORM_SUPPORTED = True
+except ImportError, e:
+    IS_DISTORM_SUPPORTED = False
 
 # Consts
 DEBUG_MODE  = False
@@ -544,6 +548,9 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             unsigned long   address
             unsigned long   lines
         """
+        if not IS_DISTORM_SUPPORTED:
+            raise Exception("Distrom not found, please install the distorm3 module")
+
         if( None == address ):
             self.getCurrentContext()
             address = self.context.eip
