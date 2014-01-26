@@ -27,12 +27,13 @@ class DebuggerBase( DebuggerInterface ):
             def __init__(self, debugger):
                 self._debugger = debugger
             def __repr__(self):
-                return str(self._debugger.run())
+                self._debugger.run()
+                return ""
         self.g = RunWrapper(self)
         class ShowContextWrapper(object):
             def __init__(self, debugger):
                 self._debugger = debugger
             def __repr__(self):
-                return str(self._debugger.contextShow())
+                return str(self._debugger._contextShow())
         self.r = ShowContextWrapper(self)
 

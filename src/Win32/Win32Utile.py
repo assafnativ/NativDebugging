@@ -88,10 +88,11 @@ def _enumProcessesOld():
     return results
                 
 def findProcessId(name):
+    target = name.lower()
     results = []
     processes = enumProcesses()
     for process in processes:
-        if process[0].lower().startswith(name):
+        if process[0].lower().startswith(target):
             results.append(process)
     return results
 

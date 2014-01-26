@@ -24,8 +24,12 @@ from ..MemReaderBase import *
 from .Win32Structs import *
 from .Win32Utile import *
 import exceptions
+from ..Utile import printIfVerbose
 
 class MemReaderBaseWin( MemReaderBase ):
+    def __init__(self, *argv, **argm):
+        MemReaderBase(self, *argv, **argm)
+
     def getEndianity(self):
         return '<' # Intel is always Little-endian
 
@@ -38,6 +42,8 @@ class MemReaderBaseWin( MemReaderBase ):
         bytes_written = c_uint32(0)
         EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
         num_modules = bytes_written.value / sizeof(c_void_p(0))
+        printIfVerbose("Found %d modules" % num_modules, isVerbose)
+            
         for module_iter in range(num_modules):
             module_name = c_ARRAY( c_char, 10000 )('\x00')
             GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
@@ -46,8 +52,7 @@ class MemReaderBaseWin( MemReaderBase ):
             GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
             module_base = module_info.lpBaseOfDll
             module_size = module_info.SizeOfImage
-            if isVerbose:
-                print("Module: (0x{0:x}) {1:s} of size (0x{2:x})".format(module_base, module_name, module_size))
+            printIfVerbose("Module: (0x{0:x}) {1:s} of size (0x{2:x})".format(module_base, module_name, module_size), isVerbose)
             yield (module_base, module_name, module_size)
 
     def findModule( self, target_module, isVerbose=False ):
@@ -55,7 +60,7 @@ class MemReaderBaseWin( MemReaderBase ):
         for base, name, moduleSize in self.enumModules(isVerbose):
             if target_module in name.lower():
                 return base
-        raise Exception("Can't find module")
+        raise Exception("Can't find module %s" % target_module)
 
     def getModulePath( self, base ):
         if isinstance(base, str):
@@ -134,6 +139,7 @@ class MemReaderBaseWin( MemReaderBase ):
         for proc, procAddr in self._enumRemoteModuleProcs(base, rva, isOrdinals):
             if proc == target:
                 return procAddr
+        raise Exception("Function %s not found in %s" % (str(target), dllName))
 
     def _enumRemoteModuleProcs(self, base, rva, isOrdinals=False):
         numProcs    = self.readDword(rva + win32con.RVA_NUM_PROCS_OFFSET)

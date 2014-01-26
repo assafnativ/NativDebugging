@@ -24,6 +24,7 @@ from ..Interfaces import MemWriterInterface, ReadError
 from .MemReaderBaseWin import *
 from ..GUIDisplayBase import *
 
+from .ProcessCreateAndAttach import *
 from .InjectDll import *
 from .MemoryMap import *
 from .Win32Structs import *
@@ -49,7 +50,7 @@ def createProcessWithInjectedDll(targetExe, targetDll):
 def memoryReaderFromHandle(handle):
     return MemoryReader(target_open_handle=handle)
 
-class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, InjectDll ):
+class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, InjectDll, ProcessCreateAndAttach ):
     READ_ATTRIBUTES_MASK    = 0xee # [0x20, 0x40, 0x80, 0x02, 0x04, 0x08]
     WRITE_ATTRIBUTES_MASK   = 0xcc # [0x40, 0x80, 0x04, 0x08]
     EXECUTE_ATTRIBUTES_MASK = 0xf0 # [0x10, 0x20, 0x40, 0x80]
@@ -61,132 +62,22 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             create_suspended=False, \
             create_info=None ):
         MemReaderBase.__init__(self)
-        if None == create_info:
-            create_info = {}
-        if   (None != target_open_handle) and (None == target_process_id) and (None == cmd_line):
-            self._process = target_open_handle
-            self._processId = GetProcessId(self._process)
-            target_process_id = self._processId
-            self._isSuspended = False
-        elif (None == target_open_handle) and (None != target_process_id) and (None == cmd_line):
-            adjustDebugPrivileges()
-            self._processId = target_process_id
-            self._openProcess( target_process_id )
-            self._isSuspended = False
-        elif (None == target_open_handle) and (None == target_process_id) and (None != cmd_line):
-            self._createProcess(cmd_line, create_suspended, create_info)
-        temp_void_p = c_void_p(1)
-        temp_void_p.value -= 2
-        self._is_win64 = (temp_void_p.value > (2**32))
-        if self._is_win64:
-            self._POINTER_SIZE = 8
-        else:
-            self._POINTER_SIZE = 4
-        self._DEFAULT_DATA_SIZE = 4
-        self._mem_map = None
-        #self._READ_ATTRIBUTES       = [1, 2, 4, 6, 9, 11, 12, 14, 17, 19, 20, 22, 25, 27, 28, 30]
-        #self._WRITE_ATTRIBUTES      = [4, 5, 6, 7, 12, 13, 14, 15, 20, 21, 22, 23, 28, 29, 30, 31]
-        #self._EXECUTE_ATTRIBUTES    = [2, 3, 6, 7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31]
-        self._cache = [(0, [])] * (0x80000000 >> 12)
-        sysInfo = SYSTEM_INFO()
-        GetSystemInfo(byref(sysInfo))
-        self._minVAddress   = sysInfo.lpMinimumApplicationAddress
-        self._maxVAddress   = sysInfo.lpMaximumApplicationAddress
-        self._pageSize      = sysInfo.dwPageSize
-        self._pageSizeMask  = self._pageSize - 1
+        self.REQUIRED_ACCESS = \
+                win32con.PROCESS_CREATE_THREAD | \
+                win32con.PROCESS_QUERY_INFORMATION | \
+                win32con.PROCESS_SET_INFORMATION | \
+                win32con.PROCESS_VM_READ | \
+                win32con.PROCESS_VM_WRITE | \
+                win32con.PROCESS_VM_OPERATION
+        self.createOrAttachProcess(
+                target_process_id,
+                target_open_handle,
+                cmd_line,
+                create_suspended,
+                create_info )
 
     def __del__( self ):
         self._closeProcess()
-
-    def _closeProcess( self ):
-        CloseHandle( self._process )
-
-    def _createProcess(self, cmdLine, createSuspended, createInfo):
-        cmdLine = c_char_p(cmdLine)
-        if 'STARTUPINFO' not in createInfo:
-            startupInfo = STARTUPINFO()
-            startupInfo.dwFlags = 0
-            startupInfo.wShowWindow = 0x0
-            startupInfo.cb = sizeof(STARTUPINFO)
-        else:
-            startupInfo = createInfo['STARTUPINFO']
-        if 'PROCESSINFO' not in createInfo:
-            processInfo = PROCESS_INFORMATION()
-        else:
-            processInfo = createInfo['PROCESSINFO']
-        if 'SECURITY_ATTRIBUTES' not in createInfo:
-            securityAttributes = SECURITY_ATTRIBUTES()
-            securityAttributes.Length = sizeof(SECURITY_ATTRIBUTES)
-            securityAttributes.SecDescriptior = None
-            securityAttributes.InheritHandle = True
-        else:
-            securityAttributes = createInfo['SECURITY_ATTRIBUTES']
-        if 'SECURITY_ATTRIBUTES' not in createInfo:
-            threadAttributes = SECURITY_ATTRIBUTES()
-            threadAttributes.Length = sizeof(SECURITY_ATTRIBUTES)
-            threadAttributes.SecDescriptior = None
-            threadAttributes.InheritHandle = True
-        else:
-            threadAttributes = createInfo['SECURITY_ATTRIBUTES']
-        if 'CURRENT_DIRECTORY' not in createInfo:
-            currentDirectory = None
-        else:
-            currentDirectory = createInfo['CURRENT_DIRECTORY']
-        if 'ENVIRONMENT' not in createInfo:
-            environment = None
-        else:
-            environment = createInfo['ENVIRONMENT']
-        if 'CREATION_FLAGS' in createInfo:
-            creationFlags = createInfo['CREATION_FLAGS']
-        else:
-            creationFlags = win32con.NORMAL_PRIORITY_CLASS
-        if createSuspended:
-            creationFlags |= win32con.CREATE_SUSPENDED
-        if 'WITH_DLL' in createInfo:
-            creationFlags |= win32con.CREATE_SUSPENDED
-            dllToInject = createInfo['WITH_DLL']
-        else:
-            dllToInject = None
-
-        CreateProcess( 
-                    pchar_NULL,
-                    cmdLine, 
-                    byref(securityAttributes),
-                    byref(threadAttributes),
-                    TRUE,
-                    creationFlags,
-                    environment,
-                    currentDirectory,
-                    byref(startupInfo),
-                    byref(processInfo) )
-        self._process       = processInfo.hProcess
-        self._processId     = processInfo.dwProcessId
-        self._mainThread    = processInfo.hThread
-        self._mainThreadId  = processInfo.dwThreadId
-        self._isSuspended = createSuspended
-        if dllToInject:
-            threadHandle = self.injectDll(dllToInject)
-            ResumeThread(threadHandle)
-            if not createSuspended:
-                self.resumeSuspendedProcess()
-
-    def _openProcess( self, target_pid ):
-        bytes_read = c_uint32(0)
-        self._process = OpenProcess( 
-                win32con.PROCESS_CREATE_THREAD |
-                win32con.PROCESS_QUERY_INFORMATION | 
-                win32con.PROCESS_SET_INFORMATION |
-                win32con.PROCESS_VM_READ | 
-                win32con.PROCESS_VM_WRITE |
-                win32con.PROCESS_VM_OPERATION |
-                win32con.PROCESS_DUP_HANDLE,
-                0,
-                target_pid )
-
-    def resumeSuspendedProcess(self):
-        if self._isSuspended:
-            self._isSuspended = False
-            ResumeThread(self._mainThread)
 
     def deprotectMem( self, addr, size ):
         old_protection = c_uint32(0)
@@ -387,28 +278,6 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         memoryRegionInfo = MEMORY_BASIC_INFORMATION()
         pages = memory_map[1:number_of_pages]
         return self._makeRegionsList(pages, modules)
-
-### Bad code
-###        for page in memory_map[1:]:
-###            pageAddr = page
-###            if None == pageAddr or 0 == pageAddr:
-###                continue
-###            pageAddr &= ~self._pageSizeMask
-###            if self.isAddressValid(pageAddr) and None != pageAddr and pageAddr not in result:
-###                queryResult = VirtualQueryEx(
-###                                self._process, 
-###                                pageAddr, 
-###                                byref(memoryRegionInfo), 
-###                                sizeof(MEMORY_BASIC_INFORMATION))
-###                if queryResult == sizeof(MEMORY_BASIC_INFORMATION) and None != memoryRegionInfo.AllocationBase:
-###                    regionStart = memoryRegionInfo.AllocationBase
-###                    if regionStart not in result:
-###                        name = modules.get(regionStart, '')
-###                        regionSize = \
-###                                memoryRegionInfo.RegionSize + \
-###                                (memoryRegionInfo.BaseAddress - regionStart)
-###                        result[regionStart] = (name, regionSize, memoryRegionInfo.Protect)
-###        return result
 
     @staticmethod
     def isInListChecker(target):

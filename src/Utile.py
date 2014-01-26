@@ -378,7 +378,6 @@ def loadExcptionLocals(step=1):
 def exceptionUp(step=1):
     global _LAST_TRACEBACK
     import __main__
-    _LAST_TRACEBACK = _LAST_TRACEBACK
     for i in range(step):
         _LAST_TRACEBACK = _LAST_TRACEBACK.tb_next
     frame = _LAST_TRACEBACK.tb_frame
@@ -389,5 +388,7 @@ def exceptionUp(step=1):
             #print("Adding: %s" % item)
             setattr(__main__, item, l[item])
 
-
+def printIfVerbose(text, isVerbose):
+    if isVerbose:
+        print(text)
 
