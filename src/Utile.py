@@ -370,7 +370,7 @@ def clipHex(x):
     ccb()
 
 _LAST_TRACEBACK = None
-def excptionLocalsLoad(step=1):
+def exceptionLocalsLoad(step=1):
     global _LAST_TRACEBACK
     _LAST_TRACEBACK = sys.last_traceback
     exceptionUp(step)
