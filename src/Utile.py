@@ -351,6 +351,8 @@ def clipHex(x):
         value = hex(x.address)
     else:
         value = hex(x)
+    if value[-1].lower() == 'l':
+        value = value[:-1]
     import ctypes
     strcpy = ctypes.cdll.msvcrt.strcpy
     ocb = ctypes.windll.user32.OpenClipboard    #Basic Clipboard functions

@@ -153,6 +153,9 @@ win32con.OPTIONAL_HEADER_MAGIC               = '\x0b\x01'
 win32con.ROM_OPTIONAL_HEADER_MAGIC           = '\x07\x01'
 win32con.SYSTEM_PROCESS_INFORMATION          = 5
 win32con.PROCESS_BASIC_INFORMATION           = 0
+win32con.FILE_MAP_READ                       = 4
+win32con.FILE_MAP_WRITE                      = 2
+win32con.FILE_MAP_EXECUTE                    = 0x20
 
 from ctypes import c_char, c_wchar, c_int64, c_int32, c_int16, c_int8, c_uint64, c_uint32, c_uint16, c_uint8, c_size_t, c_void_p, c_char_p, c_wchar_p, c_buffer
 from ctypes import create_string_buffer, byref, cast, addressof, sizeof, windll, Structure, Union, WINFUNCTYPE
@@ -884,4 +887,20 @@ class SYSTEM_INFO( Structure ):
 GetSystemInfo = windll.kernel32.GetSystemInfo
 GetSystemInfo.argtypes = [ c_void_p ] # LPSYSTEM_INFO
 GetSystemInfo.restype = None
+
+OpenFileMapping = windll.kernel32.OpenFileMappingA
+OpenFileMapping.argtypes = [
+          c_uint32, # dwDesiredAccess
+          c_uint32, # bInheritHandle
+          c_char_p ] # lpName
+OpenFileMapping.restype = ErrorIfZero
+
+MapViewOfFile = windll.kernel32.MapViewOfFile
+MapViewOfFile.argtypes = [
+          c_uint32, # HANDLE hFileMappingObject
+          c_uint32, # DWORD dwDesiredAccess
+          c_uint32, # DWORD dwFileOffsetHigh
+          c_uint32, # DWORD dwFileOffsetLow
+          c_uint32 ] # SIZE_T dwNumberOfBytesToMap
+MapViewOfFile.restype = c_void_p
 

@@ -46,6 +46,8 @@ class MemReaderBase( RecursiveFind, DumpBase ):
         self.db = self.readNPrintBin
         self.dw = self.readNPrintWords
         self.dq = self.readNPrintQwords
+        self.resolveOffsets = self.resolveOffsetsList
+        self.rol = self.resolveOffsetsList
 
     def resolveOffsetsList( self, start, l, isVerbose=False, isLookingForCycles=True ):
         """

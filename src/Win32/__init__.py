@@ -6,5 +6,7 @@ __all__ = [
         "ExternalMemoryReader",
         "Symbols",
         "InjectDll",
+        "ProcessCreateAndAttach",
+        "SharedMemReader",
         "Win32Utile" ]
         

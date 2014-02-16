@@ -30,6 +30,11 @@ from ..MemReaderBase import *
 from ..Utile import *
 
 def attach(memInfo, pointerSize, defaultSize):
+    """
+    memInfo = (id, base, size)
+    pointerSize = 4 or 8
+    defaultSize = 4 or 8
+    """
     return SharedMemReader(memInfo, pointerSize, defaultSize)
 
 class SharedMemInfo(object):
