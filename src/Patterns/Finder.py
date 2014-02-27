@@ -873,11 +873,25 @@ class STRING( DATA_TYPE ):
         yield True
 
 class ARRAY( DATA_TYPE ):
-    def __init__(self, count, varType, varArgs, varKw={}, isZeroSizeValid=True, **kw):
+    def __init__(self, count, varType, varArgs=None, varKw=None, isZeroSizeValid=True, **kw):
+        """
+        count, varType, varArgs=None, varKw=None, isZeroSizeValid=True
+
+        Multi occurrences of a SHAPE
+        Var type is a SHAPE type such as DWORD, NUMBER, STRING. Note this is not an instance
+        but the class type. The instance would be created by the ARRAY.
+        If the init of the SHAPE requires args / key words, one can set them using the:
+            varArgs - List of args
+            varKw - Dictunary args
+        """
         if isinstance(count, str):
             self.arraySize = _genGetValProc(count)
         else:
             self.arraySize = count
+        if None == varArgs:
+            varArgs = []
+        if None == varKw:
+            varKw = {}
         self.varType = varType
         self.varArgs = varArgs
         self.varKw = varKw
