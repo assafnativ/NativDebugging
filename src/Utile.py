@@ -350,9 +350,15 @@ def clipHex(x):
     elif hasattr(x, 'address'):
         value = hex(x.address)
     else:
-        value = hex(x)
-    if value[-1].lower() == 'l':
-        value = value[:-1]
+        value = x
+    if isinstance(value, str):
+        if value[-1].lower() == 'l':
+            value = value[:-1]
+        value = int(value, 0)
+    if isinstance(value, (int, long)):
+        value = "0x%x" % value
+    else:
+        value = hex(value)
     import ctypes
     strcpy = ctypes.cdll.msvcrt.strcpy
     ocb = ctypes.windll.user32.OpenClipboard    #Basic Clipboard functions
