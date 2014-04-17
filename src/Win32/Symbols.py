@@ -59,26 +59,29 @@ def downloadBinaryFromSymbolsServer( filename, date_time, file_size ):
     res.close()
     return data
 
-def _setStartAndEndDate(date, end_date=None):
+def normalizeDate(date):
     if isinstance(date, tuple):
-        start = int(time.mktime((date[0], date[1], date[2], 0, 0, 0, 0, 0, 0)))
+        date = int(time.mktime((date[0], date[1], date[2], 0, 0, 0, 0, 0, 0)))
     elif isinstance(date, (int, long)):
-        start = date
+        pass
+    elif isinstance(date, None):
+        date = int(time.mktime(time.strptime(end.ctime())))
     else:
         raise Exception("Don't know how to translate the date to int")
+    return date
+
+def _setStartAndEndDate(date):
     # Make the end time/date the begging of the next day
-    if None != end_date:
-        end = end_date
-    else:
-        start_date = datetime.date.fromtimestamp(start)
-        end = start_date + datetime.timedelta(days=1)
-        end = int(time.mktime(time.strptime(end.ctime())))
+    start = normalizeDate(date)
+    start_date = datetime.date.fromtimestamp(start)
+    end = start_date + datetime.timedelta(days=1)
+    end = int(time.mktime(time.strptime(end.ctime())))
     if end <= start:
         raise Exception("Faild to caculate the end date %x" % end)
     return (start, end)
 
-def bruteForceDateTimeDownload(filename, date, file_size, end_date=None, is_verbose=True):
-    start, end = _setStartAndEndDate(date, end_date)
+def bruteForceDateTimeDownload(filename, date, file_size, is_verbose=True):
+    start, end = _setStartAndEndDate(date)
     function_timing = time.time()
     if is_verbose:
         print "Starting from timestamp %x" % start
@@ -118,8 +121,8 @@ class CreateBruteForceThread(threading.Thread):
         self.result = bruteForceDateTimeDownload(self.filename, self.start, self.file_size, self.end)
 
 # Fix this shit
-def runMuntiThreadBruteForce(filename, start, file_size, end_date=None, num_threads=10, is_verbose=True):
-    start, end = _setStartAndEndDate(date, end_date)
+def runMuntiThreadBruteForce(filename, start, file_size, num_threads=10, is_verbose=True):
+    start, end = _setStartAndEndDate(date)
     last_start = start
     thread_range = 0x1000
     running_threads = []
