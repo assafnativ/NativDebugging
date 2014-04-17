@@ -37,7 +37,14 @@ class GUIDisplayBase( GUIDisplayInterface ):
     def _unsupported(self, *args, **kw):
         raise NotImplementedError("Unsupported function")
 
-    def mapDisplay(self, *args, **kw):
+    def hexDisplay(self, address, length=0x1000, showOffsets=False, size=4):
+        if IS_QT_SUPPORTED:
+            self.hexDisplay = self._hexDisplay
+        else:
+            self.hexDisplay = self._unsupported
+        return self.hexDisplay(address, length=length, showOffsets=showOffsets, size=size)
+
+    def mapDisplay(self, address, length=0x1000, colorMap=None):
         """
         Display memory in a bytes map form
         Arguments:
@@ -52,12 +59,4 @@ class GUIDisplayBase( GUIDisplayInterface ):
             self.mapDisplay = self._mapDisplay
         else:
             self.mapDisplay = self._unsupported
-        return self.mapDisplay(*args, **kw)
-
-    def hexDisplay(self, *args, **kw):
-        if IS_QT_SUPPORTED:
-            self.hexDisplay = self._hexDisplay
-        else:
-            self.hexDisplay = self._unsupported
-        return self.hexDisplay(*args, **kw)
-
+        return self.mapDisplay(address, length=length, colorMap=colorMap)
