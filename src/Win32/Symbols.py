@@ -28,6 +28,7 @@ from .Win32Structs import *
 import urllib2
 import time
 import datetime
+import threading
 
 collectedSymbols = []
 
