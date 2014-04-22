@@ -93,6 +93,51 @@ class MemReaderBase( RecursiveFind, DumpBase ):
             print("Offsets path contains a cycle")
         return result
 
+    def readQword(self, address):
+        return struct.unpack(self._ENDIANITY + 'Q', self.readMemory(address, 8))[0]
+
+    def readDword(self, address):
+        return struct.unpack(self._ENDIANITY + 'L', self.readMemory(address, 4))[0]
+
+    def readWord(self, address):
+        return struct.unpack(self._ENDIANITY + 'H', self.readMemory(address, 2))[0]
+
+    def readByte(self, address):
+        return ord(self.readMemory(address, 1))
+
+    def readAddr(self, address):
+        if 4 == self._POINTER_SIZE:
+            return self.readDword(address)
+        else:
+            return self.readQword(address)
+
+    def readString( self, addr, maxSize=None, isUnicode=False ):
+        result = ''
+        bytesCounter = 0
+
+        while True:
+            if False == isUnicode:
+                c = self.readByte(addr + bytesCounter)
+                bytesCounter += 1
+            else:
+                c = self.readWord(addr + bytesCounter)
+                bytesCounter += 2
+            if 1 < c and c < 0x80:
+                result += chr(c)
+            else:
+                return result
+            if None != maxSize and bytesCounter > maxSize:
+                return result
+
+    def getPointerSize(self):
+        return self._POINTER_SIZE
+
+    def getDefaultDataSize(self):
+        return self._DEFAULT_DATA_SIZE
+
+    def getEndianity(self):
+        return self._ENDIANITY
+
     def readNPrintQwords( self, addr, length=0x100, isNoBase=True, itemsInRow=4, endianity=None ):
         """
         Display memory as QWords tabls, does not return anything

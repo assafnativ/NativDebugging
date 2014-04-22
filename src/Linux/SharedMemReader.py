@@ -107,15 +107,6 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
             memMap[mem.base] = ('%d' % mem.id, mem.size, 0xffffffff)
         return memMap
 
-    def getPointerSize(self):
-        return self._POINTER_SIZE
-
-    def getDefaultDataSize(self):
-        return self._DEFAULT_DATA_SIZE
-
-    def getEndianity(self):
-	    return self._ENDIANITY 
-
     def readMemory(self, address, length, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)
