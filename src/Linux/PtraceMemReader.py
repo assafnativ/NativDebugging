@@ -215,28 +215,28 @@ class PtraceMemReader( MemReaderBase ):
 
         return ret_long
         
-    def readMemory(self, address, length):
+    def readMemory(self, startAddress, length):
         result = ''
         if 8 == self._LONG_SIZE:
             leftOvers = length % 8
-            endAddress = address + length - leftOvers
-            for offset in range(address, endAddress, 8):
-                result += struct.pack('Q', self.readLong())
+            endAddress = startAddress + length - leftOvers
+            for address in range(startAddress, endAddress, 8):
+                result += struct.pack('Q', self.readLong(address))
             length = leftOvers
-            address = endAddress
+            startAddress = endAddress
         if 4 < length:
             leftOvers = length % 4
-            endAddress = address + length - leftOvers
-            for offset in range(address, endAddress, 4):
-                result += struct.pack('L', self.readDword())
+            endAddress = startAddress + length - leftOvers
+            for address in range(startAddress, endAddress, 4):
+                result += struct.pack('L', self.readDword(addresss))
             length = leftOvers
-            address = endAddress
+            startAddress = endAddress
         if 2 <= length:
-            result += strcut.pack('H', self.readWord())
-            address += 2
+            result += strcut.pack('H', self.readWord(startAddress))
+            startAddress += 2
             length -= 2
         if 1 == length:
-            result += chr(self.readByte(address))
+            result += chr(self.readByte(startAddress))
         return result
 
     def readQword(self, address):
