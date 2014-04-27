@@ -269,10 +269,10 @@ class PtraceMemReader( MemReaderBase ):
         ''' 
         returns the memory regions for a given address 
         '''
-        for reg in self.memMap:
-            if addr > reg.start and reg < reg.end:
-                return reg
-                
+        for region in self.memMap:
+            if addr >= region.start and addr < region.end:
+                return region
+        # Region not found
         return None
 
     def isAddressValid(self, address, isLocalAddress=False):
