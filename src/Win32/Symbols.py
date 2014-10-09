@@ -34,19 +34,20 @@ collectedSymbols = []
 
 def downloadBinaryFromSymbolsServer( filename, date_time, file_size ):
     if isinstance(date_time, str):
-        date_time = int(time.mktime(time.strptime(date_time)))
+        # Minuts Hours DayOfTheMonth Month Year
+        date_time = int(time.mktime(time.strptime(date_time, '%M %H %d %m %Y')))
     elif not isinstance(date_time, (int, long)):
         date_time = int(time.mktime(date_time))
     url  = "http://msdl.microsoft.com/download/symbols/"
     url += filename
     url += "/"
-    url += "%x" % date_time
-    url += "%x" % file_size
+    url += "%X" % date_time
+    url += "%X" % file_size
     url += "/"
     url += filename[:-1] + '_'
     req = urllib2.Request(url=url)
     req.add_header("Accept-Encoding", "gzip")
-    req.add_header("User-Agent", "Microsoft-Symbol-Server/6.2.8250.0")
+    req.add_header("User-Agent", "Microsoft-Symbol-Server/6.2.9200.16384")
     req.add_header("Host", "msdl.microsoft.com")
     req.add_header("Connection", "Keep-Alive")
     req.add_header("Cache-Control", "no-cache")
