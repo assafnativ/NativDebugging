@@ -35,6 +35,7 @@ try:
 except ImportError as e:
     IS_DISASSEMBLER_FOUND = False
 import sys
+import platform
 import struct
 import exceptions
 
@@ -69,12 +70,18 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
                 win32con.PROCESS_VM_READ | \
                 win32con.PROCESS_VM_WRITE | \
                 win32con.PROCESS_VM_OPERATION
+        self._is64Python  = '64 ' in sys.version
+        self._is64Windows = '64'  in platform.machine()
         self.createOrAttachProcess(
                 target_process_id,
                 target_open_handle,
                 cmd_line,
                 create_suspended,
                 create_info )
+        if (not self._is64Python) and self._is64Windows and self._is64Target:
+            self._readProcessMemory = ReadProcessMemory64
+        else:
+            self._readProcessMemory = ReadProcessMemory
 
     def __del__( self ):
         self._closeProcess()
@@ -86,7 +93,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     def readAddr( self, addr ):
         result = c_void_p(0)
         bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), self._POINTER_SIZE, byref(bytes_read) )
+        read_result = self._readProcessMemory( self._process, addr, byref(result), self._POINTER_SIZE, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         if None == result.value:
@@ -96,7 +103,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     def readQword( self, addr ):
         result = c_ulonglong(0)
         bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), 8, byref(bytes_read) )
+        read_result = self._readProcessMemory( self._process, addr, byref(result), 8, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         return result.value
@@ -104,7 +111,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     def readDword( self, addr ):
         result = c_uint32(0)
         bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), 4, byref(bytes_read) )
+        read_result = self._readProcessMemory( self._process, addr, byref(result), 4, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         return result.value
@@ -112,7 +119,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     def readWord( self, addr ):
         result = c_uint32(0)
         bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), 2, byref(bytes_read) )
+        read_result = self._readProcessMemory( self._process, addr, byref(result), 2, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         return result.value
@@ -120,7 +127,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     def readByte( self, addr ):
         result = c_uint32(0)
         bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
+        read_result = self._readProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         return result.value
@@ -128,7 +135,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     def readMemory( self, addr, length ):
         result = c_ARRAY(c_char, length)('\x00')
         bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), sizeof(result), byref(bytes_read) )
+        read_result = self._readProcessMemory( self._process, addr, byref(result), sizeof(result), byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
         return result.raw
@@ -142,13 +149,13 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         while True:
             if False == isUnicode:
                 try:
-                    ReadProcessMemory( self._process, addr + bytesCounter, byref(char), 1, byref(bytes_read) )
+                    self._readProcessMemory( self._process, addr + bytesCounter, byref(char), 1, byref(bytes_read) )
                 except exceptions.WindowsError:
                     return result
                 bytesCounter += 1
             else:
                 try:
-                    ReadProcessMemory( self._process, addr + bytesCounter, byref(char), 2, byref(bytes_read) )
+                    self._readProcessMemory( self._process, addr + bytesCounter, byref(char), 2, byref(bytes_read) )
                 except exceptions.WindowsError:
                     return result
                 bytesCounter += 2
@@ -228,7 +235,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             return False
         result = c_uint32(0)
         bytes_read = c_uint32(0)
-        returncode = ReadProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
+        returncode = self._readProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
         if 0 != returncode and 1 == bytes_read.value:
             return True
         return False

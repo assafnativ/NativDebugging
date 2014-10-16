@@ -29,8 +29,11 @@ def ErrorIfZero(handle):
     else:
         return handle
 
-IsWow64Process = windll.kernel32.IsWow64Process
-IsWow64Process.argtypes = [
-		c_int32,
-		c_void_p ]
-IsWow64Process.restype = ErrorIfZero
+try:
+    IsWow64Process = windll.kernel32.IsWow64Process
+    IsWow64Process.argtypes = [
+            c_int32,
+            c_void_p ]
+    IsWow64Process.restype = ErrorIfZero
+except AttributeError, e:
+    IsWow64Process = None

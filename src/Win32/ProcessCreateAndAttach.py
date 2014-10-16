@@ -31,13 +31,16 @@ class ProcessCreateAndAttach( object ):
             self._isSuspended = False
         elif (None == target_open_handle) and (None == target_process_id) and (None != cmd_line):
             self._createProcess(cmd_line, create_suspended, create_info)
-        temp_void_p = c_void_p(1)
-        temp_void_p.value -= 2
-        self._is_win64 = (temp_void_p.value > (2**33))
-        if self._is_win64:
-            self._POINTER_SIZE = 8
-        else:
+        if not self._is64Windows:
             self._POINTER_SIZE = 4
+            self._is64Target = False
+        else:
+            if self._isTargetWow64():
+                self._is64Target = False
+                self._POINTER_SIZE = 4
+            else:
+                self._is64Target = True
+                self._POINTER_SIZE = 8
         self._DEFAULT_DATA_SIZE = 4
         self._mem_map = None
         sysInfo = SYSTEM_INFO()
@@ -46,6 +49,11 @@ class ProcessCreateAndAttach( object ):
         self._maxVAddress   = sysInfo.lpMaximumApplicationAddress
         self._pageSize      = sysInfo.dwPageSize
         self._pageSizeMask  = self._pageSize - 1
+
+    def _isTargetWow64(self):
+        isWow64 = c_uint32(0)
+        IsWow64Process(self._process, byref(isWow64))
+        return 0 != isWow64.value
 
     def _createProcess(self, cmdLine, createSuspended, createInfo):
         cmdLine = c_char_p(cmdLine)

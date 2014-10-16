@@ -181,6 +181,7 @@ void_NULL = c_void_p( win32con.NULL )
 pchar_NULL = c_char_p( win32con.NULL )
 
 from .Win64Structs import *
+from .Wow64Structs import *
 
 OpenProcess = windll.kernel32.OpenProcess
 OpenProcess.argtypes = [
