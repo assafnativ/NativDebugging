@@ -2,20 +2,19 @@
 #   MemoryReader.py
 #
 #   MemoryReader - Remote process memory inspection python module
-#   https://svn3.xp-dev.com/svn/nativDebugging/
-#   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
@@ -94,7 +93,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         return result.value
 
     def readQword( self, addr ):
-        result = c_ulonglong(0)
+        result = c_uint64(0)
         bytes_read = c_uint32(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), 8, byref(bytes_read) )
         if 0 == read_result:
@@ -205,9 +204,9 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     def getAddressAttributes(self, addr):
         memBasicInfo = MEMORY_BASIC_INFORMATION()
         read_result = VirtualQueryEx(
-                            self._process, 
-                            addr, 
-                            byref(memBasicInfo), 
+                            self._process,
+                            addr,
+                            byref(memBasicInfo),
                             sizeof(MEMORY_BASIC_INFORMATION))
         if 0 == read_result:
             raise Exception("Failed to query memory attributes for address 0x%x" % i)
@@ -261,16 +260,16 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         return result
 
     def getMemoryMap(self):
-        """ Get map of all the memory with names of the modules the memory belongs to 
+        """ Get map of all the memory with names of the modules the memory belongs to
             Result is of type: {addr: (name, size, attributes)} """
 
         # Gather information about loaded images
         modules = dict([(x[0], x[1]) for x in self.enumModules()])
-    
+
         # Find the number of pages in the workingset
         num_pages = c_uint64(0)
         QueryWorkingSet(self._process, byref(num_pages), sizeof(c_uint64))
-        
+
         # Get all other memory and attributes of pages
         memory_map = c_ARRAY( c_void_p, (num_pages.value + 0x100) * sizeof(c_void_p) )(0)
         QueryWorkingSet( self._process, byref(memory_map), sizeof(memory_map) )
@@ -365,7 +364,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     def disasm(self, addr, length=0x100, decodeType=1):
         if IS_DISASSEMBLER_FOUND:
             for opcode in distorm3.Decode(
-                    addr, 
+                    addr,
                     self.readMemory(addr, length),
                     decodeType):
                 print('{0:x} {1:24s} {2:s}'.format(opcode[0], opcode[3], opcode[2]))

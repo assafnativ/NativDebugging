@@ -1,25 +1,23 @@
-# Copyright 2010 Assaf Nativ
-#    This file is part of Candy.
 #
-#    Candy is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
-#    (at your option) any later version.
+#   Finder.py
 #
-#    Candy is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+#   Memory Patterns Matcher
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
-#    You should have received a copy of the GNU General Public License
-#    along with Candy.  If not, see <http://www.gnu.org/licenses/>.
-
-try:
-	# Try to use the psycho compiler
-    import psyco
-    psyco.full()
-except ImportError:
-    pass
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
 
 from abc import ABCMeta, abstractmethod
 from ..Interfaces import MemReaderInterface, ReadError
@@ -82,7 +80,7 @@ class SearchContext( object ):
             result += '%-20s' % (item + ':')
             if False == noAddress:
                 result += '@%08x ' % addr
-            result += '(offset: %06x) size %04x val:' % (offset, sizeOf)
+            result += '(+%06x) L: %04x val:' % (offset, sizeOf)
             if isinstance(val, SearchContext):
                 if hasattr(val, '_val'):
                     result += '0x%x' % val._val
@@ -100,7 +98,7 @@ class SearchContext( object ):
                         result += '%6x:           ' % i
                         if False == noAddress:
                             result += '@%08x ' % subAddr
-                        result += '(offset: %06x) val:' % (subAddr - addr)
+                        result += '(+%06x) val:' % (subAddr - addr)
                         result += '\t' * depth
                         result += var.__repr__()
                         result += '\n'
@@ -159,14 +157,14 @@ class PatternFinder( object ):
             self._search = self._safeSearch
         else:
             self._search = self._unSafeSearch
-        
+
     def getPointerSize(self):
         return self._POINTER_SIZE
     def getDefaultDataSize(self):
         return self._DEFAULT_DATA_SIZE
     def getEndianity(self):
         return self._ENDIANITY
-    
+
     def search(self, pattern, startAddress, lastAddress = 0, context=None):
         if None == context:
             context = SearchContext()
@@ -204,9 +202,9 @@ class PatternFinder( object ):
     def __genSetColor(self, displayContext, name, size, color):
         return lambda context, value: displayContext.addColorRanges( \
                 (
-                    getattr(context, 'AddressOf' + name), 
-                    max(getattr(context, 'SizeOf' + name), 1), 
-                    color, 
+                    getattr(context, 'AddressOf' + name),
+                    max(getattr(context, 'SizeOf' + name), 1),
+                    color,
                     name) ) or True
     def __paintPattern(self, depth, pattern, displayContext):
         if 0 == depth:
@@ -220,7 +218,7 @@ class PatternFinder( object ):
                 shape.extraCheck = self.__genSetColor(displayContext, shape.name, '#%06x' % self.color)
             else:
                 shape.extraCheck = self.__genConcatedProc(
-                        shape.extraCheck, 
+                        shape.extraCheck,
                         self.__genSetColor(displayContext, shape.name, '#%06x' % self.color) )
             brightness = 0
             while brightness < 0x190:
@@ -248,13 +246,13 @@ class PatternFinder( object ):
                 shape.extraCheck = self.__genDisplayText(shape.name)
             else:
                 shape.extraCheck = self.__genConcatedProc(
-                        shape.extraCheck, 
+                        shape.extraCheck,
                         self.__genDisplayText(shape.name) )
     def verboseSearch(self, pattern, startAddress, maxDepth=3, context=None):
         pattern = copy.deepcopy(pattern)
         self.__textPattern(maxDepth, pattern)
         return self.search(pattern, startAddress, context=context)
-           
+
 
 def GetItemsByName( context, name ):
     if hasattr(context, name):
@@ -352,7 +350,10 @@ class SHAPE( SHAPE_WITH_NAME ):
         self.fromStart  = fromStart
         if isinstance(place, tuple):
             self.minOffset = place[0]
-            self.maxOffset = place[1]
+            if None == place[1]:
+                self.maxOffset = place[0]
+            else:
+                self.maxOffset = place[1]
         elif isinstance(place, (int, long)):
             self.minOffset = 0
             self.maxOffset = place
@@ -378,9 +379,9 @@ class SHAPE( SHAPE_WITH_NAME ):
                 if 0 != (delta % self.alignment):
                     delta -= delta % (-self.alignment)
                 return self.iterator( \
-                        self.minOffset + delta, 
-                        self.maxOffset + delta, 
-                        self.alignment, 
+                        self.minOffset + delta,
+                        self.maxOffset + delta,
+                        self.alignment,
                         start )
             if 0 != (start % self.alignment):
                 start -= start % (-self.alignment)
@@ -402,6 +403,14 @@ class SHAPE( SHAPE_WITH_NAME ):
                     yield True
             else:
                 yield True
+    def details(self):
+        if hasattr(self, 'minOffset'):
+            minOffset = hex(self.minOffset)
+            maxOffset = hex(self.maxOffset)
+        else:
+            minOffset = "?"
+            maxOffset = "?"
+        return "%s offset(%s:%s) of type %r" % (self.name, minOffset, maxOffset, self.data)
 
 class ASSERT(SHAPE_INTERFACE):
     def __init__(self, assertFunction):
@@ -443,26 +452,32 @@ def _genGetValProc(name):
 class DATA_TYPE( object ):
     def __init__(self, desc = ""):
         self.desc = desc
+
     def __repr__(self):
         if '' != self.desc:
             return '%s %s' % (self.__class__.__name__, self.desc)
         else:
             return self.__class__.__name__
+
     def setForSearch(self, patFinder, context):
         """
         Used for Shapes that are need to be aware of machine infromation such as pointer size
         """
         pass
+
     def getAlignment(self):
         return 1
+
     @abstractmethod
     def __len__(self):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
+
     @abstractmethod
     def readValue(self, patFinder, address):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
+
     @abstractmethod
     def isValid(self, patFinder, address, value):
         """ Pure virtual """
@@ -505,7 +520,8 @@ class POINTER( DATA_TYPE ):
 
 class STRUCT( DATA_TYPE ):
     def __init__(self, content, **kw):
-        self.content    = content
+        self.content = content
+        self.context = None
         DATA_TYPE.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
         self.context = SearchContext(root=context._root)
@@ -515,7 +531,9 @@ class STRUCT( DATA_TYPE ):
     def __len__(self):
         return _getPatternSize(self.context, self.content)
     def __repr__(self):
-        return repr(self.context)
+        if self.context:
+            return repr(self.context)
+        return repr(self.content)
     def readValue(self, patFinder, address):
         self.context._val = address
         return self.context
@@ -525,7 +543,8 @@ class STRUCT( DATA_TYPE ):
 
 class POINTER_TO_STRUCT( POINTER ):
     def __init__(self, content, **kw):
-        self.content        = content
+        self.content = content
+        self.context = None
         POINTER.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
         POINTER.setForSearch(self, patFinder, context)
@@ -534,7 +553,9 @@ class POINTER_TO_STRUCT( POINTER ):
         for shape in self.content:
             shape.setForSearch(patFinder, self.context)
     def __repr__(self):
-        return "Ptr:0x%x\n" + repr(self.context)
+        if self.context:
+            return "Ptr:0x%x\n" + repr(self.context)
+        return repr(self.content)
     def readValue(self, patFinder, address):
         ptr = patFinder.readAddr(address)
         if patFinder.isAddressValid(ptr):
@@ -618,7 +639,7 @@ class SWITCH( DATA_TYPE ):
         else:
             for x in patFinder.search(self.currentPattern, address, lastAddress=0, context=self.context):
                 yield True
-    
+
 class NUMBER( DATA_TYPE ):
     def __init__(self, value=None, size=None, alignment=None, isSigned=False, endianity='=', **kw):
         self.sizeOfData   = size
@@ -633,6 +654,7 @@ class NUMBER( DATA_TYPE ):
             raise Exception('Invalid endianity (">", "<", "=")')
         self._endianity = endianity
         DATA_TYPE.__init__(self, **kw)
+
     def setForSearch(self, patFinder, context):
         if '=' == self._endianity:
             self.endianity = patFinder.getEndianity()
@@ -642,6 +664,7 @@ class NUMBER( DATA_TYPE ):
             self.sizeOfData = patFinder.getDefaultDataSize()
         if None == self.alignment:
             self.alignment = self.sizeOfData
+
     def __repr__(self):
         sizesNames = {None:'DefaultSize', 1:'BYTE', 2:'WORD', 4:'DWORD', 8:'QWORD'}
         if self.sizeOfData not in sizesNames:
@@ -663,9 +686,10 @@ class NUMBER( DATA_TYPE ):
         elif None == value:
             result += 'ANYTHING'
         return result
+
     def readValue(self, patFinder, address):
         result = 0
-        if self.endianity == ">":
+        if ">" == self._endianity:
             for i in range(self.sizeOfData):
                 result <<= 8
                 result += patFinder.readByte(address + i)
@@ -677,6 +701,7 @@ class NUMBER( DATA_TYPE ):
             if result >= maxPositive:
                 result = 0 - ((maxPositive << 1) - result)
         return result
+
     def isValid(self, patFinder, address, value):
         validValue = self.value
         if isinstance(validValue, tuple):
@@ -690,10 +715,52 @@ class NUMBER( DATA_TYPE ):
                 yield True
         elif None == validValue:
             yield True
+
     def __len__(self):
         return self.sizeOfData
+
     def getAlignment(self):
         return self.alignment
+
+class FLOAT( NUMBER ):
+    def __init__(self, size=None, *arg, **kw):
+        if None == size:
+            size = 4
+        NUMBER.__init__(self, size=size, *arg, **kw)
+        if self.sizeOfData == 4:
+            self._unpacktype = self._endianity + 'f'
+        elif self.sizeOfData == 8:
+            self._unpacktype = self._endianity + 'd'
+        else:
+            raise Exception("Invalid floating point size %d" % self.sizeOfData)
+    def __repr__(self):
+        sizesNames = {None:'DefaultSize', 4:'FLOAT', 8:'DOUBLE'}
+        if self.sizeOfData not in sizesNames:
+            result = 'NUMBER'
+        else:
+            result = sizesNames[self.sizeOfData]
+        result += '_'
+        if self._endianity == '<':
+            result = 'little-endian_' + result
+        elif self._endianity == '>':
+            result = 'big-endin_' + result
+        value = self.value
+        if isinstance(value, float):
+            result += 'CONST_VALUE_%d' % value
+        elif isinstance(value, tuple):
+            result += 'RANGE_FROM_%d_TO_%d' % (value[0], value[1])
+        elif isinstance(value, list):
+            result += 'ENUM_%s' % repr(value)
+        elif None == value:
+            result += 'ANYTHING'
+        return result
+    def readValue(self, patFinder, address):
+        return struct.unpack(self._unpacktype, patFinder.readMemory(address, self.sizeOfData))[0]
+
+class DOUBLE(FLOAT):
+    def __init__(self, *arg, **kw):
+        kw['size'] = 8
+        FLOAT.__init__(self, *arg, **kw)
 
 class CTIME( NUMBER ):
     def __init__(self, value=None, alignment=4, endianity="=", **kw):
@@ -880,7 +947,7 @@ class ARRAY( DATA_TYPE ):
         Multi occurrences of a SHAPE
         Var type is a SHAPE type such as DWORD, NUMBER, STRING. Note this is not an instance
         but the class type. The instance would be created by the ARRAY.
-        If the init of the SHAPE requires args / key words, one can set them using the:
+        If the init of the SHAPE type requires args / key words, one can set them using the:
             varArgs - List of args
             varKw - Dictunary args
         """
@@ -899,14 +966,17 @@ class ARRAY( DATA_TYPE ):
         self.contexts = []
         self.isZeroSizeValid = isZeroSizeValid
         DATA_TYPE.__init__(self, **kw)
+
     def __repr__(self):
         return 'ARRAY_OF_%s[%d]' % (self.varType.__name__, self.arraySize)
     def __len__(self):
         return sum([len(var) for var in self.array])
+
     def setForSearch(self, patFinder, context):
         self.parentContext = context
         for var in self.array:
             var.setForSearch(patFinder, context)
+
     def readValue(self, patFinder, address):
         if isinstance(self.arraySize, (int, long)):
             arraySize = self.arraySize
@@ -920,18 +990,24 @@ class ARRAY( DATA_TYPE ):
             newContext._parent = self.parentContext
             self.contexts.append(newContext)
         return self.contexts
-    def recursiveIsValid(self, patFinder, address, contexts, array):
-        if 0 == len(contexts):
+
+    def recursiveIsValid(self, patFinder, address, contexts, contextIndex=0):
+        if (contextIndex == len(contexts)) or (0 == len(contexts)):
             yield True
         else:
-            dt = array[0]
-            ctx = contexts[0]
-            tempShape = SHAPE('Item', 0, dt)
-            for _ in patFinder.search([tempShape], address, lastAddress=0, context=ctx):
-                for _ in self.recursiveIsValid(patFinder, address + len(dt), contexts[1:], array[1:]):
+            dt = self.array[contextIndex]
+            ctx = contexts[contextIndex]
+            dt.setForSearch(patFinder, ctx)
+            value = dt.readValue(patFinder, address)
+            for x in dt.isValid(patFinder, address, value):
+                ctx.AddressOfItem = address
+                ctx.OffsetOfItem = 0
+                ctx.SizeOfItem = len(dt)
+                for _ in self.recursiveIsValid(patFinder, address + len(dt), contexts, contextIndex+1):
                     yield True
+
     def isValid(self, patFinder, address, values):
-        for x in self.recursiveIsValid(patFinder, address, values, self.array):
+        for x in self.recursiveIsValid(patFinder, address, values):
             yield x
         if 0 == len(values) and isZeroSizeValid:
             yield True

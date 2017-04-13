@@ -10,12 +10,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
@@ -42,7 +42,7 @@ def DATA( data, base = 0, itemsInRow=0x10 ):
                 line += '%02X' % ord(line_data[t])
             elif( 1 == (t & 1) ):
                 line += '%02X ' % ord(line_data[t])
-            
+
         spacesLeft = 13 + int(itemsInRow * 2.5) + (2 * ((itemsInRow - 1)//8))
         line += ' ' * (spacesLeft - len(line))
         for t in line_data:
@@ -228,7 +228,7 @@ def getIpcsInfo(isVerbose=True):
     if isVerbose:
         for i in lines:
             print(i)
-    return lines 
+    return lines
 
 def getAllShmidsInfo(ownerFilter=None):
     if sys.platform.lower().startswith('win32'):
@@ -275,7 +275,7 @@ def getAllShmidsInfo(ownerFilter=None):
             key = int(key,16)
             shSize = int(sLine[SIZE_INDEX])
             res.append((key,shmid,shSize))
-        except ValueError: 
+        except ValueError:
             pass
         except IndexError:
             pass
