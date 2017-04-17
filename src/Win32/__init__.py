@@ -8,5 +8,6 @@ __all__ = [
         "InjectDll",
         "ProcessCreateAndAttach",
         "SharedMemReader",
-        "Win32Utile" ]
-        
+        "Win32Utile",
+        "GetPdb" ]
+

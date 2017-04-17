@@ -42,6 +42,12 @@ class InjectDll( object ):
         raise NotImplementedError("Pure function call")
 
     def injectDll(self, dllName, LoadLibraryA_address=None, creationFlags=0):
+        injectDllCreateRemoteThread(dllName, LoadLibraryA_address, creationFlags)
+
+    def injectDllQueueUserAPC(self, dllName):
+        pass
+
+    def injectDllCreateRemoteThread(self, dllName, LoadLibraryA_address=None, creationFlags=0):
         if dllName[-1] != '\x00':
             dllName += "\x00"
         if None == LoadLibraryA_address:

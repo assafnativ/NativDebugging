@@ -1,28 +1,3 @@
-#
-#   win32structs.py
-#
-#   pyMint - Remote process memory inspection python module
-#   https://code.google.com/p/pymint/
-#   Nativ.Assaf+pyMint@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-# 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>
-#
-
-# ImPoRtS
-
-# Import win32con
 class win32con( object ):
     def __init__( self ):
         pass
@@ -76,36 +51,36 @@ win32con.UNLOAD_DLL_DEBUG_EVENT         = 7
 win32con.OUTPUT_DEBUG_STRING_EVENT      = 8
 win32con.CREATE_SUSPENDED               = 4
 win32con.PAGE_READWRITE                 = 4
-STATUS_WAIT_0                    = 0    
-STATUS_ABANDONED_WAIT_0          = 128    
-STATUS_USER_APC                  = 192    
-STATUS_TIMEOUT                   = 258    
-STATUS_PENDING                   = 259    
-STATUS_SEGMENT_NOTIFICATION      = 1073741829    
-STATUS_GUARD_PAGE_VIOLATION      = -2147483647    
-STATUS_DATATYPE_MISALIGNMENT     = -2147483646    
-STATUS_BREAKPOINT                = -2147483645    
-STATUS_SINGLE_STEP               = -2147483644    
-STATUS_ACCESS_VIOLATION          = -1073741819    
-STATUS_IN_PAGE_ERROR             = -1073741818    
-STATUS_INVALID_HANDLE            = -1073741816    
-STATUS_NO_MEMORY                 = -1073741801    
-STATUS_ILLEGAL_INSTRUCTION       = -1073741795    
-STATUS_NONCONTINUABLE_EXCEPTION  = -1073741787    
-STATUS_INVALID_DISPOSITION       = -1073741786    
-STATUS_ARRAY_BOUNDS_EXCEEDED     = -1073741684    
-STATUS_FLOAT_DENORMAL_OPERAND    = -1073741683    
-STATUS_FLOAT_DIVIDE_BY_ZERO      = -1073741682    
-STATUS_FLOAT_INEXACT_RESULT      = -1073741681    
-STATUS_FLOAT_INVALID_OPERATION   = -1073741680    
-STATUS_FLOAT_OVERFLOW            = -1073741679    
-STATUS_FLOAT_STACK_CHECK         = -1073741678    
-STATUS_FLOAT_UNDERFLOW           = -1073741677    
-STATUS_INTEGER_DIVIDE_BY_ZERO    = -1073741676    
-STATUS_INTEGER_OVERFLOW          = -1073741675    
-STATUS_PRIVILEGED_INSTRUCTION    = -1073741674    
-STATUS_STACK_OVERFLOW            = -1073741571    
-STATUS_CONTROL_C_EXIT            = -1073741510    
+STATUS_WAIT_0                    = 0
+STATUS_ABANDONED_WAIT_0          = 128
+STATUS_USER_APC                  = 192
+STATUS_TIMEOUT                   = 258
+STATUS_PENDING                   = 259
+STATUS_SEGMENT_NOTIFICATION      = 1073741829
+STATUS_GUARD_PAGE_VIOLATION      = -2147483647
+STATUS_DATATYPE_MISALIGNMENT     = -2147483646
+STATUS_BREAKPOINT                = -2147483645
+STATUS_SINGLE_STEP               = -2147483644
+STATUS_ACCESS_VIOLATION          = -1073741819
+STATUS_IN_PAGE_ERROR             = -1073741818
+STATUS_INVALID_HANDLE            = -1073741816
+STATUS_NO_MEMORY                 = -1073741801
+STATUS_ILLEGAL_INSTRUCTION       = -1073741795
+STATUS_NONCONTINUABLE_EXCEPTION  = -1073741787
+STATUS_INVALID_DISPOSITION       = -1073741786
+STATUS_ARRAY_BOUNDS_EXCEEDED     = -1073741684
+STATUS_FLOAT_DENORMAL_OPERAND    = -1073741683
+STATUS_FLOAT_DIVIDE_BY_ZERO      = -1073741682
+STATUS_FLOAT_INEXACT_RESULT      = -1073741681
+STATUS_FLOAT_INVALID_OPERATION   = -1073741680
+STATUS_FLOAT_OVERFLOW            = -1073741679
+STATUS_FLOAT_STACK_CHECK         = -1073741678
+STATUS_FLOAT_UNDERFLOW           = -1073741677
+STATUS_INTEGER_DIVIDE_BY_ZERO    = -1073741676
+STATUS_INTEGER_OVERFLOW          = -1073741675
+STATUS_PRIVILEGED_INSTRUCTION    = -1073741674
+STATUS_STACK_OVERFLOW            = -1073741571
+STATUS_CONTROL_C_EXIT            = -1073741510
 win32con.EXCEPTION_ACCESS_VIOLATION          = STATUS_ACCESS_VIOLATION
 win32con.EXCEPTION_DATATYPE_MISALIGNMENT     = STATUS_DATATYPE_MISALIGNMENT
 win32con.EXCEPTION_BREAKPOINT                = STATUS_BREAKPOINT
@@ -370,7 +345,7 @@ class TOKEN_PRIVILEGES( Structure ):
             ('PrivilegeCount',  c_uint32),
             ('Luid',            LUID),
             ('Attributes',      c_uint32) ]
-    
+
 class PROCESS_HEAP_ENTRY( Structure ):
     _fields_ = [
             ('lpData',          c_void_p),
@@ -406,7 +381,7 @@ class OBJECT_BASIC_INFORMATION( Structure ):
 class OBJECT_NAME_INFORMATION( Structure ):
     _fields_ = [
             ('UnicodeStr',      UNICODE_STRING) ]
-            
+
 
 class GENERIC_MAPPING( Structure ):
     _fields_ = [
@@ -484,7 +459,7 @@ NtQuerySystemInformation.argtypes = [
     c_uint32,     #  __in       ULONG SystemInformationLength,
     c_void_p ]  #  __out_opt  PULONG ReturnLength
 NtQuerySystemInformation.restype = c_uint32
-    
+
 class PROCESS_BASIC_INFORMATION( Structure ):
     _fields_ = [
             ('ExitStatus',      c_void_p),
@@ -502,7 +477,7 @@ NtQueryInformationProcess.argtypes = [
         c_uint32,   # _In_       ULONG ProcessInformationLength
         c_void_p ]  # _Out_opt_  PULONG ReturnLength
 NtQueryInformationProcess.restype = NtStatusCheck
-    
+
 GetModuleFileNameEx = windll.psapi.GetModuleFileNameExA
 GetModuleFileNameEx.argtypes = [
         c_int32,      #  __in      HANDLE hProcess,
@@ -547,7 +522,7 @@ SymInitialize.argtypes = [
         c_uint32 ]    # BOOL fInvadeProcess
 SymInitialize.restype = ErrorIfZero
 
-SYM_FIND_FILE_IN_PATCH_CALLBACK = WINFUNCTYPE( 
+SYM_FIND_FILE_IN_PATCH_CALLBACK = WINFUNCTYPE(
                                         c_char_p, # PCTSTR fileName
                                         c_void_p) # PVOID context
 SymFindFileInPath = windll.dbghelp.SymFindFileInPath
@@ -596,7 +571,7 @@ class SYMBOL_INFO( Structure ):
             ('NameLen',             c_uint32),
             ('MaxNameLen',          c_uint32),
             ('Name',                c_ARRAY(c_char, 0x1000)) ]
-                
+
 SYM_ENUMERATESYMBOLS_CALLBACK = WINFUNCTYPE( c_uint32, c_POINTER(SYMBOL_INFO), c_uint32, c_void_p )
 
 SymEnumSymbols = windll.dbghelp.SymEnumSymbols
@@ -645,7 +620,7 @@ class PROCESS_INFORMATION( Structure ):
         ('hThread', c_int32),
         ('dwProcessId', c_uint32),
         ('dwThreadId',  c_uint32) ]
-        
+
 CreateProcess = windll.kernel32.CreateProcessA
 CreateProcess.argtypes = [
     c_char_p,   # lpApplicationName // name of executable module
@@ -672,7 +647,7 @@ CreateRemoteThread.argtypes = [
         c_void_p,       # LPTHREAD_START_ROUTINE lpStartAddress
         c_void_p,       # LPVOID lpParameter
         c_uint32,       # DWORD dwCreationFlags
-        c_void_p ]      # LPDWORD lpThreadId        
+        c_void_p ]      # LPDWORD lpThreadId
 CreateRemoteThread.restype = ErrorIfZero
 
 class EXCEPTION_RECORD( Structure ):
@@ -694,7 +669,7 @@ class CREATE_THREAD_DEBUG_INFO( Structure ):
         ('hThread',             c_int32 ),
         ('lpThreadLocalBase',   c_uint32 ),
         ('lpStartAddress',      c_uint32 ) ]
-    
+
 class CREATE_PROCESS_DEBUG_INFO( Structure ):
     _fields_ = [
         ('hFile',                   c_int32 ),
@@ -707,7 +682,7 @@ class CREATE_PROCESS_DEBUG_INFO( Structure ):
         ('lpStartAddress',          c_uint32 ),
         ('lpImageName',             c_uint32 ),
         ('fUnicode',                c_uint16 ) ]
-        
+
 class MEMORY_BASIC_INFORMATION(Structure):
     _fields_ = [("BaseAddress",         c_void_p),
                 ("AllocationBase",      c_void_p),
@@ -721,7 +696,7 @@ class SECURITY_ATTRIBUTES(Structure):
     _fields_ = [("Length", c_uint32),
                 ("SecDescriptor", c_void_p),
                 ("InheritHandle", c_uint32)]
-    
+
 class EXIT_THREAD_DEBUG_INFO( Structure ):
     _fields_ = [
         ('dwExitCode',  c_uint32 ) ]
@@ -747,7 +722,7 @@ class OUTPUT_DEBUG_STRING_INFO( Structure ):
         ('lpDebugStringData',   c_char_p),
         ('fUnicode',            c_uint16),
         ('nDebugStringLength',  c_uint16) ]
-        
+
 
 class DEBUG_EVENT_u( Union ):
     _fields_ = [
@@ -759,8 +734,8 @@ class DEBUG_EVENT_u( Union ):
         ('LoadDll',             LOAD_DLL_DEBUG_INFO),
         ('UnloadDll',           UNLOAD_DLL_DEBUG_INFO),
         ('DebugString',         OUTPUT_DEBUG_STRING_INFO) ]
-    
-    
+
+
 class DEBUG_EVENT( Structure ):
     _fields_ = [
         ('dwDebugEventCode',    c_int32),
@@ -904,3 +879,113 @@ MapViewOfFile.argtypes = [
           c_uint32 ] # SIZE_T dwNumberOfBytesToMap
 MapViewOfFile.restype = c_void_p
 
+# Symbols
+CoInitialize = windll.ole32.CoInitialize
+CoInitialize.argtypes = [ c_void_p ]
+CoInitialize.restype = c_int32
+
+CoCreateInstance = windll.ole32.CoCreateInstance
+CoCreateInstance.argtypes = [
+        c_void_p,
+        c_uint32,
+        c_uint32,
+        c_void_p,
+        c_void_p ]
+CoCreateInstance.restype = c_int32
+
+SymTagEnum = [
+    'SymTagNull', # 0
+    'SymTagExe', # 1
+    'SymTagCompiland', # 2
+    'SymTagCompilandDetails', # 3
+    'SymTagCompilandEnv', # 4
+    'SymTagFunction', # 5
+    'SymTagBlock', # 6
+    'SymTagData', # 7
+    'SymTagAnnotation', # 8
+    'SymTagLabel', # 9
+    'SymTagPublicSymbol', # 10
+    'SymTagUDT', # 11
+    'SymTagEnum', # 12
+    'SymTagFunctionType', # 13
+    'SymTagPointerType', # 14
+    'SymTagArrayType', # 15
+    'SymTagBaseType', # 16
+    'SymTagTypedef', # 17
+    'SymTagBaseClass', # 18
+    'SymTagFriend', # 19
+    'SymTagFunctionArgType', # 20
+    'SymTagFuncDebugStart', # 21
+    'SymTagFuncDebugEnd', # 22
+    'SymTagUsingNamespace', # 23
+    'SymTagVTableShape', # 24
+    'SymTagVTable', # 25
+    'SymTagCustom', # 26
+    'SymTagThunk', # 27
+    'SymTagCustomType', # 28
+    'SymTagManagedType', # 29
+    'SymTagDimension', # 30
+    'SymTagCallSite', # 31
+    'SymTagInlineSite', # 32
+    'SymTagBaseInterface', # 33
+    'SymTagVectorType', # 34
+    'SymTagMatrixType', # 35
+    'SymTagHLSLType', # 36
+    'SymTagCaller', # 37
+    'SymTagCallee', # 38
+    'SymTagExport', # 39
+    'SymTagHeapAllocationSite', # 40
+    'SymTagCoffGroup', # 41
+    'SymTagMax']
+SymTagEnumTag = dict(zip(range(len(SymTagEnum)), SymTagEnum))
+SymTagEnum = dict(zip(SymTagEnum, range(len(SymTagEnum))))
+
+SymDataKind = [
+    "Unknown",
+    "Local",
+    "Static Local",
+    "Param",
+    "Object Ptr",
+    "File Static",
+    "Global",
+    "Member",
+    "Static Member",
+    "Constant" ]
+SymDataKindTag = dict(zip(range(len(SymDataKind)), SymDataKind))
+SymDataKind = dict(zip(SymDataKind, range(len(SymDataKind))))
+
+SymBaseType = [
+    "<NoType>", # 0
+    "void",     # 1
+    "char",     # 2
+    "wchar_t",  # 3
+    "signed char",  # 4
+    "unsigned char",    # 5
+    "int",      # 6
+    "unsigned int", # 7
+    "float",    # 8
+    "<BCD>",    # 9
+    "bool",     # 10
+    "short",    # 11
+    "unsigned short",   # 12
+    "long",     # 13
+    "unsigned long",    # 14
+    "__int8",   # 15
+    "__int16",  # 16
+    "__int32",  # 17
+    "__int64",  # 18
+    "__int128", # 19
+    "unsigned __int8",  # 20
+    "unsigned __int16", # 21
+    "unsigned __int32", # 22
+    "unsigned __int64", # 23
+    "unsigned __int128",    # 24
+    "<currency>",   # 25
+    "<date>",       # 26
+    "VARIANT",      # 27
+    "<complex>",    # 28
+    "<bit>",        # 29
+    "BSTR",         # 30
+    "HRESULT"]      # 31
+SymBaseTypeTag = dict(zip(range(len(SymBaseType)), SymBaseType))
+SymBaseType = dict(zip(SymBaseType, range(len(SymBaseType))))
