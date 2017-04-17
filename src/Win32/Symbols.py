@@ -110,7 +110,7 @@ class PDBSymbols(object):
                         {'desc':dataTypeName})
         elif 'SymTagPointerType' == memberTypeSymTag:
             return (name, base, POINTER, [], {'isNullValid':True})
-        elif 'SymTagBaseType' == memberTypeSymTag:
+        elif memberTypeSymTag in ['SymTagBaseType', 'SymTagEnum']:
             if dataType.baseType in [7, 1, 5, 10, 12, 14, 20, 21, 22, 23, 24, 31]:
                 return (name, base, NUMBER, [], {'size':dataType.length, 'desc':dataTypeName})
             elif dataType.baseType in [6, 2, 3, 4, 11, 13, 15, 16, 17, 18, 19]:
@@ -128,6 +128,8 @@ class PDBSymbols(object):
             arrayCount = dataType.count
             arrayName, _, arrayType, arrayTypeArgs, arrayTypeKw = self._getSymTagDataType(dataType.type, 'A', 0)
             return (name, base, ARRAY, [arrayCount, arrayType, arrayTypeArgs, arrayTypeKw], {'desc':arrayName})
+        elif 'SymTagEnum' == memberTypeSymTag:
+            raise Exception("Unknown ember type %s" % memberTypeSymTag)
 
 def parseSymbolsDump( symbols_dump ):
     result = []
