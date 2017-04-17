@@ -29,8 +29,7 @@ setup(
         author = 'Assaf Nativ',
         author_email = 'Nativ.Assaf@gmail.com',
         packages = packagesNames,
-    package_dir = packagesDirs,
-        data_files = [('Lib\\\site-packages', ('NativDebugging.pth',))] + ExtraDataFiles
-        )
+        package_dir = packagesDirs,
+        data_files = [('Lib\\\site-packages', ('NativDebugging.pth',))] + ExtraDataFiles)
 
 
