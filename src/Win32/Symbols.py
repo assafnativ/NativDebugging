@@ -112,9 +112,9 @@ class PDBSymbols(object):
             return (name, base, POINTER, [], {'isNullValid':True})
         elif memberTypeSymTag in ['SymTagBaseType', 'SymTagEnum']:
             if dataType.baseType in [7, 1, 5, 10, 12, 14, 20, 21, 22, 23, 24, 31]:
-                return (name, base, NUMBER, [], {'size':dataType.length, 'desc':dataTypeName})
+                dataInfo = {'isSigned':False}
             elif dataType.baseType in [6, 2, 3, 4, 11, 13, 15, 16, 17, 18, 19]:
-                return (name, base, NUMBER, [], {'size':dataType.length, 'isSigned':True, 'desc':dataTypeName})
+                dataInfo = {'isSigned':True, 'desc':dataTypeName}
             elif 8 == dataType.baseType:
                 if 8 == dataType.length:
                     return (name, base, DOUBLE, [], {'desc':dataTypeName})
@@ -124,6 +124,14 @@ class PDBSymbols(object):
                     raise Exception("Invlaid size for float %d" % dataType.length)
             else:
                 raise Exception("Unknown data type %d" % dataType.baseType)
+            if 'SymTagEnum' == memberTypeSymTag:
+                enumChildren = dataType.findChildren(0, None, 0)
+                enumChildrenItems = [enumChildren.Item(x) for x in xrange(enumChildren.count)]
+                values = {x.value : x.name for x in enumChildrenItems}
+                dataInfo['value'] = values
+            dataInfo['size'] = dataType.length
+            dataInfo['desc'] = dataTypeName
+            return (name, base, NUMBER, [], dataInfo)
         elif 'SymTagArrayType' == memberTypeSymTag:
             arrayCount = dataType.count
             arrayName, _, arrayType, arrayTypeArgs, arrayTypeKw = self._getSymTagDataType(dataType.type, 'A', 0)

@@ -11,6 +11,7 @@ win32con.PROCESS_VM_WRITE               = 0x0020
 win32con.PROCESS_DUP_HANDLE             = 0x0040
 win32con.PROCESS_SET_INFORMATION        = 0x0200
 win32con.PROCESS_QUERY_INFORMATION      = 0x0400
+win32con.PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 win32con.PROCESS_ALL_ACCESS             = 0x1f0fff
 win32con.MEM_COMMIT                     = 0x1000
 win32con.PAGE_EXECUTE_READWRITE         = 0x40
@@ -211,6 +212,13 @@ EnumProcesses.argtypes = [
     c_uint32,
     c_void_p]
 EnumProcesses.restype = ErrorIfZero
+
+GetProcessImageFileName = windll.psapi.GetProcessImageFileNameA
+GetProcessImageFileName.argtypes = [
+        c_void_p,   # HANDLE hProcess
+        c_void_p,   # lpImageFileName
+        c_uint32 ]  # DWORD nSize
+GetProcessImageFileName.restype = ErrorIfZero
 
 GetModuleBaseName = windll.psapi.GetModuleBaseNameA
 GetModuleBaseName.argtypes = [

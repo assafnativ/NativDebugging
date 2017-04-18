@@ -19,7 +19,7 @@ def adjustDebugPrivileges():
             None )
     CloseHandle( access_token )
 
-def enumProcesses():
+def _enumProcessesOld():
     bufferSize = 0x1000
     while True:
         buf = create_string_buffer(bufferSize)
@@ -47,11 +47,11 @@ def enumProcesses():
         offset += processInfo.NextEntryOffset
         processInfo = cast(addressof(buf) + offset, c_POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
     return results
-        
-def _enumProcessesOld():
+
+def enumProcesses():
     adjustDebugPrivileges()
-    
-    processesIds = c_uint32 * 0x400
+
+    processesIds = c_uint32 * 0x4096
     processesIds = processesIds()
     cb = sizeof(processesIds)
     bytesReturned = c_uint32()
@@ -69,7 +69,7 @@ def _enumProcessesOld():
             continue
         try:
             process = OpenProcess(
-                        win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
+                        win32con.PROCESS_QUERY_LIMITED_INFORMATION,
                         0,
                         processesIds[i])
         except WindowsError as e:
@@ -77,22 +77,24 @@ def _enumProcessesOld():
                 continue
             raise e
         if process:
-            moduleName = c_buffer(0x100)
+            moduleName = c_buffer(0x2048)
             try:
-                EnumProcessModules(process, byref(module), sizeof(module), byref(count))
-                GetModuleBaseName(process, module.value, moduleName, sizeof(moduleName))
+                GetProcessImageFileName(process, moduleName, sizeof(moduleName))
             except WindowsError as e:
+                if 87 == e.winerror:
+                    # print("Failed to get module name for process %d (%r)" % (process, e))
+                    continue
                 if 299 != e.winerror:
                     raise e
             results.append((moduleName.value.replace('\x00', ''), processesIds[i]))
     return results
-                
+
 def findProcessId(name):
     target = name.lower()
     results = []
     processes = enumProcesses()
     for process in processes:
-        if process[0].lower().startswith(target):
+        if target in process[0].lower():
             results.append(process)
     return results
 

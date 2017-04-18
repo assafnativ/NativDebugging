@@ -682,7 +682,9 @@ class NUMBER( DATA_TYPE ):
         elif isinstance(value, tuple):
             result += 'RANGE_FROM_%d_TO_%d' % (value[0], value[1])
         elif isinstance(value, list):
-            result += 'ENUM_%s' % repr(value)
+            result += 'ENUM_%r' % value
+        elif isinstance(value, dict):
+            result += 'ENUM_%r' % value
         elif None == value:
             result += 'ANYTHING'
         return result
@@ -711,6 +713,9 @@ class NUMBER( DATA_TYPE ):
             if value == self.value:
                 yield True
         elif isinstance(validValue, list):
+            if value in self.value:
+                yield True
+        elif isinstance(validValue, dict):
             if value in self.value:
                 yield True
         elif None == validValue:
