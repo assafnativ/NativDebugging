@@ -444,7 +444,15 @@ def _getPatternSize(context, pattern):
 
 def _genGetValProc(name):
     def _getValProc(context):
-        if hasattr(context, name):
+        if '.' in name:
+            result = context
+            for subAttr in name.split('.'):
+                if hasattr(result, subAttr):
+                    result = getattr(result, subAttr)
+                else:
+                    raise Exception("SearchContext has no %s (%s)" % (subAttr, name))
+            return result
+        elif hasattr(context, name):
             return getattr(context, name)
         return 'default'
     return _getValProc
@@ -642,7 +650,7 @@ class SWITCH( DATA_TYPE ):
 
 class NUMBER( DATA_TYPE ):
     def __init__(self, value=None, size=None, alignment=None, isSigned=False, endianity='=', **kw):
-        self.sizeOfData   = size
+        self.sizeOfData = size
         if 128 < self.sizeOfData or 0 >= self.sizeOfData:
             raise Exception('Invalid number size ' + repr(self.sizeOfData))
         self.alignment    = alignment
@@ -726,6 +734,29 @@ class NUMBER( DATA_TYPE ):
 
     def getAlignment(self):
         return self.alignment
+
+class SIZE_T( NUMBER ):
+    def __init__(self, value=None, alignment=None, endianity='=', **kw):
+        self.alignment = alignment
+        self.value = value
+        self.isSigned = True
+        if endianity not in [">", "<", "="]:
+            raise Exception('Invalid endianity (">", "<", "=")')
+        self._endianity = endianity
+        DATA_TYPE.__init__(self, **kw)
+
+    def setForSearch(self, patFinder, context):
+        if '=' == self._endianity:
+            self.endianity = patFinder.getEndianity()
+        else:
+            self.endianity = self._endianity
+        self.sizeOfData = patFinder.getPointerSize()
+
+    def __repr__(self):
+        return 'SIZE_T'
+
+    def getAlignment(self):
+        return self.sizeOfData
 
 class FLOAT( NUMBER ):
     def __init__(self, size=None, *arg, **kw):
@@ -835,9 +866,11 @@ def IsPrintable(s, isUnicode=False):
                 if ord(s[c]) > 0x7f or ord(s[c]) < 0x20:
                     return False
             else:
-                if s[c] != '\x00':
+                if s[c] != '\x00' and (len(s) - 1) != c:
                     return False
     else:
+        if '\0' == s[-1]:
+            s = s[:-1]
         for c in s:
             if ord(c) > 0x7f or ord(c) < 0x20:
                 return False
@@ -882,14 +915,16 @@ class STRING( DATA_TYPE ):
         self.maxSize        = maxSize
         if isinstance(size, str):
             size = _genGetValProc(size)
-        self.length         = size
+        self.length = size
         DATA_TYPE.__init__(self, **keys)
+
     def __repr__(self):
         if self.NULL_TERM == self.length:
             return '\\0 STRING'
         elif isinstance(self.length, (int, long)):
             return 'STRING[%d]' % self.length
         return 'STRING'
+
     def __len__(self):
         if None == self.length:
             return 0
@@ -900,8 +935,10 @@ class STRING( DATA_TYPE ):
                 return self.length * 2
             else:
                 return self.length
+
     def setForSearch(self, patFinder, context):
         self.searchContext = context
+
     def readValue(self, patFinder, address):
         try:
             if self.NULL_TERM == self.length:
@@ -918,6 +955,7 @@ class STRING( DATA_TYPE ):
             #print 'FIXED_SIZE_STRING read overflow'
             return ''
         return result
+
     def isValid(self, patFinder, address, value):
         if self.isPrintable:
             if False == IsPrintable( value, isUnicode=self.isUnicode ):

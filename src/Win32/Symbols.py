@@ -102,6 +102,32 @@ class PDBSymbols(object):
             dataTypeName = 'void'
         memberTypeSymTag = SymTagEnumTag[dataType.symTag]
         if 'SymTagUDT' == memberTypeSymTag:
+            if dataTypeName.startswith('std::basic_string<'):
+                if 'wchar_t' in dataType.name:
+                    isWide = True
+                    def chooser(ctx):
+                        return (ctx.stringLength * 2) < 0x10
+                else:
+                    isWide = False
+                    def chooser(ctx):
+                        return ctx.stringLength < 0x10
+                return (
+                        name,
+                        base,
+                        STRUCT,
+                        [[
+                            SHAPE('stringLength', (0x10, None), SIZE_T()),
+                            SHAPE('maxStringLength', 0, SIZE_T()),
+                            SHAPE('data', (0, None),
+                                SWITCH(
+                                chooser,
+                                {
+                                    True: [
+                                        SHAPE('string', 0, STRING(isUnicode=isWide, maxSize=0x10, size='_parent.stringLength')) ],
+                                    False: [
+                                        SHAPE('string', 0, POINTER_TO_STRUCT([
+                                                SHAPE('string', 0, STRING(isUnicode=isWide, size='_parent._parent.stringLength'))]))]}), fromStart=True)
+                        ]], {'desc':dataTypeName})
             return (
                         name,
                         base,
