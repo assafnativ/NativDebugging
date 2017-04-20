@@ -58,6 +58,20 @@ class SearchContext( object ):
         items.sort()
         return items[-1][0] + items[-1][1]
 
+    def _memorySizeFootprint(self):
+        offsets = [x for x in self.__dict__.keys() if x.startswith('OffsetOf')]
+        maxOffset = 0
+        for offset in offsets:
+            temp = getattr(self, offset)
+            if temp > maxOffset:
+                maxOffset = temp
+                maxOffsetFiled = offset[len('OffsetOf'):]
+        if 0 == maxOffset:
+            return 0
+        total = maxOffset + getattr(self, 'SizeOf' + maxOffsetFiled)
+        items = self._getItemNames()
+        # TODO #
+
     def _repr(self, depth, noAddress=False):
         result = ''
         itemNames = self._getItemNames()
@@ -170,6 +184,9 @@ class PatternFinder( object ):
             context = SearchContext()
             context._root = context
         self.debugContext = context
+        if not pattern:
+            yield context
+            return
         for shape in pattern:
             shape.setForSearch(self, context)
         for result in self._search(pattern, startAddress, lastAddress, context):
@@ -947,7 +964,9 @@ class STRING( DATA_TYPE ):
                 length = self.length(self.searchContext)
             else:
                 length = self.length
-            if self.isUnicode:
+            if 0 == length:
+                result = ''
+            elif self.isUnicode:
                 result = patFinder.readMemory(address, length * 2)
             else:
                 result = patFinder.readMemory(address, length)
