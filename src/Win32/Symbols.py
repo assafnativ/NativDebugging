@@ -39,40 +39,86 @@ class PDBSymbols(object):
         self.session = self.dataSource.openSession()
         self.globalScope = self.session.globalScope
 
-    def findGlobalSymbolRVA(self, name, caseSensetive=True):
+    def _getSingleSymbolObject(self, name, caseSensetive, symType):
         searchType = 1
         if not caseSensetive:
             searchType = 2
-        child = self.globalScope.findChildren(7, name, searchType)
-        if not child:
-            return None
-        sym = child.Item(0)
-        return sym.relativeVirtualAddress
-
-    def getStruct(self, name, caseSensetive=True):
-        searchType = 1
-        if not caseSensetive:
-            searchType = 2
-        children = self.globalScope.findChildren(SymTagEnum['SymTagUDT'], name, searchType)
+        children = self.globalScope.findChildren(symType, name, searchType)
         if (not children) or (0 == children.count):
             raise Exception("No children for type")
         if 1 != children.count:
             raise Exception("Ambiguous struct name. %d match" % children.count)
-        child = children.Item(0)
+        return children.Item(0)
+
+    def findGlobalSymbolRVA(self, name, caseSensetive=True):
+        sym = self._getSingleSymbolObject(name, caseSensetive, SymTagEnum['SymTagData'])
+        return sym.relativeVirtualAddress
+
+    def getStructMemoryFootprint(self, name, caseSensetive=True):
+        child = self._getSingleSymbolObject(name, caseSensetive, SymTagEnum['SymTagUDT'])
+        structElements = child.findChildren(0, None, 0)
+        if not structElements:
+            raise Exception("No struct elements")
+        return self._getAllMembersMemoryFootprint(structElements)
+
+    def _getAllMembersMemoryFootprint(self, structElements, base=0):
+        members = [structElements.Item(memberIndex) for memberIndex in xrange(structElements.count)]
+        endOffset = 0
+        sizes = []
+        for member in members:
+            symTag = SymTagEnumTag[member.symTag]
+            if symTag == 'SymTagVTable':
+                endOffset = member.offset + member.length + base
+            elif symTag == 'SymTagBaseClass':
+                baseEndOffset, baseSizes = self._getAllMembersMemoryFootprint(member.type.findChildren(0, NOne, 0), base=base+member.offset)
+                endOffset = max(baseEndOffset, endOffset)
+                baseSizes.extend(baseSizes)
+            elif symTag == 'SymTagData':
+                if 'Member' != SymDataKindTag[member.dataKind]:
+                    continue
+                memberEndOffset, memberSizes = self._getSymTagDataTypeAsShape(member.type, base=base+member.offset)
+                endOffset = max(memberEndOffset, endOffset)
+                sizes.extend(memberSizes)
+
+    def _getSymTagDataTypeMemoryFootprint(self, dataType, base):
+        memberTypeSymTag = SymTagEnumTag[dataType.symTag]
+        if 'SymTagUDT' == memberTypeSymTag:
+            subStructMembers = dataType.findChildren(0, None, 0)
+            return self._getAllMembersMemoryFootprint(subStructMembers, base=base+member.offset)
+        elif 'SymTagPointerType' == memberTypeSymTag:
+            pointerStruct = dataType.findChildren(0, None, 0)
+            structBaseSize, structSizes = self._getAllMembersMemoryFootprint(pointerStruct)
+            structSizes.append(structBaseSize)
+            return (base + dataType.length, structSizes)
+        elif memberTypeSymTag in ['SymTagBaseType', 'SymTagEnum']:
+            return (dataType.length + base, [])
+        elif 'SymTagArrayType' == memberTypeSymTag:
+            arrayCount = dataType.count
+            dataType.type.findAl
+            arrayTypeSize, arraySubSizes = self._getSymTagDataTypeMemoryFootprint(dataType.type, 0)
+            arraySubSizes.append(arrayTypeSize)
+            return (dataType.length + base, arraySubSizes)
+
+    def getStruct(self, name, caseSensetive=True, maxDepth=20):
+        child = self._getSingleSymbolObject(name, caseSensetive, SymTagEnum['SymTagUDT'])
         structName = child.name
         structElements = child.findChildren(0, None, 0)
         if not structElements:
             raise Exception("No struct elements")
-        return self._getAllMembers(structElements)
+        return self._getAllMembers(structElements, maxDepth=maxDepth)
 
-    def _getAllMembers(self, structElements, base=0):
+    def _getAllMembers(self, structElements, base=0, maxDepth=20):
         members = []
+        if 0 == maxDepth:
+            return members
         for memberIndex in xrange(structElements.count):
             member = structElements.Item(memberIndex)
-            members.extend(self._fetchSymData(member, base=base))
+            members.extend(self._fetchSymData(member, base=base, maxDepth=maxDepth))
         return members
 
-    def _fetchSymData(self, symData, base=0):
+    def _fetchSymData(self, symData, base=0, maxDepth=20):
+        if 0 == maxDepth:
+            return []
         symTag = SymTagEnumTag[symData.symTag]
         if symTag == 'SymTagVTable':
             if None == symData.type.name:
@@ -81,7 +127,7 @@ class PDBSymbols(object):
                 name = symData.type.name + '__VFN_table'
             return [SHAPE(name, (base+symData.offset, None), POINTER(isNullValid=True), fromStart=True)]
         elif symTag == 'SymTagBaseClass':
-            return self._getAllMembers(symData.type.findChildren(0, None, 0), base=base)
+            return self._getAllMembers(symData.type.findChildren(0, None, 0), base=base+symData.offset, maxDepth=maxDepth-1)
         elif symTag == 'SymTagData':
             name = symData.name
             while name.startswith('_'):
@@ -89,14 +135,14 @@ class PDBSymbols(object):
             dataKind = SymDataKindTag[symData.dataKind]
             if dataKind != 'Member':
                 return []
-            return self._getSymTagDataTypeAsShape(symData.Type, name, base+symData.offset)
+            return self._getSymTagDataTypeAsShape(symData.Type, name, base+symData.offset, maxDepth=maxDepth)
         return []
 
-    def _getSymTagDataTypeAsShape(self, dataType, name, base):
-        name, base, dataType, dataTypeArgs, dataTypeKw = self._getSymTagDataType(dataType, name, base)
+    def _getSymTagDataTypeAsShape(self, dataType, name, base, maxDepth):
+        name, base, dataType, dataTypeArgs, dataTypeKw = self._getSymTagDataType(dataType, name, base, maxDepth)
         return [SHAPE(name, (base, None), dataType(*dataTypeArgs, **dataTypeKw), fromStart=True)]
 
-    def _getSymTagDataType(self, dataType, name, base):
+    def _getSymTagDataType(self, dataType, name, base, maxDepth):
         dataTypeName = dataType.name
         if not dataTypeName:
             dataTypeName = 'void'
@@ -123,19 +169,26 @@ class PDBSymbols(object):
                                 chooser,
                                 {
                                     True: [
-                                        SHAPE('string', 0, STRING(isUnicode=isWide, maxSize=0x10, size='_parent.stringLength')) ],
+                                        SHAPE('string', 0, STRUCT([
+                                            SHAPE('string', 0, STRING(isUnicode=isWide, maxSize=0x10, size='_parent._parent.stringLength'))])) ],
                                     False: [
                                         SHAPE('string', 0, POINTER_TO_STRUCT([
                                                 SHAPE('string', 0, STRING(isUnicode=isWide, size='_parent._parent.stringLength'))]))]}), fromStart=True)
                         ]], {'desc':dataTypeName})
+            content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth-1)
+            if not content:
+                return ( name, base, ANYTHING, [], {'desc':dataTypeName})
+            return ( name, base, STRUCT, [content], {'desc':dataTypeName})
+        elif 'SymTagPointerType' == memberTypeSymTag:
+            content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth-1)
+            if not content:
+                return ( name, base, POINTER, [], {'isNullValid':True, 'desc':dataTypeName} )
             return (
                         name,
                         base,
-                        STRUCT,
-                        [self._getAllMembers(dataType.findChildren(0, None, 0), base=0)],
-                        {'desc':dataTypeName})
-        elif 'SymTagPointerType' == memberTypeSymTag:
-            return (name, base, POINTER, [], {'isNullValid':True})
+                        POINTER_TO_STRUCT,
+                        [content],
+                        {'isNullValid':True, 'desc':dataTypeName} )
         elif memberTypeSymTag in ['SymTagBaseType', 'SymTagEnum']:
             if dataType.baseType in [7, 1, 5, 10, 12, 14, 20, 21, 22, 23, 24, 31]:
                 dataInfo = {'isSigned':False}
@@ -160,9 +213,9 @@ class PDBSymbols(object):
             return (name, base, NUMBER, [], dataInfo)
         elif 'SymTagArrayType' == memberTypeSymTag:
             arrayCount = dataType.count
-            arrayName, _, arrayType, arrayTypeArgs, arrayTypeKw = self._getSymTagDataType(dataType.type, 'A', 0)
+            arrayName, _, arrayType, arrayTypeArgs, arrayTypeKw = self._getSymTagDataType(dataType.type, 'A', 0, maxDepth)
             return (name, base, ARRAY, [arrayCount, arrayType, arrayTypeArgs, arrayTypeKw], {'desc':arrayName})
-        elif 'SymTagEnum' == memberTypeSymTag:
+        else:
             raise Exception("Unknown ember type %s" % memberTypeSymTag)
 
 def parseSymbolsDump( symbols_dump ):
