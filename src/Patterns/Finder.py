@@ -94,7 +94,7 @@ class SearchContext( object ):
             result += '%-20s' % (item + ':')
             if False == noAddress:
                 result += '@%08x ' % addr
-            result += '(+%06x) L: %04x val:' % (offset, sizeOf)
+            result += '(+%06x) L: %04x val: ' % (offset, sizeOf)
             if isinstance(val, SearchContext):
                 if hasattr(val, '_val'):
                     result += '0x%x' % val._val
@@ -103,20 +103,20 @@ class SearchContext( object ):
             elif isinstance(val, list):
                 subAddr = 0
                 for i, var in enumerate(val):
+                    result += '\n'
+                    result += '\t' * (depth + 1)
                     if isinstance(var, SearchContext):
-                        result += '\t' * depth
                         result += "Index %4d: " % i
                         result += var._repr(depth, noAddress=noAddress).lstrip()
                     else:
-                        result += '\t' * depth
-                        result += '%6x:           ' % i
+                        result += '%6x: ' % i
                         if False == noAddress:
                             result += '@%08x ' % subAddr
                         result += '(+%06x) val:' % (subAddr - addr)
-                        result += '\t' * depth
+                        result += '\t' * (depth + 1)
                         result += var.__repr__()
-                        result += '\n'
                     subAddr += len(var)
+                result += '\n'
             else:
                 if isinstance(val, (int, long)):
                     val = hex(val).replace('L', '')
@@ -179,7 +179,10 @@ class PatternFinder( object ):
     def getEndianity(self):
         return self._ENDIANITY
 
-    def search(self, pattern, startAddress, lastAddress = 0, context=None):
+    def searchOne(self, pattern, startAddress, lastAddress=0, context=None):
+        return self.search(pattern, startAddress, lastAddress, context).next()
+
+    def search(self, pattern, startAddress, lastAddress=0, context=None):
         if None == context:
             context = SearchContext()
             context._root = context
