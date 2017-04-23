@@ -4,6 +4,7 @@ from ..MemReaderBase import *
 from ..GUIDisplayBase import *
 from ..Utile import *
 from struct import unpack
+from .MiniDump import *
 
 try:
     import distorm3
@@ -12,7 +13,17 @@ except ImportError as e:
     IS_DISASSEMBLER_FOUND = False
 
 def loadDump(dumpFile):
-    return DumpReader(dumpFile)
+    if len(dumpFile) > 200:
+        magic = dumpFile[:4]
+    else:
+        with file(dumpFile, 'rb') as dump:
+            magic = dump.read(4)
+    if 'NDMD' == magic:
+        return DumpReader(dumpFile)
+    elif 'MDMP' == magic:
+        return MiniDump(dumpFile)
+    else:
+        raise Exception("Unknown magic {%r}", magic)
 
 class DumpReader( MemReaderBase, GUIDisplayBase ):
     def __init__(self, dumpFile, isVerbose=False):
@@ -88,10 +99,11 @@ class DumpReader( MemReaderBase, GUIDisplayBase ):
                     yield base + pos
                 else:
                     break
+
     def disasm(self, addr, length=0x100, decodeType=1):
         if IS_DISASSEMBLER_FOUND:
             for opcode in distorm3.Decode(
-                    addr, 
+                    addr,
                     self.readMemory(addr, length),
                     decodeType):
                 print('{0:x} {1:24s} {2:s}'.format(opcode[0], opcode[3], opcode[2]))

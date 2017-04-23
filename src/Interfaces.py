@@ -2,20 +2,19 @@
 #   Interfaces.py
 #
 #   Interfaces - Defines interfaces for nativDebugging
-#   https://svn3.xp-dev.com/svn/nativDebugging/
-#   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
@@ -39,17 +38,17 @@ class DebuggerInterface( object ):
 
     @abstractmethod
     def attach(self):
-        """ Pure virtual 
+        """ Pure virtual
         This function should set a new connection to a target process.
         Note: The signeture of the function change from platform to platform and from one implmentation to another. For example in one case it would take process id, and on another a process name. """
         raise NotImplementedError("Pure function call")
 
     @abstractmethod
     def detach(self):
-        """ Pure virtual 
+        """ Pure virtual
         Disconnecting from debugged process, or closing connection. Should be less aggrassive than __del__ """
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def run(self):
         """ Pure virtual
@@ -61,13 +60,13 @@ class DebuggerInterface( object ):
         """ Pure virtual
         Set a breakpoint"""
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def breakpointsList(self):
         """ Pure virtual
         Show list of breakpoints """
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def breakpointRemove(self, index):
         """ Pure virtual
@@ -85,7 +84,7 @@ class DebuggerInterface( object ):
         """ Pure virtual
         Enable specific breakpoint"""
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def contextShow(self):
         """ Pure virtual
@@ -132,19 +131,19 @@ class MemReaderInterface( object ):
     @abstractmethod
     def readWord(self, addr):
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def readByte(self, addr):
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def readMemory(self, addr, length):
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def readString(self, addr, isUnicode):
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def isAddressValid(self, addr):
         raise NotImplementedError("Pure function call")
@@ -193,12 +192,12 @@ class MemWriterInterface( object ):
     @abstractmethod
     def writeWord(self, addr, value):
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def writeByte(self, addr, value):
         raise NotImplementedError("Pure function call")
-    
+
     @abstractmethod
     def writeMemory(self, addr, data):
         raise NotImplementedError("Pure function call")
-    
+
