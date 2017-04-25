@@ -45,7 +45,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
             for mem in self.memory64List.memoryRanges:
                 self._DATA[mem.startOfMemoryRange] = self.stream.read(mem.dataSize)
                 self._REGIONS.append((mem.startOfMemoryRange, mem.startOfMemoryRange + mem.dataSize))
-        self._DEFAULT_SIZE = 4
+        self._DEFAULT_DATA_SIZE = 4
         if 0 == self.systemInfo.processorArchitecture:
             self._POINTER_SIZE = 4
         elif self.systemInfo.processorArchitecture in [9, 6]:

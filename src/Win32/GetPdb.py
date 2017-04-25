@@ -2,34 +2,66 @@ import urllib2
 import datetime
 import threading
 import time
+import os
+import tempfile
 
-def downloadBinaryFromSymbolsServer( filename, date_time, file_size ):
-    if isinstance(date_time, str):
-        # Minuts Hours DayOfTheMonth Month Year
-        date_time = int(time.mktime(time.strptime(date_time, '%M %H %d %m %Y')))
-    elif not isinstance(date_time, (int, long)):
-        date_time = int(time.mktime(date_time))
-    url  = "http://msdl.microsoft.com/download/symbols/"
-    url += filename
-    url += "/"
-    url += "%X" % date_time
-    url += "%X" % file_size
-    url += "/"
-    url += filename[:-1] + '_'
-    req = urllib2.Request(url=url)
-    req.add_header("Accept-Encoding", "gzip")
-    req.add_header("User-Agent", "Microsoft-Symbol-Server/6.2.9200.16384")
-    req.add_header("Host", "msdl.microsoft.com")
-    req.add_header("Connection", "Keep-Alive")
-    req.add_header("Cache-Control", "no-cache")
-    try:
-        res = urllib2.urlopen(req)
-    except urllib2.HTTPError, e:
-        if 404 == e.getcode():
-            return
-    data = res.read()
-    res.close()
-    return data
+def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, dbg_id=None, custom_symbols_server=None ):
+    if not dbg_id:
+        if isinstance(date_time, str):
+            # Minuts Hours DayOfTheMonth Month Year
+            date_time = int(time.mktime(time.strptime(date_time, '%M %H %d %m %Y')))
+        elif not isinstance(date_time, (int, long)):
+            date_time = int(time.mktime(date_time))
+        elif not data_time:
+            raise Exception("Missing information")
+        dbg_id = '%X%X' % (date_time, file_size)
+
+    if None != custom_symbols_server:
+        symbols_server = custom_symbols_server
+    else:
+        symbols_server = os.environ.get('_NT_SYMBOL_PATH', "http://msdl.microsoft.com/download/symbols/")
+    for server in symbols_server.split(';'):
+        cacheDir = None
+        if "*" in server:
+            _, cacheDir, server = tuple(server.split('*'))
+        if not server.startswith('http'):
+            continue
+
+        cacheFileName = None
+        if cacheDir:
+            cacheFileName = os.path.join(cacheDir, filename, dbg_id, filename)
+            if os.path.isfile(cacheFileName):
+                return cacheFileName
+
+        url = server
+        if url[-1] != "/":
+            url += "/"
+        url += filename
+        url += "/"
+        url += dbg_id
+        url += "/"
+
+        for filenameToDownload in [filename[:-1] + '_', filename]:
+            req = urllib2.Request(url=url+filenameToDownload)
+            req.add_header("Accept-Encoding", "gzip")
+            req.add_header("User-Agent", "Microsoft-Symbol-Server/6.2.9200.16384")
+            req.add_header("Host", "msdl.microsoft.com")
+            req.add_header("Connection", "Keep-Alive")
+            req.add_header("Cache-Control", "no-cache")
+            try:
+                res = urllib2.urlopen(req)
+            except urllib2.HTTPError, e:
+                continue
+            data = res.read()
+            res.close()
+            if cacheFileName:
+                outputFileName = cacheFileName
+                os.makedirs(os.path.dirname(outputFileName))
+            else:
+                ext = filename.split(os.path.extsep)[-1]
+                outputFileName = tempfile.mktemp('.' + ext)
+            file(cacheFileName, 'wb').write(data)
+            return cacheFileName
 
 def normalizeDate(date):
     if isinstance(date, tuple):
@@ -105,3 +137,16 @@ def runMuntiThreadBruteForce(filename, start, file_size, num_threads=10, is_verb
             running_threads.append(t)
             last_start += thread_range
 
+#
+#mainModulePE = patFinder.searchOne(PE.ImageDosHeader, base)
+#timestamp = mainModulePE.PE.FileHeader.TimeDateStamp
+#moduleSize = mainModulePE.PE.OptionalHeader.ImageSize
+#debugDirOff = mainModulePE.PE.OptionalHeader.DebugDir.VirtualAddress
+#debugDir = patFinder.searchOne(PE.ImageDebugDirectory, base + debugDirOff)
+#dbgIdAddr = base + debugDir.AddrOfRawData + 4
+#dbgId  = m.readMemory(dbgIdAddr, 4)[::-1].encode('hex').upper(); dbgIdAddr += 4
+#dbgId += m.readMemory(dbgIdAddr, 2)[::-1].encode('hex').upper(); dbgIdAddr += 2
+#dbgId += m.readMemory(dbgIdAddr, 2)[::-1].encode('hex').upper(); dbgIdAddr += 2
+#dbgId += m.readMemory(dbgIdAddr, 8).encode('hex').upper(); dbgIdAddr += 8
+#dbgId += '%X' % m.readByte(dbgIdAddr)
+#
