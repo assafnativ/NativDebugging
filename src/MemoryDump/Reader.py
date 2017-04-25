@@ -51,7 +51,7 @@ class DumpReader( MemReaderBase, GUIDisplayBase ):
                 if atomSize != 9:
                     raise Exception("Parse error at %d" % self.dumpFile.tell())
                 self._POINTER_SIZE = self._dumpReadDword()
-                self._DEFAULT_SIZE = self._dumpReadDword()
+                self._DEFAULT_DATA_SIZE = self._dumpReadDword()
                 self._ENDIANITY = self.dumpFile.read(1)
             elif 'REGN' == tag:
                 addr = self._dumpReadQword()
