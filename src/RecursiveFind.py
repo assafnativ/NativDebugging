@@ -3,26 +3,21 @@
 #
 #   RecursiveFind - Implements a memory search technic called recursive
 #   search.
-#   https://svn3.xp-dev.com/svn/nativDebugging/
-#   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
-#
-
-# Platform independent
-
 
 from abc import ABCMeta
 from .Interfaces import MemReaderInterface, ReadError
@@ -95,12 +90,12 @@ class RecursiveFind( MemReaderInterface ):
         '''
         Description : Main function for recursive search, calls the appropriate function according to the target data type
         Args:
-                        target			- target data to be found
-                        startAddress	- starting address of the binary data
-                        length			- length in bytes of the binary data
-                        hops			- depth of recursive hops allowed within data (decreased by recursion) 
-                        isVerbose		-  should data be displayed while searcing ?
-        
+            target          - target data to be found
+            startAddress    - starting address of the binary data
+            length          - length in bytes of the binary data
+            hops            - depth of recursive hops allowed within data (decreased by recursion)
+            isVerbose       -  should data be displayed while searcing ?
+
         Return Type : Yields results upon finding addresses which holds the target data
         '''
         if isinstance(target, list):
@@ -118,7 +113,7 @@ class RecursiveFind( MemReaderInterface ):
         if isinstance(target, (list, tuple, int, long)):
             if None == targetLength:
                 targetLength = 4
-        
+
             if 8 == targetLength:
                 targetReader = self.readQword
             elif 4 == targetLength:
@@ -136,7 +131,7 @@ class RecursiveFind( MemReaderInterface ):
         path = []
 
         pointerSize = self.getPointerSize()
-        
+
         for result in self._recursiveFind(targetValidator, startAddress, searchLength, pointerSize, targetReader, hops, alignment, limiter, path):
             if isVerbose:
                 self.printRecursiveFindResult(result)

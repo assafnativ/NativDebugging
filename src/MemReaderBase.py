@@ -2,26 +2,21 @@
 #   MemReaderBase.py
 #
 #   MemReaderBase - Implements the common methods of all memory readers
-#   https://svn3.xp-dev.com/svn/nativDebugging/
-#   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
-#
-
-# Platform independent
-
 
 from abc import ABCMeta
 from .Interfaces import MemReaderInterface, ReadError
@@ -40,7 +35,7 @@ class MemReaderBase( RecursiveFind, DumpBase ):
     def __init__(self):
         self.solveAddr      = None
         self.findInSymbols  = None
-        self.findSymbol     = None        
+        self.findSymbol     = None
 
         self.dd = self.readNPrintDwords
         self.db = self.readNPrintBin
@@ -179,5 +174,15 @@ class MemReaderBase( RecursiveFind, DumpBase ):
             print(DATA(self.readMemory(addr, length), itemsInRow=itemsInRow))
         else:
             print(DATA(self.readMemory(addr, length), addr, itemsInRow=itemsInRow))
+
+    def findModule(self, target_module):
+        for module in self.moduleList:
+            if target_module in module.moduleName:
+                return module.baseOfImage
+
+    def getModulePath(self, base):
+        for module in self.moduleList:
+            if base == module.baseOfImage:
+                return module.moduleName
 
 

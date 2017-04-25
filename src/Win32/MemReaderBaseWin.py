@@ -2,23 +2,21 @@
 #   MemoryReaderBaseWin.py
 #
 #   MemoryReader - Remote process memory inspection python module
-#   https://svn3.xp-dev.com/svn/nativDebugging/
-#   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
-#
 
 from ..MemReaderBase import *
 from .Win32Structs import *
@@ -43,7 +41,7 @@ class MemReaderBaseWin( MemReaderBase ):
         EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
         num_modules = bytes_written.value / sizeof(c_void_p(0))
         printIfVerbose("Found %d modules" % num_modules, isVerbose)
-            
+
         for module_iter in range(num_modules):
             module_name = c_ARRAY( c_char, 10000 )('\x00')
             GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
@@ -202,7 +200,7 @@ class MemReaderBaseWin( MemReaderBase ):
             try:
                 needToClose = True
                 DuplicateHandle(
-                        self._process, 
+                        self._process,
                         systemHandles[i].Handle,
                         GetCurrentProcess(),
                         byref(objectHandle),
@@ -266,4 +264,4 @@ class MemReaderBaseWin( MemReaderBase ):
 
             if needToClose:
                 CloseHandle(objectHandle)
-                
+
