@@ -175,6 +175,29 @@ class PDBSymbols(object):
                                         SHAPE('string', 0, POINTER_TO_STRUCT([
                                                 SHAPE('string', 0, STRING(isUnicode=isWide, size='_parent._parent.stringLength'))]))]}), fromStart=True)
                         ]], {'desc':dataTypeName})
+            elif dataTypeName.startswith('std::unique_ptr'):
+                struct = self._getUniquePtr(dataType, maxDepth-1)
+                return (
+                        name,
+                        base,
+                        POINTER_TO_STRUCT,
+                        [struct],
+                        {   'isNullValid':True,
+                            'desc':dataTypeName })
+            elif dataTypeName.startswith('std::shared_ptr'):
+                baseType = dataType.findChildren(SymTagEnum['SymTagBaseClass'], None, 0)
+                if baseType.count != 1:
+                    raise Exception("Failed to parse shared_ptr")
+                baseType = baseType.Item(0)
+                struct = self._getUniquePtr(baseType, maxDepth-1)
+                return (
+                        name,
+                        base,
+                        STRUCT,
+                        [[
+                            SHAPE('ptr', 0, POINTER_TO_STRUCT(struct, isNullValid=True)),
+                            SHAPE('rep', 0, POINTER(isNullValid=True))]],
+                        { 'desc':dataTypeName })
             content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth-1)
             if not content:
                 return ( name, base, ANYTHING, [], {'desc':dataTypeName})
@@ -217,6 +240,14 @@ class PDBSymbols(object):
             return (name, base, ARRAY, [arrayCount, arrayType, arrayTypeArgs, arrayTypeKw], {'desc':arrayName})
         else:
             raise Exception("Unknown ember type %s" % memberTypeSymTag)
+
+    def _getUniquePtr(self, dataType, maxDepth):
+        baseType = dataType.findChildren(SymTagEnum['SymTagTypedef'], 'element_type', 1)
+        if baseType.count != 1:
+            raise Exception("Failed to parse unique_ptr")
+        baseType = baseType.Item(0)
+        baseTypeSymTag = SymTagEnumTag[baseType.type.symTag]
+        return self._getSymTagDataTypeAsShape(baseType.type, 'val', base=0, maxDepth=maxDepth-1)
 
 def parseSymbolsDump( symbols_dump ):
     result = []

@@ -400,3 +400,13 @@ def printIfVerbose(text, isVerbose):
     if isVerbose:
         print(text)
 
+def dumpPythonObject(x):
+    for member in dir(x):
+        if member.startswith('_'):
+            continue
+        try:
+            val = getattr(x, member)
+            if val:
+                print("%s: %r" % (member, val))
+        except:
+            pass
