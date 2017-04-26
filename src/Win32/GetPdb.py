@@ -1,4 +1,4 @@
-import urllib2
+import urllib
 import datetime
 import threading
 import time
@@ -41,27 +41,27 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
         url += dbg_id
         url += "/"
 
-        for filenameToDownload in [filename[:-1] + '_', filename]:
-            req = urllib2.Request(url=url+filenameToDownload)
-            req.add_header("Accept-Encoding", "gzip")
-            req.add_header("User-Agent", "Microsoft-Symbol-Server/6.2.9200.16384")
-            req.add_header("Host", "msdl.microsoft.com")
-            req.add_header("Connection", "Keep-Alive")
-            req.add_header("Cache-Control", "no-cache")
-            try:
-                res = urllib2.urlopen(req)
-            except urllib2.HTTPError, e:
-                continue
-            data = res.read()
-            res.close()
+        for filenameToDownload in [filename, filename[:-1] + '_']:
+            class MSURLOpener(urllib.FancyURLopener):
+                verison = "Microsoft-Symbol-Server/6.2.9200.16384"
+            msurlOpener = MSURLOpener()
+            msurlOpener.addheader("Accept-Encoding", "gzip")
+            msurlOpener.addheader("User-Agent", "Microsoft-Symbol-Server/6.2.9200.16384")
+            msurlOpener.addheader("Host", "msdl.microsoft.com")
+            msurlOpener.addheader("Connection", "Keep-Alive")
+            msurlOpener.addheader("Cache-Control", "no-cache")
+            urllib._urlopener = msurlOpener
             if cacheFileName:
                 outputFileName = cacheFileName
                 os.makedirs(os.path.dirname(outputFileName))
             else:
                 ext = filename.split(os.path.extsep)[-1]
                 outputFileName = tempfile.mktemp('.' + ext)
-            file(cacheFileName, 'wb').write(data)
-            return cacheFileName
+            try:
+                urllib.urlretrieve(url+filenameToDownload, outputFileName)
+            except urllib.HTTPError, e:
+                continue
+            return outputFileName
 
 def normalizeDate(date):
     if isinstance(date, tuple):

@@ -83,11 +83,9 @@ class PDBSymbols(object):
     def _getSymTagDataTypeMemoryFootprint(self, dataType, base):
         memberTypeSymTag = SymTagEnumTag[dataType.symTag]
         if 'SymTagUDT' == memberTypeSymTag:
-            subStructMembers = dataType.findChildren(0, None, 0)
-            return self._getAllMembersMemoryFootprint(subStructMembers, base=base+member.offset)
+            return self._getAllMembersMemoryFootprint(dataType.findChildren(0, None, 0), base=base+member.offset)
         elif 'SymTagPointerType' == memberTypeSymTag:
-            pointerStruct = dataType.findChildren(0, None, 0)
-            structBaseSize, structSizes = self._getAllMembersMemoryFootprint(pointerStruct)
+            structBaseSize, structSizes = self._getAllMembersMemoryFootprint(dataType.findChildren(0, None, 0))
             structSizes.append(structBaseSize)
             return (base + dataType.length, structSizes)
         elif memberTypeSymTag in ['SymTagBaseType', 'SymTagEnum']:
@@ -127,7 +125,7 @@ class PDBSymbols(object):
                 name = symData.type.name + '__VFN_table'
             return [SHAPE(name, (base+symData.offset, None), POINTER(isNullValid=True), fromStart=True)]
         elif symTag == 'SymTagBaseClass':
-            return self._getAllMembers(symData.type.findChildren(0, None, 0), base=base+symData.offset, maxDepth=maxDepth-1)
+            return self._getAllMembers(symData.type.findChildren(0, None, 0), base=base+symData.offset, maxDepth=maxDepth)
         elif symTag == 'SymTagData':
             name = symData.name
             while name.startswith('_'):
@@ -137,6 +135,12 @@ class PDBSymbols(object):
                 return []
             return self._getSymTagDataTypeAsShape(symData.Type, name, base+symData.offset, maxDepth=maxDepth)
         return []
+
+    def _getAllChildren(self, dataType, symTypeFilter=None):
+        if None == symTypeFilter:
+            symTypeFilter = 0
+        members = dataType.findChildren(symTypeFilter, None, 0)
+        return [members.Item(x) for x in xrange(members.count)]
 
     def _getSymTagDataTypeAsShape(self, dataType, name, base, maxDepth):
         name, base, dataType, dataTypeArgs, dataTypeKw = self._getSymTagDataType(dataType, name, base, maxDepth)
@@ -177,18 +181,29 @@ class PDBSymbols(object):
                         ]], {'desc':dataTypeName})
             elif dataTypeName.startswith('std::unique_ptr'):
                 struct = self._getUniquePtr(dataType, maxDepth-1)
-                return (
-                        name,
-                        base,
-                        POINTER_TO_STRUCT,
-                        [struct],
-                        {   'isNullValid':True,
-                            'desc':dataTypeName })
+                if 'std::default_delete' in dataTypeName:
+                    return (
+                            name,
+                            base,
+                            POINTER_TO_STRUCT,
+                            [struct],
+                            {   'isNullValid':True,
+                                'desc':dataTypeName })
+                else:
+                    return (
+                            name,
+                            base,
+                            STRUCT,
+                            [[
+                                SHAPE('deleter' + name, 0, POINTER(isNullValid=True)),
+                                SHAPE(name, 0, POINTER_TO_STRUCT(struct, isNullValid=True))]],
+                            { 'desc':dataTypeName })
+
             elif dataTypeName.startswith('std::shared_ptr'):
-                baseType = dataType.findChildren(SymTagEnum['SymTagBaseClass'], None, 0)
-                if baseType.count != 1:
+                baseType = self._getAllChildren(dataType, SymTagEnum['SymTagBaseClass'])
+                if 1 != len(baseType):
                     raise Exception("Failed to parse shared_ptr")
-                baseType = baseType.Item(0)
+                baseType = baseType[0]
                 struct = self._getUniquePtr(baseType, maxDepth-1)
                 return (
                         name,
@@ -198,7 +213,7 @@ class PDBSymbols(object):
                             SHAPE('ptr', 0, POINTER_TO_STRUCT(struct, isNullValid=True)),
                             SHAPE('rep', 0, POINTER(isNullValid=True))]],
                         { 'desc':dataTypeName })
-            content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth-1)
+            content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth)
             if not content:
                 return ( name, base, ANYTHING, [], {'desc':dataTypeName})
             return ( name, base, STRUCT, [content], {'desc':dataTypeName})
@@ -227,8 +242,7 @@ class PDBSymbols(object):
             else:
                 raise Exception("Unknown data type %d" % dataType.baseType)
             if 'SymTagEnum' == memberTypeSymTag:
-                enumChildren = dataType.findChildren(0, None, 0)
-                enumChildrenItems = [enumChildren.Item(x) for x in xrange(enumChildren.count)]
+                enumChildrenItems = self._getAllChildren(dataType)
                 values = {x.value : x.name for x in enumChildrenItems}
                 dataInfo['value'] = values
             dataInfo['size'] = dataType.length
@@ -247,7 +261,7 @@ class PDBSymbols(object):
             raise Exception("Failed to parse unique_ptr")
         baseType = baseType.Item(0)
         baseTypeSymTag = SymTagEnumTag[baseType.type.symTag]
-        return self._getSymTagDataTypeAsShape(baseType.type, 'val', base=0, maxDepth=maxDepth-1)
+        return self._getSymTagDataTypeAsShape(baseType.type, 'val', base=0, maxDepth=maxDepth)
 
 def parseSymbolsDump( symbols_dump ):
     result = []
