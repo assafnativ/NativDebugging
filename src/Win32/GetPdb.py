@@ -125,7 +125,7 @@ class CreateBruteForceThread(threading.Thread):
         self.result = bruteForceDateTimeDownload(self.filename, self.start, self.file_size, self.end)
 
 # Fix this shit
-def runMuntiThreadBruteForce(filename, start, file_size, num_threads=10, is_verbose=True):
+def runMultiThreadBruteForce(filename, start, file_size, num_threads=10, is_verbose=True):
     start, end = _setStartAndEndDate(date)
     last_start = start
     thread_range = 0x1000
