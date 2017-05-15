@@ -24,12 +24,14 @@ packagesDirs['NativDebugging/Patterns'] = 'src/Patterns'
 from distutils.core import setup
 setup(
         name = 'NativDebugging',
-        version = '2.0',
+        version = '2.1',
         description = 'Debugging tools for many platforms',
         author = 'Assaf Nativ',
         author_email = 'Nativ.Assaf@gmail.com',
         packages = packagesNames,
         package_dir = packagesDirs,
+        url = 'https://github.com/assafnativ/NativDebugging',
+        keywords = ['debugger', 'memory', 'patterns', 'research', 'lowlevel'],
         data_files = [('Lib\\\site-packages', ('NativDebugging.pth',))] + ExtraDataFiles)
 
 

@@ -7,12 +7,14 @@ src\GUIDisplayBase.py
 src\Interfaces.py
 src\MemReaderBase.py
 src\MemReaderInProcess.py
+src\ObjectWithStream.py
 src\QtWidgets.py
 src\RecursiveFind.py
 src\Utile.py
 src\__init__.py
 src\File\FileReader.py
 src\File\__init__.py
+src\MemoryDump\MiniDump.py
 src\MemoryDump\Reader.py
 src\MemoryDump\__init__.py
 src\Patterns\Finder.py
