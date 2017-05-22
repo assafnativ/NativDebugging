@@ -15,6 +15,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
     def __init__(self, dumpFile, isVerbose=False):
         print("Loading mini dump")
         MemReaderBase.__init__(self)
+        self._ENDIANITY = '<'
         self.stream = ObjectWithStream(dumpFile)
         magic = self.stream.read(4)
         if 'MDMP' != magic:
@@ -90,6 +91,9 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
             self.handleOperationList = self._readHandleOperationList()
         elif 19 == streamType:
             self.token = self._readToken()
+        elif streamType in [21, 22]:
+            data = self.stream.read(length)
+            pass
 #        elif 0x8000 == streamType:
 #            self._readceStreamNull()
 #        elif 0x8001 == streamType:
@@ -576,7 +580,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
         return False
 
     def getEndianity(self):
-        return '<'
+        return self._ENDIANITY
 
     def disasm(self, addr, length=0x100, decodeType=1):
         if IS_DISASSEMBLER_FOUND:
