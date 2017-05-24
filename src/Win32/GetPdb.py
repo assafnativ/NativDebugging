@@ -29,7 +29,8 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
 
         cacheFileName = None
         if cacheDir:
-            cacheFileName = os.path.join(cacheDir, filename, dbg_id, filename)
+            cacheDirName = os.path.join(cacheDir, filename, dbg_id)
+            cacheFileName = os.path.join(cacheDirName, filename)
             if os.path.isfile(cacheFileName):
                 return cacheFileName
 
@@ -51,9 +52,11 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
             msurlOpener.addheader("Connection", "Keep-Alive")
             msurlOpener.addheader("Cache-Control", "no-cache")
             urllib._urlopener = msurlOpener
-            if cacheFileName:
-                outputFileName = cacheFileName
-                os.makedirs(os.path.dirname(outputFileName))
+            if cacheDirName:
+                outputFileName = os.path.join(cacheDirName, filenameToDownload)
+                targetDir = os.path.dirname(outputFileName)
+                if not os.path.isdir(targetDir):
+                    os.makedirs(targetDir)
             else:
                 ext = filename.split(os.path.extsep)[-1]
                 outputFileName = tempfile.mktemp('.' + ext)
@@ -61,7 +64,13 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
                 urllib.urlretrieve(url+filenameToDownload, outputFileName)
             except urllib.HTTPError, e:
                 continue
+            with file(outputFileName, 'rb') as outputFile:
+                data = outputFile.read(1024)
+            if len(data) < 1024:
+                os.unlink(outputFileName)
+                continue
             return outputFileName
+        return None
 
 def normalizeDate(date):
     if isinstance(date, tuple):
