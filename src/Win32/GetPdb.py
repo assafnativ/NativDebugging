@@ -55,6 +55,8 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
             if cacheDirName:
                 outputFileName = os.path.join(cacheDirName, filenameToDownload)
                 targetDir = os.path.dirname(outputFileName)
+                if os.path.isfile(outputFileName):
+                    return outputFileName
                 if not os.path.isdir(targetDir):
                     os.makedirs(targetDir)
             else:
@@ -62,7 +64,8 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
                 outputFileName = tempfile.mktemp('.' + ext)
             try:
                 urllib.urlretrieve(url+filenameToDownload, outputFileName)
-            except urllib.HTTPError, e:
+            except Exception, e:
+                print(repr(e))
                 continue
             with file(outputFileName, 'rb') as outputFile:
                 data = outputFile.read(1024)
