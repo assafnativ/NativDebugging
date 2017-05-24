@@ -403,7 +403,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
             functionTable.functions.append(functionInfo)
         return functionTable
 
-    def _readUnloadedModuleLost(self):
+    def _readUnloadedModuleList(self):
         pos = self.stream.tell()
         unloadedModuleList = namedtuple('UNLOADED_MODULE_LIST', [
             'sizeOfHeader',
