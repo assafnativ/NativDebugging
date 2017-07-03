@@ -171,6 +171,7 @@ class PatternFinder( object ):
             self._search = self._safeSearch
         else:
             self._search = self._unSafeSearch
+        self.raiseOnNotFound = False
 
     def getPointerSize(self):
         return self._POINTER_SIZE
@@ -416,13 +417,19 @@ class SHAPE( SHAPE_WITH_NAME ):
         setattr(context, self.name, value)
         setattr(context, 'AddressOf' + self.name, address)
         setattr(context, 'OffsetOf'  + self.name, offset)
+        found = False
         for x in self.data.isValid(patFinder, address, value):
             setattr(context, 'SizeOf' + self.name, len(self.data))
             if None != self.extraCheck:
                 if True == self.extraCheck(context, value):
                     yield True
+                    found = True
             else:
                 yield True
+                found = True
+        if (not found) and patFinder.raiseOnNotFound:
+            raise Exception("Shape not found")
+
     def details(self):
         if hasattr(self, 'minOffset'):
             minOffset = hex(self.minOffset)
@@ -598,6 +605,8 @@ class POINTER_TO_STRUCT( POINTER ):
         return self.context
     def isValid(self, patFinder, address, value):
         if None == value:
+            if self.isNullValid:
+                yield True
             return
         ptr = value._val
         if self.isNullValid and 0 == ptr:
@@ -880,6 +889,8 @@ class QWORD( NUMBER ):
         NUMBER.__init__(self, value, size=8, alignment=alignment, isSigned=isSigned, endianity=endianity, **kw)
 
 def IsPrintable(s, isUnicode=False):
+    if 0 == len(s):
+            return True
     if isUnicode:
         for c in range(len(s)):
             if c % 2 == 0:

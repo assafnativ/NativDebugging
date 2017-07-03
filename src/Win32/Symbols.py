@@ -92,7 +92,6 @@ class PDBSymbols(object):
             return (dataType.length + base, [])
         elif 'SymTagArrayType' == memberTypeSymTag:
             arrayCount = dataType.count
-            dataType.type.findAl
             arrayTypeSize, arraySubSizes = self._getSymTagDataTypeMemoryFootprint(dataType.type, 0)
             arraySubSizes.append(arrayTypeSize)
             return (dataType.length + base, arraySubSizes)
