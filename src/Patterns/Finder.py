@@ -56,7 +56,14 @@ class SearchContext( object ):
         if 0 == len(items):
             return 0
         items.sort()
-        return items[-1][0] + items[-1][1]
+        total = items[-1][0] + items[-1][1]
+        for name in itemNames:
+            item = getattr(self, name)
+            if not isinstance(item, SearchContext):
+                continue
+            if getattr(self, 'AddressOf' + name) != item._val:
+                total += len(item)
+        return total
 
     def _memorySizeFootprint(self):
         offsets = [x for x in self.__dict__.keys() if x.startswith('OffsetOf')]
@@ -960,12 +967,12 @@ class STRING( DATA_TYPE ):
         if None == self.length:
             return 0
         elif hasattr(self.length, '__call__'):
-            return self.length(self.searchContext)
+            length = self.length(self.searchContext)
         else:
-            if self.isUnicode:
-                return self.length * 2
-            else:
-                return self.length
+            length = self.length
+        if self.isUnicode:
+            return length * 2
+        return length
 
     def setForSearch(self, patFinder, context):
         self.searchContext = context
