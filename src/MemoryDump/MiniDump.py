@@ -13,7 +13,8 @@ except ImportError as e:
 
 class MiniDump( MemReaderBase, GUIDisplayBase ):
     def __init__(self, dumpFile, isVerbose=False):
-        print("Loading mini dump")
+        if isVerbose:
+            print("Loading mini dump")
         MemReaderBase.__init__(self)
         self._ENDIANITY = '<'
         self.stream = ObjectWithStream(dumpFile)
