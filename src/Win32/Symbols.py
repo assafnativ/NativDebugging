@@ -155,11 +155,11 @@ class PDBSymbols(object):
                 if 'wchar_t' in dataType.name:
                     isWide = True
                     def chooser(ctx):
-                        return (ctx.stringLength * 2) < 0x10
+                        return (ctx.maxStringLength * 2) < 0x10
                 else:
                     isWide = False
                     def chooser(ctx):
-                        return ctx.stringLength < 0x10
+                        return ctx.maxStringLength < 0x10
                 return (
                         name,
                         base,
