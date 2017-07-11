@@ -411,16 +411,14 @@ class SHAPE( SHAPE_WITH_NAME ):
     def getData(self):
         return self.data
     def isValid(self, patFinder, address, offset, context):
-        value = self.data.readValue(patFinder, address)
-        self.currentValue = value
-        setattr(context, self.name, value)
+        setattr(context, self.name, self.data.readValue(patFinder, address))
         setattr(context, 'AddressOf' + self.name, address)
         setattr(context, 'OffsetOf'  + self.name, offset)
         found = False
-        for _ in self.data.isValid(patFinder, address, value):
+        for _ in self.data.isValid(patFinder, address, getattr(context, self.name)):
             setattr(context, 'SizeOf' + self.name, len(self.data))
-            if (not self.extraCheck) or (True == self.extraCheck(context, value)):
-                setattr(context, 'FootprintOf' + self.name, self.data.memoryFootprint(patFinder, value))
+            if (not self.extraCheck) or (True == self.extraCheck(context, getattr(context, self.name))):
+                setattr(context, 'FootprintOf' + self.name, self.data.memoryFootprint(patFinder, getattr(context, self.name)))
                 yield True
                 found = True
         if (not found) and patFinder.raiseOnNotFound:
