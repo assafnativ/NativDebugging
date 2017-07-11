@@ -27,6 +27,7 @@ from os import linesep
 import struct
 import datetime
 import copy
+import itertools
 from types import FunctionType
 
 class SearchContext( object ):
@@ -45,6 +46,7 @@ class SearchContext( object ):
                 (not x.startswith('AddressOf')) and \
                 (not x.startswith('OffsetOf')) and \
                 (not x.startswith('SizeOf')) and \
+                (not x.startswith('FootprintOf')) and \
                 (not x.startswith('_'))]
 
     def __len__(self):
@@ -57,27 +59,16 @@ class SearchContext( object ):
             return 0
         items.sort()
         total = items[-1][0] + items[-1][1]
-        for name in itemNames:
-            item = getattr(self, name)
-            if not isinstance(item, SearchContext):
-                continue
-            if getattr(self, 'AddressOf' + name) != item._val:
-                total += len(item)
         return total
 
+    def __invert__(self):
+        return self._memorySizeFootprint()
+    def __inv__(self):
+        return self._memorySizeFootprint()
+
     def _memorySizeFootprint(self):
-        offsets = [x for x in self.__dict__.keys() if x.startswith('OffsetOf')]
-        maxOffset = 0
-        for offset in offsets:
-            temp = getattr(self, offset)
-            if temp > maxOffset:
-                maxOffset = temp
-                maxOffsetFiled = offset[len('OffsetOf'):]
-        if 0 == maxOffset:
-            return 0
-        total = maxOffset + getattr(self, 'SizeOf' + maxOffsetFiled)
-        items = self._getItemNames()
-        # TODO #
+        itemNames = self._getItemNames()
+        return sum([getattr(self, 'FootprintOf' + name) for name in itemNames])
 
     def _repr(self, depth, noAddress=False):
         result = ''
@@ -87,21 +78,16 @@ class SearchContext( object ):
         items = [(\
                 getattr(self, 'AddressOf' + item), \
                 getattr(self, 'OffsetOf'  + item), \
-                getattr(self, 'SizeOf'    + item), \
-                item) for item in itemNames if hasattr(self, 'SizeOf' + item)]
-        items.extend([(\
-                getattr(self, 'AddressOf' + item), \
-                getattr(self, 'OffsetOf'  + item), \
-                -1, \
-                item) for item in itemNames if not hasattr(self, 'SizeOf' + item)])
+                getattr(self, 'FootprintOf' + item, -1), \
+                item) for item in itemNames]
         items.sort()
-        for addr, offset, sizeOf, item in items:
+        for addr, offset, footprint, item in items:
             val = getattr(self, item)
             result += '\t' * depth
             result += '%-20s' % (item + ':')
             if False == noAddress:
                 result += '@%08x ' % addr
-            result += '(+%06x) L: %04x val: ' % (offset, sizeOf)
+            result += '(+%06x) L: %6x val: ' % (offset, footprint)
             if isinstance(val, SearchContext):
                 if hasattr(val, '_val'):
                     result += '0x%x' % val._val
@@ -215,7 +201,7 @@ class PatternFinder( object ):
         shape_search_range = shape.getValidRange(startAddress, lastAddress, context)
         for shape_address, shape_offset in shape_search_range:
             # Is this the shape we are looking for
-            for x in shape.isValid(self, shape_address, shape_offset, context):
+            for _ in shape.isValid(self, shape_address, shape_offset, context):
                 # Search the next shape if needed
                 if len(pattern) > 1:
                     for result in self._search(pattern[1:], startAddress, shape_address + len(shape.getData()), context):
@@ -302,6 +288,9 @@ def GetAddressByName( context, name ):
 def GetSizeOfByName( context, name ):
     return GetItemsByName(context, 'SizeOf' + name).next()
 
+def GetMemoryFootprintByName( context, name ):
+    return GetItemsByName(context, 'FootprintOf' + name).next()
+
 def xrangeWithOffset( start, end, step, addr ):
     pos = start
     while pos <= end:
@@ -332,6 +321,7 @@ def isValidShapeName(name):
             name.startswith('AddressOf') or \
             name.startswith('OffsetOf') or \
             name.startswith('SizeOf') or \
+            name.startswith('FootprintOf') or \
             name.startswith('_'):
                 return False
     return True
@@ -345,6 +335,8 @@ class SHAPE_INTERFACE(object):
         return
     def __repr__(self):
         return self.__class__.__name__
+    def __len__(self):
+        return 0
     def getName(self):
         return self.__class__.__name__
     def getValidRange(self, start, lastAddress=0, context=None):
@@ -425,17 +417,14 @@ class SHAPE( SHAPE_WITH_NAME ):
         setattr(context, 'AddressOf' + self.name, address)
         setattr(context, 'OffsetOf'  + self.name, offset)
         found = False
-        for x in self.data.isValid(patFinder, address, value):
+        for _ in self.data.isValid(patFinder, address, value):
             setattr(context, 'SizeOf' + self.name, len(self.data))
-            if None != self.extraCheck:
-                if True == self.extraCheck(context, value):
-                    yield True
-                    found = True
-            else:
+            if (not self.extraCheck) or (True == self.extraCheck(context, value)):
+                setattr(context, 'FootprintOf' + self.name, self.data.memoryFootprint(patFinder, value))
                 yield True
                 found = True
         if (not found) and patFinder.raiseOnNotFound:
-            raise Exception("Shape not found")
+            raise Exception("Shape not found: %r with data type: %r" % (self.name, self.data))
 
     def details(self):
         if hasattr(self, 'minOffset'):
@@ -460,21 +449,6 @@ class ASSIGN(SHAPE_WITH_NAME):
     def isValid(self, patFinder, address, offset, context):
         setattr(context, self.name, self.assignFunction(patFinder, context))
         yield True
-
-def _getPatternSize(context, pattern):
-    # Find top offset
-    topOffset = -1
-    topOffsetShape = None
-    for shape in pattern:
-        offsetName = 'OffsetOf' + shape.name
-        if hasattr(context, offsetName):
-            offset = getattr(context, 'OffsetOf' + shape.name)
-            if offset > topOffset:
-                topOffset = offset
-                topOffsetShape = shape
-    if -1 == topOffset:
-        return 0
-    return topOffset + len(topOffsetShape.getData())
 
 def _genGetValProc(name):
     def _getValProc(context):
@@ -525,6 +499,9 @@ class DATA_TYPE( object ):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
 
+    def memoryFootprint(self, patFinder, value):
+        return len(self)
+
 class ANYTHING( DATA_TYPE ):
     def __init__(self, size = 0, **kw):
         DATA_TYPE.__init__(self, **kw)
@@ -571,7 +548,9 @@ class STRUCT( DATA_TYPE ):
         for shape in self.content:
             shape.setForSearch(patFinder, self.context)
     def __len__(self):
-        return _getPatternSize(self.context, self.content)
+        return len(self.context)
+    def memoryFootprint(self, patFinder, value):
+        return sum([getattr(value, 'FootprintOf' + s.name) for s in self.content])
     def __repr__(self):
         if self.context:
             return repr(self.context)
@@ -580,7 +559,7 @@ class STRUCT( DATA_TYPE ):
         self.context._val = address
         return self.context
     def isValid(self, patFinder, address, value):
-        for x in patFinder.search(self.content, address, lastAddress=0, context=self.context):
+        for _ in patFinder.search(self.content, address, lastAddress=0, context=value):
             yield True
 
 class POINTER_TO_STRUCT( POINTER ):
@@ -594,31 +573,35 @@ class POINTER_TO_STRUCT( POINTER ):
         self.context._parent = context
         for shape in self.content:
             shape.setForSearch(patFinder, self.context)
+    def memoryFootprint(self, patFinder, value):
+        total = super(POINTER, self).memoryFootprint(patFinder, value)
+        if not value._val:
+            return total
+        total += sum([getattr(self.context, 'FootprintOf' + s.name) for s in self.content])
+        return total
     def __repr__(self):
         if self.context:
             return "Ptr:0x%x\n" + repr(self.context)
         return repr(self.content)
     def readValue(self, patFinder, address):
         ptr = patFinder.readAddr(address)
-        if patFinder.isAddressValid(ptr):
-            # To prevent reads from invalid memory during pattern search
-            try:
-                patFinder.readByte(ptr)
-            except ReadError as e:
-                return None
-        else:
-            return None
         self.context._val = ptr
         return self.context
     def isValid(self, patFinder, address, value):
-        if None == value:
-            if self.isNullValid:
-                yield True
-            return
         ptr = value._val
         if self.isNullValid and 0 == ptr:
             yield True
             return
+
+        if not patFinder.isAddressValid(ptr):
+            return
+
+        # To prevent reads from invalid memory during pattern search
+        try:
+            patFinder.readByte(ptr)
+        except ReadError:
+            return
+
         if self.valueRange != None:
             if  (ptr < self.valueRange[0]) or \
                 (ptr >= self.valueRange[1]):
@@ -659,7 +642,9 @@ class SWITCH( DATA_TYPE ):
     def setForSearch(self, patFinder, context):
         self.parentContext = context
     def __len__(self):
-        return _getPatternSize(self.context, self.currentPattern)
+        return len(self.context)
+    def memoryFootprint(self, patFinder, value):
+        return sum([getattr(value, 'FootprintOf' + s.name) for s in self.currentPattern])
     def __repr__(self):
         return repr(self.context)
     def readValue(self, patFinder, address):
@@ -743,9 +728,9 @@ class NUMBER( DATA_TYPE ):
             for i in range(0, self.sizeOfData):
                 result += patFinder.readByte(address + i) << (i * 8)
         if self.isSigned:
-            maxPositive = 2 << (self.sizeOfData * 8 - 1)
+            maxPositive = 1 << (self.sizeOfData * 8 - 1)
             if result >= maxPositive:
-                result = 0 - ((maxPositive << 1) - result)
+                result -= (maxPositive << 1)
         return result
 
     def isValid(self, patFinder, address, value):
@@ -826,6 +811,7 @@ class FLOAT( NUMBER ):
         elif None == value:
             result += 'ANYTHING'
         return result
+
     def readValue(self, patFinder, address):
         return struct.unpack(self._unpacktype, patFinder.readMemory(address, self.sizeOfData))[0]
 
@@ -899,13 +885,10 @@ def IsPrintable(s, isUnicode=False):
     if 0 == len(s):
             return True
     if isUnicode:
-        for c in range(len(s)):
-            if c % 2 == 0:
-                if ord(s[c]) > 0x7f or ord(s[c]) < 0x20:
-                    return False
-            else:
-                if s[c] != '\x00' and (len(s) - 1) != c:
-                    return False
+        try:
+            s.decode('utf-16le')
+        except UnicodeDecodeError:
+            return False
     else:
         if '\0' == s[-1]:
             s = s[:-1]
@@ -1055,6 +1038,9 @@ class ARRAY( DATA_TYPE ):
     def __len__(self):
         return sum([len(var) for var in self.array])
 
+    def memoryFootprint(self, patFinder, values):
+        return sum([val.FootprintOfItem for val in values])
+
     def setForSearch(self, patFinder, context):
         self.parentContext = context
         for var in self.array:
@@ -1077,21 +1063,22 @@ class ARRAY( DATA_TYPE ):
     def recursiveIsValid(self, patFinder, address, contexts, contextIndex=0):
         if (contextIndex == len(contexts)) or (0 == len(contexts)):
             yield True
-        else:
-            dt = self.array[contextIndex]
-            ctx = contexts[contextIndex]
-            dt.setForSearch(patFinder, ctx)
-            value = dt.readValue(patFinder, address)
-            for x in dt.isValid(patFinder, address, value):
-                ctx.AddressOfItem = address
-                ctx.OffsetOfItem = 0
-                ctx.SizeOfItem = len(dt)
-                for _ in self.recursiveIsValid(patFinder, address + len(dt), contexts, contextIndex+1):
-                    yield True
+            return
+        dt = self.array[contextIndex]
+        ctx = contexts[contextIndex]
+        dt.setForSearch(patFinder, ctx)
+        value = dt.readValue(patFinder, address)
+        for _ in dt.isValid(patFinder, address, value):
+            ctx.AddressOfItem = address
+            ctx.OffsetOfItem = 0
+            ctx.SizeOfItem = len(dt)
+            ctx.FootprintOfItem = dt.memoryFootprint(patFinder, value)
+            for _ in self.recursiveIsValid(patFinder, address + len(dt), contexts, contextIndex+1):
+                yield True
 
     def isValid(self, patFinder, address, values):
-        for x in self.recursiveIsValid(patFinder, address, values):
-            yield x
+        for _ in self.recursiveIsValid(patFinder, address, values):
+            yield True
         if 0 == len(values) and isZeroSizeValid:
             yield True
 
