@@ -26,13 +26,15 @@ import sys
 from os import linesep
 import struct
 import datetime
-import copy
 import itertools
 from types import FunctionType
 
 def printPattern(pattern, depth=0):
     space = '  ' * depth
     for i, shape in enumerate(pattern):
+        if hasattr(shape, '__call__'):
+            print("%s%d: ?" % (space, i))
+            continue
         print("%s%d: %s %r" % (space, i, shape.data.__class__.__name__, shape))
         if hasattr(shape.data, 'content'):
             printPattern(shape.data.content, depth+1)
@@ -197,10 +199,22 @@ class PatternFinder( object ):
         if not pattern:
             yield context
             return
-        for shape in pattern:
-            shape.setForSearch(self, context)
+        self.setPatternForSearch(pattern, context)
         for result in self._search(pattern, startAddress, lastAddress, context):
             yield result
+
+    def setPatternForSearch(self, pattern, context):
+        if hasattr(pattern, '__call__'):
+            return
+        for shape in pattern:
+            shape.setForSearch(self, context)
+
+    def evalPattern(self, pattern, address, context):
+        if not hasattr(pattern, '__call__'):
+            return pattern
+        pattern = pattern(self, address, context)
+        self.setPatternForSearch(pattern, context)
+        return pattern
 
     def _safeSearch(self, pattern, startAddress, lastAddress=0, context=None):
         try:
@@ -221,7 +235,7 @@ class PatternFinder( object ):
                         yield result
                 else:
                     # No more shapes in pattern
-                    yield copy.deepcopy(context)
+                    yield context
         # Shape not found
 
     def __genConcatedProc(self, proc1, proc2):
@@ -256,7 +270,6 @@ class PatternFinder( object ):
                 brightness += (self.color >> 0x10) & 0xff
     def displaySearch(self, pattern, startAddress, displayContext, maxDepth=3, context=None):
         self.color = 0x2090d0
-        pattern = copy.deepcopy(pattern)
         self.__paintPattern(maxDepth, pattern, displayContext)
         return self.search(pattern, startAddress, context=context)
     def __genDisplayText(self, name):
@@ -276,7 +289,6 @@ class PatternFinder( object ):
                         shape.extraCheck,
                         self.__genDisplayText(shape.name) )
     def verboseSearch(self, pattern, startAddress, maxDepth=3, context=None):
-        pattern = copy.deepcopy(pattern)
         self.__textPattern(maxDepth, pattern)
         return self.search(pattern, startAddress, context=context)
 
@@ -352,7 +364,7 @@ class SHAPE_INTERFACE(object):
         return 0
     def getName(self):
         return self.__class__.__name__
-    def getValidRange(self, start, lastAddress=0, context=None):
+    def GetValidRange(self, start, lastAddress=0, context=None):
         return [(lastAddress,0)]
     def getData(self):
         return ''
@@ -556,12 +568,11 @@ class STRUCT( DATA_TYPE ):
     def setForSearch(self, patFinder, context):
         self.context = SearchContext(root=context._root)
         self.context._parent = context
-        for shape in self.content:
-            shape.setForSearch(patFinder, self.context)
+        patFinder.setPatternForSearch(self.content, self.context)
     def __len__(self):
         return len(self.context)
     def memoryFootprint(self, patFinder, value):
-        return sum([getattr(value, 'FootprintOf' + s.name) for s in self.content])
+        return sum([getattr(value, name) for name in value.__dict__.keys() if name.startswith('FootprintOf')])
     def __repr__(self):
         if self.context:
             return repr(self.context)
@@ -570,7 +581,8 @@ class STRUCT( DATA_TYPE ):
         self.context._val = address
         return self.context
     def isValid(self, patFinder, address, value):
-        for _ in patFinder.search(self.content, address, lastAddress=0, context=value):
+        content = patFinder.evalPattern(self.content, address, value)
+        for _ in patFinder.search(content, address, lastAddress=0, context=value):
             yield True
 
 class POINTER_TO_STRUCT( POINTER ):
@@ -582,13 +594,12 @@ class POINTER_TO_STRUCT( POINTER ):
         POINTER.setForSearch(self, patFinder, context)
         self.context = SearchContext(root=context._root)
         self.context._parent = context
-        for shape in self.content:
-            shape.setForSearch(patFinder, self.context)
+        patFinder.setPatternForSearch(self.content, self.context)
     def memoryFootprint(self, patFinder, value):
         total = super(POINTER, self).memoryFootprint(patFinder, value)
         if not value._val:
             return total
-        total += sum([getattr(self.context, 'FootprintOf' + s.name) for s in self.content])
+        total += sum([getattr(self.context, name) for name in self.context.__dict__.keys() if name.startswith('FootprintOf')])
         return total
     def __repr__(self):
         if self.context:
@@ -617,21 +628,9 @@ class POINTER_TO_STRUCT( POINTER ):
             if  (ptr < self.valueRange[0]) or \
                 (ptr >= self.valueRange[1]):
                     return
-        for x in patFinder.search(self.content, ptr, lastAddress=0, context=self.context):
+        content = patFinder.evalPattern(self.content, ptr, value)
+        for x in patFinder.search(content, ptr, lastAddress=0, context=self.context):
             yield True
-
-class VERBOSE_POINTER_TO_STRUCT( POINTER_TO_STRUCT ):
-    def isValid(self, patFinder, address, value):
-        if None == value:
-            return
-        ptr = value._val
-        if self.isNullValid and 0 == ptr:
-            yield True
-        else:
-            print hex(ptr)
-            print patFinder.memReader.dd(ptr, 0x200)
-            for x in patFinder.search(self.content, ptr, lastAddress=0, context=self.context):
-                yield True
 
 class DATA_TYPE_FAIL( DATA_TYPE ):
     def __len__(self):

@@ -54,48 +54,6 @@ class PDBSymbols(object):
         sym = self._getSingleSymbolObject(name, caseSensetive, SymTagEnum['SymTagData'])
         return sym.relativeVirtualAddress
 
-    def getStructMemoryFootprint(self, name, caseSensetive=True):
-        child = self._getSingleSymbolObject(name, caseSensetive, SymTagEnum['SymTagUDT'])
-        structElements = child.findChildren(0, None, 0)
-        if not structElements:
-            raise Exception("No struct elements")
-        return self._getAllMembersMemoryFootprint(structElements)
-
-    def _getAllMembersMemoryFootprint(self, structElements, base=0):
-        members = [structElements.Item(memberIndex) for memberIndex in xrange(structElements.count)]
-        endOffset = 0
-        sizes = []
-        for member in members:
-            symTag = SymTagEnumTag[member.symTag]
-            if symTag == 'SymTagVTable':
-                endOffset = member.offset + member.length + base
-            elif symTag == 'SymTagBaseClass':
-                baseEndOffset, baseSizes = self._getAllMembersMemoryFootprint(member.type.findChildren(0, NOne, 0), base=base+member.offset)
-                endOffset = max(baseEndOffset, endOffset)
-                baseSizes.extend(baseSizes)
-            elif symTag == 'SymTagData':
-                if 'Member' != SymDataKindTag[member.dataKind]:
-                    continue
-                memberEndOffset, memberSizes = self._getSymTagDataTypeAsShape(member.type, base=base+member.offset)
-                endOffset = max(memberEndOffset, endOffset)
-                sizes.extend(memberSizes)
-
-    def _getSymTagDataTypeMemoryFootprint(self, dataType, base):
-        memberTypeSymTag = SymTagEnumTag[dataType.symTag]
-        if 'SymTagUDT' == memberTypeSymTag:
-            return self._getAllMembersMemoryFootprint(dataType.findChildren(0, None, 0), base=base+member.offset)
-        elif 'SymTagPointerType' == memberTypeSymTag:
-            structBaseSize, structSizes = self._getAllMembersMemoryFootprint(dataType.findChildren(0, None, 0))
-            structSizes.append(structBaseSize)
-            return (base + dataType.length, structSizes)
-        elif memberTypeSymTag in ['SymTagBaseType', 'SymTagEnum']:
-            return (dataType.length + base, [])
-        elif 'SymTagArrayType' == memberTypeSymTag:
-            arrayCount = dataType.count
-            arrayTypeSize, arraySubSizes = self._getSymTagDataTypeMemoryFootprint(dataType.type, 0)
-            arraySubSizes.append(arrayTypeSize)
-            return (dataType.length + base, arraySubSizes)
-
     def getStruct(self, name, caseSensetive=True, maxDepth=20):
         child = self._getSingleSymbolObject(name, caseSensetive, SymTagEnum['SymTagUDT'])
         structName = child.name
@@ -143,7 +101,11 @@ class PDBSymbols(object):
 
     def _getSymTagDataTypeAsShape(self, dataType, name, base, maxDepth):
         name, base, dataType, dataTypeArgs, dataTypeKw = self._getSymTagDataType(dataType, name, base, maxDepth)
-        return [SHAPE(name, (base, None), dataType(*dataTypeArgs, **dataTypeKw), fromStart=True)]
+        if -1 == base:
+            place = 0
+        else:
+            place = (base, None)
+        return [SHAPE(name, place, dataType(*dataTypeArgs, **dataTypeKw), fromStart=True)]
 
     def _getSymTagDataType(self, dataType, name, base, maxDepth):
         dataTypeName = dataType.name
@@ -215,6 +177,42 @@ class PDBSymbols(object):
                         { 'desc':dataTypeName })
             elif dataTypeName.startswith('std::function'):
                 return (name, base, ARRAY, [10, SIZE_T, [], {}], {'desc':dataTypeName})
+            elif    dataTypeName.startswith('std::map') or \
+                    dataTypeName.startswith('std::multimap') or \
+                    dataTypeName.startswith('std::set') or \
+                    dataTypeName.startswith('std::multiset'):
+
+                baseType = self._getAllChildren(dataType, SymTagEnum['SymTagBaseClass'])
+                if 1 != len(baseType):
+                    raise Exception("Failed to parse shared_ptr")
+                baseType = baseType[0]
+                struct = self._getMapType(baseType, maxDepth-1)
+
+                def parseNode(patFinder, startAddress, context):
+                    isNil = patFinder.readByte(startAddress + (patFinder.getPointerSize() * 3) + 1)
+                    if isNil:
+                        return [SHAPE('duummy', 0, ANYTHING())]
+                    return [
+                        SHAPE('left', 0, POINTER_TO_STRUCT(parseNode)),
+                        SHAPE('parent', 0, POINTER()),
+                        SHAPE('right', 0, POINTER_TO_STRUCT(parseNode)),
+                        SHAPE('dummy', 0, SIZE_T()),
+                        SHAPE('data', 0, STRUCT(struct))]
+
+                return (
+                        name,
+                        base,
+                        STRUCT,
+                        [[
+                            SHAPE('tree', 0, POINTER_TO_STRUCT([
+                                SHAPE('left', 0, POINTER()),
+                                SHAPE('anchor', 0, POINTER_TO_STRUCT(parseNode)),
+                                SHAPE('right', 0, POINTER()),
+                                SHAPE('color', 0, BYTE()),
+                                SHAPE('isNil', 0, BYTE(1))])),
+                            SHAPE('treeSize', 0, SIZE_T())]],
+                        { 'desc':dataTypeName }
+                        )
             content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth)
             if not content:
                 return ( name, base, ANYTHING, [], {'desc':dataTypeName})
@@ -262,8 +260,14 @@ class PDBSymbols(object):
         if baseType.count != 1:
             raise Exception("Failed to parse unique_ptr")
         baseType = baseType.Item(0)
-        baseTypeSymTag = SymTagEnumTag[baseType.type.symTag]
         return self._getSymTagDataTypeAsShape(baseType.type, 'val', base=0, maxDepth=maxDepth)
+
+    def _getMapType(self, dataType, maxDepth):
+        valueType = dataType.findChildren(SymTagEnum['SymTagTypedef'], 'value_type', 1)
+        if valueType.count != 1:
+            raise Exception("Failed to parse map key")
+        valueType = valueType.Item(0)
+        return self._getSymTagDataTypeAsShape(valueType.type, 'val', base=0, maxDepth=maxDepth)
 
 def parseSymbolsDump( symbols_dump ):
     result = []
