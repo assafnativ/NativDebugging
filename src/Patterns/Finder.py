@@ -30,6 +30,19 @@ import copy
 import itertools
 from types import FunctionType
 
+def printPattern(pattern, depth=0):
+    space = '  ' * depth
+    for i, shape in enumerate(pattern):
+        print("%s%d: %s %r" % (space, i, shape.data.__class__.__name__, shape))
+        if hasattr(shape.data, 'content'):
+            printPattern(shape.data.content, depth+1)
+        if hasattr(shape.data, 'cases'):
+            keys = shape.data.cases.keys()
+            keys.sort()
+            for key in keys:
+                print("%sCase %r" % (space, key))
+                printPattern(shape.data.cases[key], depth+1)
+
 class SearchContext( object ):
     def __init__(self, parent=None, root=None):
         self._parent = parent
@@ -636,6 +649,7 @@ class SWITCH( DATA_TYPE ):
             self.chooseProc = _genGetValProc(chooseProc)
         else:
             self.chooseProc = chooseProc
+        self.context = None
         DATA_TYPE.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
         self.parentContext = context
@@ -644,7 +658,9 @@ class SWITCH( DATA_TYPE ):
     def memoryFootprint(self, patFinder, value):
         return sum([getattr(value, 'FootprintOf' + s.name) for s in self.currentPattern])
     def __repr__(self):
-        return repr(self.context)
+        if self.context:
+            return repr(self.context)
+        return repr(self.cases.keys())
     def readValue(self, patFinder, address):
         self.context = SearchContext(self.parentContext._root)
         parentContext = self.parentContext
