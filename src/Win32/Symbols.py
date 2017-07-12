@@ -176,7 +176,8 @@ class PDBSymbols(object):
                                             SHAPE('string', 0, STRING(isUnicode=isWide, maxSize=0x10, isPrintable=False, size='_parent._parent.stringLength'))])) ],
                                     False: [
                                         SHAPE('string', 0, POINTER_TO_STRUCT([
-                                                SHAPE('string', 0, STRING(isUnicode=isWide, isPrintable=False, size='_parent._parent.stringLength'))]))]}), fromStart=True)
+                                                SHAPE('string', 0, STRING(isUnicode=isWide, isPrintable=False, size='_parent._parent.stringLength'))])),
+                                        SHAPE('dummy', 0, ANYTHING(size=8))]}), fromStart=True)
                         ]], {'desc':dataTypeName})
             elif dataTypeName.startswith('std::unique_ptr'):
                 struct = self._getUniquePtr(dataType, maxDepth-1)
