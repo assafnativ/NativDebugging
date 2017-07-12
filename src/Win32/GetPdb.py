@@ -1,9 +1,37 @@
 import urllib
+import subprocess
 import datetime
 import threading
 import time
 import os
 import tempfile
+
+def downloadBinaryAsMSSymcheck(url, filenameToDownload, cacheDirName):
+    if cacheDirName:
+        outputFileName = os.path.join(cacheDirName, filenameToDownload)
+        targetDir = os.path.dirname(outputFileName)
+        if os.path.isfile(outputFileName):
+            return outputFileName
+        if not os.path.isdir(targetDir):
+            os.makedirs(targetDir)
+    else:
+        ext = filename.split(os.path.extsep)[-1]
+        outputFileName = tempfile.mktemp('.' + ext)
+    class MSURLOpener(urllib.FancyURLopener):
+        verison = "Microsoft-Symbol-Server/6.2.9200.16384"
+    msurlOpener = MSURLOpener()
+    msurlOpener.addheader("Accept-Encoding", "gzip")
+    msurlOpener.addheader("User-Agent", "Microsoft-Symbol-Server/6.2.9200.16384")
+    msurlOpener.addheader("Host", "msdl.microsoft.com")
+    msurlOpener.addheader("Connection", "Keep-Alive")
+    msurlOpener.addheader("Cache-Control", "no-cache")
+    urllib._urlopener = msurlOpener
+    try:
+        urllib.urlretrieve(url+filenameToDownload, outputFileName)
+    except Exception, e:
+        print(repr(e))
+        return None
+    return outputFileName
 
 def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, dbg_id=None, custom_symbols_server=None ):
     if not dbg_id:
@@ -32,7 +60,9 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
             cacheDirName = os.path.join(cacheDir, filename, dbg_id)
             cacheFileName = os.path.join(cacheDirName, filename)
             if os.path.isfile(cacheFileName):
-                return cacheFileName
+                if 0 != os.stat(cacheFileName).st_size:
+                    return cacheFileName
+                os.unlink(cacheFileName)
 
         url = server
         if url[-1] != "/":
@@ -43,35 +73,19 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
         url += "/"
 
         for filenameToDownload in [filename, filename[:-1] + '_']:
-            class MSURLOpener(urllib.FancyURLopener):
-                verison = "Microsoft-Symbol-Server/6.2.9200.16384"
-            msurlOpener = MSURLOpener()
-            msurlOpener.addheader("Accept-Encoding", "gzip")
-            msurlOpener.addheader("User-Agent", "Microsoft-Symbol-Server/6.2.9200.16384")
-            msurlOpener.addheader("Host", "msdl.microsoft.com")
-            msurlOpener.addheader("Connection", "Keep-Alive")
-            msurlOpener.addheader("Cache-Control", "no-cache")
-            urllib._urlopener = msurlOpener
-            if cacheDirName:
-                outputFileName = os.path.join(cacheDirName, filenameToDownload)
-                targetDir = os.path.dirname(outputFileName)
-                if os.path.isfile(outputFileName):
-                    return outputFileName
-                if not os.path.isdir(targetDir):
-                    os.makedirs(targetDir)
-            else:
-                ext = filename.split(os.path.extsep)[-1]
-                outputFileName = tempfile.mktemp('.' + ext)
-            try:
-                urllib.urlretrieve(url+filenameToDownload, outputFileName)
-            except Exception, e:
-                print(repr(e))
+            outputFileName = downloadBinaryAsMSSymcheck(url, filenameToDownload, cacheDirName)
+            if not outputFileName:
                 continue
             with file(outputFileName, 'rb') as outputFile:
                 data = outputFile.read(1024)
             if len(data) < 1024:
                 os.unlink(outputFileName)
                 continue
+            if data.startswith('MSCF'):
+                cabFileName = outputFileName
+                outputFileName = os.path.join(cacheDirName, filename)
+                command = 'powershell -Command "Expand %s %s"' % (cabFileName, outputFileName)
+                subprocess.check_call(command)
             return outputFileName
         return None
 
