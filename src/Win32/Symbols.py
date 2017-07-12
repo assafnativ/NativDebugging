@@ -212,6 +212,8 @@ class PDBSymbols(object):
                             SHAPE('ptr', 0, POINTER_TO_STRUCT(struct, isNullValid=True)),
                             SHAPE('rep', 0, POINTER(isNullValid=True))]],
                         { 'desc':dataTypeName })
+            elif dataTypeName.startswith('std::function'):
+                return (name, base, ARRAY, [10, SIZE_T, [], {}], {'desc':dataTypeName})
             content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth)
             if not content:
                 return ( name, base, ANYTHING, [], {'desc':dataTypeName})
