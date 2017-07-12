@@ -1067,6 +1067,7 @@ class ARRAY( DATA_TYPE ):
         dt.setForSearch(patFinder, ctx)
         value = dt.readValue(patFinder, address)
         for _ in dt.isValid(patFinder, address, value):
+            ctx.Item = value
             ctx.AddressOfItem = address
             ctx.OffsetOfItem = 0
             ctx.SizeOfItem = len(dt)
