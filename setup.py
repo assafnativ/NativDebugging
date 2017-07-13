@@ -4,8 +4,8 @@ if sys.platform.lower().startswith('win'):
     packagesNames = ['NativDebugging', 'NativDebugging/Win32']
     packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Win32' : 'src/Win32'}
     ExtraDataFiles = [('Lib\\site-packages\\NativDebugging\\Win32', (
-        'src/Win32/memReaderAMD64.exe', 
-        'src/Win32/memReaderIa64.exe', 
+        'src/Win32/memReaderAMD64.exe',
+        'src/Win32/memReaderIa64.exe',
         'src/Win32/memReaderx86.exe'))]
 else:
     packagesNames = ['NativDebugging', 'NativDebugging/Linux', 'NativDebugging/Unix']
@@ -32,8 +32,7 @@ setup(
         package_dir = packagesDirs,
         url = 'https://github.com/assafnativ/NativDebugging',
         keywords = ['debugger', 'memory', 'patterns', 'research', 'lowlevel', 'native'],
-        license="LGPLv3",
-        python_requires='>=2.7',
+        license = "LGPLv3",
         data_files = [('Lib\\\site-packages', ('NativDebugging.pth',))] + ExtraDataFiles)
 
 
