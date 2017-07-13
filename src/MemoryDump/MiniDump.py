@@ -4,6 +4,7 @@ from ..MemReaderBase import *
 from ..GUIDisplayBase import *
 from collections import namedtuple
 from ..ObjectWithStream import ObjectWithStream
+from bisect import bisect_left
 
 try:
     import distorm3
@@ -54,6 +55,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
             self._POINTER_SIZE = 8
         else:
             self._POINTER_SIZE = 4
+        self._REGIONS_ENDS = [x[1] for x in self._REGIONS]
 
     def _parseDirectory(self, streamType, rva, length):
         self.stream.seek(rva)
@@ -559,25 +561,29 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
         return result
 
     def getRegionStartEnd(self, addr):
-        for r in self._REGIONS:
-            if r[0] <= addr and addr < r[1]:
-                return r
-        return (0,0)
+        index = bisect_left(self._REGIONS_ENDS, addr)
+        if index > len(self._REGIONS):
+            return None
+        region = self._REGIONS[index]
+        if addr < region[0]:
+            return None
+        return region
 
     def getMemoryMap(self):
         return [('',) + x for x in self._REGIONS]
 
     def readMemory(self, addr, length):
         region = self.getRegionStartEnd(addr)
+        if not region:
+            raise ReadError(addr)
         if (addr + length) > region[1]:
             raise ReadError(region[1])
         offset = addr - region[0]
         return self._DATA[region[0]][offset:offset+length]
 
     def isAddressValid(self, addr):
-        for start, end in self._REGIONS:
-            if start <= addr and addr > end:
-                return True
+        if self.getRegionStartEnd(addr):
+            return True
         return False
 
     def getEndianity(self):
