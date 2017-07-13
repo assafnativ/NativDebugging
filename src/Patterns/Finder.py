@@ -162,7 +162,6 @@ class PatternFinder( object ):
         self.readDword          = memReader.readDword
         self.readQword          = memReader.readQword
         self.readAddr           = memReader.readAddr
-        self.readMemory         = memReader.readMemory
         self.readString         = memReader.readString
         self.debugContext       = None
         self._POINTER_SIZE = memReader.getPointerSize()
