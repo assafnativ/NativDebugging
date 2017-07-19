@@ -83,7 +83,12 @@ class SearchContext( object ):
 
     def _memorySizeFootprint(self):
         itemNames = self._getItemNames()
-        return sum([getattr(self, 'FootprintOf' + name) for name in itemNames])
+        footprints = {}
+        items = [(getattr(self, 'OffsetOf' + name), getattr(self, 'FootprintOf' + name)) for name in itemNames]
+        for offset, footprint in items:
+            maxFootprint = max(footprints.get(offset, 0), footprint)
+            footprints[offset] = maxFootprint
+        return sum(footprints.values())
 
     def _repr(self, depth, noAddress=False):
         result = ''
@@ -571,7 +576,7 @@ class STRUCT( DATA_TYPE ):
     def __len__(self):
         return len(self.context)
     def memoryFootprint(self, patFinder, value):
-        return sum([getattr(value, name) for name in value.__dict__.keys() if name.startswith('FootprintOf')])
+        return ~value
     def __repr__(self):
         if self.context:
             return repr(self.context)
@@ -598,7 +603,7 @@ class POINTER_TO_STRUCT( POINTER ):
         total = super(POINTER, self).memoryFootprint(patFinder, value)
         if not value._val:
             return total
-        total += sum([getattr(self.context, name) for name in self.context.__dict__.keys() if name.startswith('FootprintOf')])
+        total += ~self.context
         return total
     def __repr__(self):
         if self.context:
