@@ -1018,7 +1018,7 @@ class STRING( DATA_TYPE ):
         yield True
 
 class ARRAY( DATA_TYPE ):
-    def __init__(self, count, varType, varArgs=None, varKw=None, isZeroSizeValid=True, **kw):
+    def __init__(self, count, varType, varArgs=None, varKw=None, isZeroSizeValid=True, minimalArrays=True, **kw):
         """
         count, varType, varArgs=None, varKw=None, isZeroSizeValid=True
 
@@ -1029,8 +1029,12 @@ class ARRAY( DATA_TYPE ):
             varArgs - List of args
             varKw - Dictunary args
         """
+        self.currentArraySize = 0
         if isinstance(count, str):
             self.arraySize = _genGetValProc(count)
+        elif isinstance(count, (int, long)):
+            self.currentArraySize = count
+            self.arraySize = count
         else:
             self.arraySize = count
         if None == varArgs:
@@ -1043,10 +1047,11 @@ class ARRAY( DATA_TYPE ):
         self.array = []
         self.contexts = []
         self.isZeroSizeValid = isZeroSizeValid
+        self.minimalArrays = minimalArrays
         DATA_TYPE.__init__(self, **kw)
 
     def __repr__(self):
-        return 'ARRAY_OF_%s[%d]' % (self.varType.__name__, self.arraySize)
+        return 'ARRAY_OF_%s[%d]' % (self.varType.__name__, self.currentArraySize)
     def __len__(self):
         return sum([len(var) for var in self.array])
 
@@ -1060,12 +1065,14 @@ class ARRAY( DATA_TYPE ):
 
     def readValue(self, patFinder, address):
         if isinstance(self.arraySize, (int, long)):
-            arraySize = self.arraySize
+            self.currentArraySize = self.arraySize
         else:
-            arraySize = self.arraySize(self.parentContext)
+            self.currentArraySize = self.arraySize(self.parentContext)
+        if self.minimalArrays and self.currentArraySize > 0x300:
+            self.currentArraySize = 0x300
         self.array = []
         self.contexts = []
-        for i in range(arraySize):
+        for i in range(self.currentArraySize):
             self.array.append(self.varType(*self.varArgs, **self.varKw))
             newContext = SearchContext(root=self.parentContext._root)
             newContext._parent = self.parentContext

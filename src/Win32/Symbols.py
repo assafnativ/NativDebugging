@@ -100,6 +100,8 @@ class PDBSymbols(object):
         return [members.Item(x) for x in xrange(members.count)]
 
     def _getSymTagDataTypeAsShape(self, dataType, name, base, maxDepth):
+        if 0 == maxDepth:
+            return []
         name, base, dataType, dataTypeArgs, dataTypeKw = self._getSymTagDataType(dataType, name, base, maxDepth)
         if -1 == base:
             place = 0
@@ -211,12 +213,28 @@ class PDBSymbols(object):
                                 SHAPE('color', 0, BYTE()),
                                 SHAPE('isNil', 0, BYTE(1))])),
                             SHAPE('treeSize', 0, SIZE_T())]],
-                        { 'desc':dataTypeName }
-                        )
-            content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth)
-            if not content:
-                return ( name, base, ANYTHING, [], {'desc':dataTypeName})
-            return ( name, base, STRUCT, [content], {'desc':dataTypeName})
+                        { 'desc':dataTypeName })
+
+            elif dataTypeName.startswith('std::vector') and 'bool' not in dataTypeName:
+                structSize, struct = self._getVectorTypeAndSize(dataType, maxDepth-1)
+                def arraySizeProc(ctx):
+                    return (ctx._parent.last - ctx._parent.first) // structSize
+                return (
+                        name,
+                        base,
+                        STRUCT,
+                        [[
+                            SHAPE('first', 0, POINTER(isNullValid=True)),
+                            SHAPE('last', 0, POINTER(isNullValid=True)),
+                            SHAPE('end', 0, POINTER(isNullValid=True)),
+                            SHAPE('data', 0, POINTER_TO_STRUCT([SHAPE('items', 0, ARRAY(
+                                arraySizeProc, STRUCT, [struct]))], isNullValid=True), fromStart=True)]],
+                        { 'desc':dataTypeName } )
+            else:
+                content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth)
+                if not content:
+                    return ( name, base, ANYTHING, [], {'desc':dataTypeName})
+                return ( name, base, STRUCT, [content], {'desc':dataTypeName})
         elif 'SymTagPointerType' == memberTypeSymTag:
             content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth-1)
             if not content:
@@ -256,18 +274,21 @@ class PDBSymbols(object):
             raise Exception("Unknown ember type %s" % memberTypeSymTag)
 
     def _getUniquePtr(self, dataType, maxDepth):
-        baseType = dataType.findChildren(SymTagEnum['SymTagTypedef'], 'element_type', 1)
-        if baseType.count != 1:
-            raise Exception("Failed to parse unique_ptr")
-        baseType = baseType.Item(0)
-        return self._getSymTagDataTypeAsShape(baseType.type, 'val', base=0, maxDepth=maxDepth)
+        return self._getSubType(dataType, 'element_type', maxDepth)[1]
 
     def _getMapType(self, dataType, maxDepth):
-        valueType = dataType.findChildren(SymTagEnum['SymTagTypedef'], 'value_type', 1)
-        if valueType.count != 1:
-            raise Exception("Failed to parse map key")
-        valueType = valueType.Item(0)
-        return self._getSymTagDataTypeAsShape(valueType.type, 'val', base=0, maxDepth=maxDepth)
+        return self._getSubType(dataType, 'value_type', maxDepth)[1]
+
+    def _getVectorTypeAndSize(self, dataType, maxDepth):
+        return self._getSubType(dataType, 'value_type', maxDepth)
+
+    def _getSubType(self, dataType, itemName, maxDepth):
+        baseType = dataType.findChildren(SymTagEnum['SymTagTypedef'], itemName, 1)
+        if baseType.count != 1:
+            raise Exception("Failed to parse %s" % itemName)
+        baseType = baseType.Item(0)
+        typeSize = baseType.length
+        return (typeSize, self._getSymTagDataTypeAsShape(baseType.type, 'val', base=0, maxDepth=maxDepth-1))
 
 def parseSymbolsDump( symbols_dump ):
     result = []
