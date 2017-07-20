@@ -84,7 +84,10 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
             if data.startswith('MSCF'):
                 cabFileName = outputFileName
                 outputFileName = os.path.join(cacheDirName, filename)
-                command = 'powershell -Command "Expand %s %s"' % (cabFileName, outputFileName)
+                if os.name.lower().startswith('nt'):
+                    command = 'powershell -Command "Expand %s %s"' % (cabFileName, outputFileName)
+                else:
+                    raise Exception("Dont know how to extract .CAB file, please extract %s to %s" % (cabFileName, outputFileName))
                 subprocess.check_call(command)
             return outputFileName
         return None
