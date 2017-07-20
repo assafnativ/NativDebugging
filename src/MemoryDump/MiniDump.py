@@ -93,7 +93,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
         elif 18 == streamType:
             self.handleOperationList = self._readHandleOperationList()
         elif 19 == streamType:
-            self.token = self._readToken()
+            self.token = self._readTokenInfoList(length)
         elif streamType in [21, 22]:
             data = self.stream.read(length)
             pass
@@ -545,6 +545,22 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
                 handleOperaiton.returnAddresses.append(self.stream.readUInt64())
             handleOperationList.handleOperaiton.append(handleOperaiton)
         return handleOperationList
+
+    def _readTokenInfoList(self, length):
+        tokenInfoList = namedtuple('TOKEN_INFO_LIST', [
+            'sizeOfList',
+            'numEntries',
+            'headerSize',
+            'elementHeaderSize',
+            'tokens'])(
+                    self.stream.readUInt32(),
+                    self.stream.readUInt32(),
+                    self.stream.readUInt32(),
+                    self.stream.readUInt32(),
+                    self.stream.read(length - 0x10))
+        assert(tokenInfoList.sizeOfList == length)
+        assert(tokenInfoList.headerSize == 0x10)
+        return tokenInfoList
 
     def _readMemoryDescriptor(self):
         return (self.stream.readUInt64(),) + self._readLocationDescriptor()
