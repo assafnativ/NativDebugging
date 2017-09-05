@@ -19,6 +19,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
+from __future__ import print_function
+from builtins import range
 from .Win32Structs import *
 from comtypes.client import CreateObject, GetModule
 import time
@@ -66,7 +68,7 @@ class PDBSymbols(object):
         members = []
         if 0 == maxDepth:
             return members
-        for memberIndex in xrange(structElements.count):
+        for memberIndex in range(structElements.count):
             member = structElements.Item(memberIndex)
             members.extend(self._fetchSymData(member, base=base, maxDepth=maxDepth))
         return members
@@ -97,7 +99,7 @@ class PDBSymbols(object):
         if None == symTypeFilter:
             symTypeFilter = 0
         members = dataType.findChildren(symTypeFilter, None, 0)
-        return [members.Item(x) for x in xrange(members.count)]
+        return [members.Item(x) for x in range(members.count)]
 
     def _getSymTagDataTypeAsShape(self, dataType, name, base, maxDepth):
         if 0 == maxDepth:
@@ -230,6 +232,23 @@ class PDBSymbols(object):
                             SHAPE('data', 0, POINTER_TO_STRUCT([SHAPE('items', 0, ARRAY(
                                 arraySizeProc, STRUCT, [struct]))], isNullValid=True), fromStart=True)]],
                         { 'desc':dataTypeName } )
+            elif dataTypeName.startswith('nonstd::optional'):
+                structSize, struct = self._getOptionalTypeAndSize(dataType, maxDepth-1)
+                def chooser(ctx):
+                    return 0 != (ctx.has_value_ & 0xff)
+                return (
+                        name,
+                        base,
+                        STRUCT,
+                        [[
+                            SHAPE('has_value_', 0, SIZE_T()),
+                            SHAPE('contained', 0,
+                                SWITCH(
+                                    chooser,
+                                    {
+                                        True: struct,
+                                        False: [] }))]],
+                        { 'desc':dataTypeName })
             else:
                 content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth)
                 if not content:
@@ -282,6 +301,9 @@ class PDBSymbols(object):
     def _getVectorTypeAndSize(self, dataType, maxDepth):
         return self._getSubType(dataType, 'value_type', maxDepth)
 
+    def _getOptionalTypeAndSize(self, dataType, maxDepth):
+        return self._getSubType(dataType, 'value_type', maxDepth)
+
     def _getSubType(self, dataType, itemName, maxDepth):
         baseType = dataType.findChildren(SymTagEnum['SymTagTypedef'], itemName, 1)
         if baseType.count != 1:
@@ -292,7 +314,7 @@ class PDBSymbols(object):
 
 def parseSymbolsDump( symbols_dump ):
     result = []
-    f = file(symbols_dump, 'r')
+    f = open(symbols_dump, 'r')
     for l in f.readlines():
         address_pos = l.find('Address: ')
         name_pos = l.find('Name: ')

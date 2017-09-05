@@ -3,27 +3,23 @@
 #
 #   MemReaderInProcess - Read memory from the process the script is
 #   running from. Usefull with thread injection, or Python embedded.
-#   https://svn3.xp-dev.com/svn/nativDebugging/
-#   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2013  Assaf Nativ
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
-#
 
-# Platform independent
-# Requires Python ctypes
-
+from __future__ import print_function
 import ctypes
 from ctypes import c_size_t, c_void_p, c_char, c_char_p, c_uint8, c_uint16, c_uint32, c_uint64, cdll, windll, byref
 import os
@@ -119,7 +115,7 @@ class MemReaderInProcess( MemReaderBase ):
         self._pageMask = ~self._pageSizeMask
         num_pages = c_uint64(0)
         QueryWorkingSet(GetCurrentProcess(), byref(num_pages), ctypes.sizeof(c_uint64))
-        
+
         # Get all other memory and attributes of pages
         memory_map = ctypes.ARRAY( c_void_p, (num_pages.value + 0x100) * ctypes.sizeof(c_void_p) )(0)
         QueryWorkingSet(GetCurrentProcess(), byref(memory_map), ctypes.sizeof(memory_map))
@@ -142,7 +138,7 @@ class MemReaderInProcess( MemReaderBase ):
         import resource
         self._pageSize = resource.getpagesize()
         self._pageSizeMask = self._pageSize - 1
-        memMapInfo = file('/proc/%d/maps' % self._PID, 'r').readlines()
+        memMapInfo = open('/proc/%d/maps' % self._PID, 'r').readlines()
         result = {}
         for line in memMapInfo:
             line = line.strip()
@@ -163,7 +159,7 @@ class MemReaderInProcess( MemReaderBase ):
                 pos += 1
                 if 'x' == line[pos]:
                     protection |= 2
-                for addr in xrange(start, end, self._pageSize):
+                for addr in range(start, end, self._pageSize):
                     result[addr] = ('', addr, protection)
         return result
 
@@ -174,7 +170,7 @@ class MemReaderInProcess( MemReaderBase ):
         return self._DEFAULT_DATA_SIZE
 
     def getEndianity(self):
-	    return self._ENDIANITY 
+        return self._ENDIANITY
 
     def getMemoryMap(self):
         return self._memMap.copy()
@@ -194,7 +190,7 @@ class MemReaderInProcess( MemReaderBase ):
         if self._readCtype(val, address, length):
             raise ReadError(address)
         return val.raw
-    
+
     def readQword(self, address):
         val = c_uint64(0)
         if self._readCtype(val, address, 8):

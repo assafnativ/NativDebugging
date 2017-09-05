@@ -10,12 +10,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
@@ -104,7 +104,7 @@ class DifferentialSearch( object ):
             except (WindowsError, ReadError) as e:
                 continue
         self._memory = newMemory
-    
+
     def removeChangedMemory(self):
         self.filterMemoryOldWithNew(bytes.__eq__)
     def removeUnchangedMemory(self):
@@ -132,7 +132,7 @@ class DifferentialSearch( object ):
         if x > 0xffffffff or x < 0:
             raise Exception("UInt32 out of range")
         self.filterMemoryWithConst(
-            (lambda y, z: unpack('=L', y)[0] == z), 
+            (lambda y, z: unpack('=L', y)[0] == z),
             x,
             4,
             alignment)
@@ -150,16 +150,16 @@ class DifferentialSearch( object ):
         if x > 0xffff or x < 0:
             raise Exception("UInt16 out of range")
         self.filterMemoryWithConst(
-            (lambda y, z: unpack('=H', y)[0] == z), 
+            (lambda y, z: unpack('=H', y)[0] == z),
             x,
             2,
             alignment)
-            
+
     def searchInt16(self, x, alignment=None):
         if x > 0x7fff or x < 8000:
             raise Exception("Int16 out of range")
         self.filterMemoryWithConst(
-            (lambda y, z: unpack('=h', y)[0] == z), 
+            (lambda y, z: unpack('=h', y)[0] == z),
             x,
             2,
             alignment)
@@ -168,16 +168,16 @@ class DifferentialSearch( object ):
         if x > 0xff or x < 0:
             raise Exception("UInt8 out of range")
         self.filterMemoryWithConst(
-            (lambda y, z: unpack('=B', y)[0] == z), 
+            (lambda y, z: unpack('=B', y)[0] == z),
             x,
             1,
             alignment)
-            
+
     def searchInt8(self, x, alignment=None):
         if x > 0x7f or x < 80:
             raise Exception("Int8 out of range")
         self.filterMemoryWithConst(
-            (lambda y, z: unpack('=b', y)[0] == z), 
+            (lambda y, z: unpack('=b', y)[0] == z),
             x,
             1,
             alignment)
@@ -191,7 +191,7 @@ class DifferentialSearch( object ):
         keys.sort()
         result = ''
         for i, x in enumerate(keys[:MAX_DISPLAY]):
-            result += '%d: 0x%08x: %s\n' % (i, x, self._memory[x].encode('hex'))
+            result += '%d: 0x%08x: %s\n' % (i, x, codecs.encode(self._memory[x], 'hex'))
         if len(keys) > MAX_DISPLAY:
             result += '\nMore'
         return result

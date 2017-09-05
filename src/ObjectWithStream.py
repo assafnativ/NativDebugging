@@ -1,14 +1,18 @@
 
-import cStringIO
+import sys
+if sys.version_info < (3,):
+    from cStringIO import StringIO
+else:
+    from io import BytesIO as StringIO
 from struct import pack, unpack
 
 class ObjectWithStream(object):
     def __init__(self, data=None, endianity='<'):
         self.endianity = endianity
         if None == data:
-            self.stream = cStringIO.StringIO()
+            self.stream = StringIO()
         elif isinstance(data, str):
-            self.stream = cStringIO.StringIO(data)
+            self.stream = StringIO(data)
             self.stream.seek(0)
         else:
             self.stream = data
@@ -86,7 +90,7 @@ class ObjectWithStream(object):
                 nextByte = nextByte[::-1]
         else:
             nextByte = self.stream.read(1)
-        while nextByte not in ['\x00', '\x00\x00']:
+        while nextByte not in [b'\x00', b'\x00\x00']:
             result += nextByte
             if isUTF16:
                 nextByte = self.stream.read(2)

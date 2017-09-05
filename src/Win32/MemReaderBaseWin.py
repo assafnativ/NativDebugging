@@ -21,8 +21,7 @@
 from ..MemReaderBase import *
 from .Win32Structs import *
 from .Win32Utile import *
-import exceptions
-from ..Utile import printIfVerbose
+from ..Utile import printIfVerbose, integer_types
 
 class MemReaderBaseWin( MemReaderBase ):
     def __init__(self, *argv, **argm):
@@ -43,9 +42,9 @@ class MemReaderBaseWin( MemReaderBase ):
         printIfVerbose("Found %d modules" % num_modules, isVerbose)
 
         for module_iter in range(num_modules):
-            module_name = c_ARRAY( c_char, 10000 )('\x00')
+            module_name = c_ARRAY( c_char, 10000 )(b'\x00')
             GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
-            module_name = module_name.raw.replace('\x00', '')
+            module_name = module_name.raw.replace(b'\x00', b'')
             module_info = MODULEINFO(0)
             GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
             module_base = module_info.lpBaseOfDll
@@ -63,10 +62,10 @@ class MemReaderBaseWin( MemReaderBase ):
     def getModulePath( self, base ):
         if isinstance(base, str):
             base = self.findModule(base)
-        file_name = c_ARRAY(c_char, 10000)('\x00')
+        file_name = c_ARRAY(c_char, 10000)(b'\x00')
         file_name_size = c_uint32(0)
         GetModuleFileName(base, byref(file_name), byref(file_name_size))
-        return file_name.raw.replace('\x00\x00', '').decode('utf16')
+        return file_name.raw.replace(b'\x00\x00', b'').decode('utf16')
 
     def _getSomePEInfo( self, module_base ):
         pe = module_base + self.readDword( module_base + win32con.PE_POINTER_OFFSET )
@@ -86,7 +85,7 @@ class MemReaderBaseWin( MemReaderBase ):
             section_name = self.readMemory( \
                     pe + first_section + (sections_iter * win32con.IMAGE_SIZEOF_SECTION_HEADER), \
                     win32con.PE_SECTION_NAME_SIZE )
-            section_name = section_name.replace('\x00', '')
+            section_name = section_name.replace(b'\x00', b'')
             section_base = self.readDword( \
                     pe + first_section + (sections_iter * win32con.IMAGE_SIZEOF_SECTION_HEADER) + win32con.PE_SECTION_VOFFSET_OFFSET )
             section_size = self.readDword( \
@@ -130,7 +129,7 @@ class MemReaderBaseWin( MemReaderBase ):
         """
         base = self.findModule(dllName, isVerbose=False)
         rva = self.findRVA(base)
-        if isinstance(target, (int, long)):
+        if isinstance(target, integer_types):
             isOrdinals = True
         else:
             isOrdinals = False
@@ -211,7 +210,7 @@ class MemReaderBaseWin( MemReaderBase ):
                     print('Failed to duplicate handle %x' % systemHandles[i].Handle)
                     continue
                 objectHandle = objectHandle.value
-            except exceptions.WindowsError as e:
+            except WindowsError as e:
                 needToClose = False
                 if 5 == e.winerror:
                     objectHandle = systemHandles[i].Handle

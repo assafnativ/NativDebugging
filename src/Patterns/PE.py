@@ -81,7 +81,7 @@ DLL_CHARACTERISTICS_FALGS = {
     0x8000  : "TERMINAL_SERVER_AWARE" }
 
 ImageFileHeader = [
-        SHAPE("Machine",            0, WORD(VALID_MACHINE_TYPES.keys())),
+        SHAPE("Machine",            0, WORD(list(VALID_MACHINE_TYPES.keys()))),
         SHAPE("NumberOfSections",   0, WORD()),
         SHAPE("TimeDateStamp",      0, CTIME()),
         SHAPE("PointerToSymTable",  0, DWORD()),
@@ -197,31 +197,31 @@ def getAllResData(pe, offset=0, isDir=True):
     resAddr = None
     for item in pe.Sections:
         item = item.Item
-        if item.Name.startswith('.rsrc\x00'):
+        if item.Name.startswith(b'.rsrc\x00'):
             resAddr = item.PointerToRawData
     if None == resAddr:
         raise Exception("Can't find resources data")
     if isDir:
-        res = p.search(ImageResourceDirectory, resAddr+offset).next()
+        res = next(p.search(ImageResourceDirectory, resAddr+offset))
     else:
-        res = p.search(ResourceDataEntry, resAddr+offset).next()
-        print res
+        res = next(p.search(ResourceDataEntry, resAddr+offset))
+        print(res)
         addr = res.DataRVA - pe.OptionalHeader.ResDir.VirtualAddress + resAddr
         data = m.readMemory(res.DataRVA, res.DataEntrySize)
-        print DATA(data)
-        print '+' * 20
+        print(DATA(data))
+        print('+' * 20)
         return
-    print res
-    print '-' * 20
+    print(res)
+    print('-' * 20)
     for i, item in enumerate(res.NamedEntries):
-        print i,'.'
+        print(i,'.')
         item = item.Item
         if item.isDataEntry:
             getAllResData(resAddr, pe, item.subdirectoryRVA, False)
         else:
             getAllResData(resAddr, pe, item.subdirectoryRVA, True)
     for i, item in enumerate(res.IdEntries):
-        print i,'.'
+        print('%d, .' % i)
         item = item.Item
         if item.isDataEntry:
             getAllResData(resAddr, pe, item.subdirectoryRVA, False)
@@ -229,7 +229,7 @@ def getAllResData(pe, offset=0, isDir=True):
             getAllResData(resAddr, pe, item.subdirectoryRVA, True)
 
 ImageOptionalHeader = [
-        SHAPE("Magic",              0,  WORD(VALID_PE_FORMATS.keys())),
+        SHAPE("Magic",              0,  WORD(list(VALID_PE_FORMATS.keys()))),
         SHAPE("MajorLinkerVersion", 0,  BYTE()),
         SHAPE("MinorLinkerVersion", 0,  BYTE()),
         SHAPE("CodeSize",         0,  DWORD()),
@@ -246,7 +246,7 @@ ImageOptionalHeader = [
                     SHAPE("ImageBase",          0, QWORD()) ],
                 "default" : [
                     SHAPE("ImageBase",          0, QWORD()) ] }) ),
-        SHAPE("SectionAlignment",   0, DWORD()), #VALID_SECTION_ALGINMENTS.keys())),
+        SHAPE("SectionAlignment",   0, DWORD()), #list(VALID_SECTION_ALGINMENTS.keys()))),
         SHAPE("FileAlignment",      0, DWORD()),
         SHAPE("MajorOSVersion", 0, WORD()),
         SHAPE("MinorOSVersion", 0, WORD()),
@@ -258,7 +258,7 @@ ImageOptionalHeader = [
         SHAPE("ImageSize",        0, DWORD()),
         SHAPE("HeadersSize",      0, DWORD()),
         SHAPE("CheckSum",           0, DWORD()),
-        SHAPE("Subsystem",          0, WORD(WINDOWS_SUBSYSTEMS.keys())),
+        SHAPE("Subsystem",          0, WORD(list(WINDOWS_SUBSYSTEMS.keys()))),
         SHAPE("DllCharacteristics", 0, FLAGS(DLL_CHARACTERISTICS_FALGS, size=2)),
         SHAPE("Stack", 0, SWITCH( lambda ctx: ctx.Magic,
             {
@@ -293,14 +293,14 @@ ImageOptionalHeader = [
         SHAPE("ReservedDir",    0, STRUCT(ImageDataDirectory)) ]
 
 ImageNtHeaders = [
-        SHAPE("Signature", 0, STRING(fixedValue='PE\x00\x00')),
+        SHAPE("Signature", 0, STRING(fixedValue=b'PE\x00\x00')),
         SHAPE("FileHeader", 0, STRUCT(ImageFileHeader)),
         SHAPE("OptionalHeader", 0, STRUCT(ImageOptionalHeader)),
         SHAPE("Sections", 0, \
                 ARRAY(lambda ctx: ctx.FileHeader.NumberOfSections, STRUCT, [ImageSectionHeader])) ]
 
 ImageDosHeader = [
-        SHAPE("e_magic", 0, STRING(fixedValue="MZ")),
+        SHAPE("e_magic", 0, STRING(fixedValue=b"MZ")),
         SHAPE("e_cblp", 0, WORD()),
         SHAPE("e_cp", 0, WORD()),
         SHAPE("e_crlc", 0, WORD()),

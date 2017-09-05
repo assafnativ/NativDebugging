@@ -35,7 +35,6 @@ except ImportError as e:
     IS_DISASSEMBLER_FOUND = False
 import sys
 import struct
-import exceptions
 
 def attach(targetProcessId):
     return MemoryReader(target_process_id=targetProcessId)
@@ -125,7 +124,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         return result.value
 
     def readMemory( self, addr, length ):
-        result = c_ARRAY(c_char, length)('\x00')
+        result = c_ARRAY(c_char, length)(b'\x00')
         bytes_read = c_uint32(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), sizeof(result), byref(bytes_read) )
         if 0 == read_result:
@@ -142,13 +141,13 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             if False == isUnicode:
                 try:
                     ReadProcessMemory( self._process, addr + bytesCounter, byref(char), 1, byref(bytes_read) )
-                except exceptions.WindowsError:
+                except WindowsError:
                     return result
                 bytesCounter += 1
             else:
                 try:
                     ReadProcessMemory( self._process, addr + bytesCounter, byref(char), 2, byref(bytes_read) )
-                except exceptions.WindowsError:
+                except WindowsError:
                     return result
                 bytesCounter += 2
             if 1 < char.value and char.value < 0x80:
@@ -167,28 +166,28 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             raise Exception("Unknown pointer size")
 
     def writeQword( self, addr, data ):
-        if isinstance(data, (int, long)):
+        if isinstance(data, integer_types):
             data = struct.pack('<Q', data)
         data_to_write = c_buffer(data, 8)
         bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 8, byref(bytes_written) )
 
     def writeDword( self, addr, data ):
-        if isinstance(data, (int, long)):
+        if isinstance(data, integer_types):
             data = struct.pack('<L', data)
         data_to_write = c_buffer(data, 4)
         bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 4, byref(bytes_written) )
 
     def writeWord( self, addr, data ):
-        if isinstance(data, (int, long)):
+        if isinstance(data, integer_types):
             data = struct.pack('<H', data)
         data_to_write = c_buffer(data, 2)
         bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 2, byref(bytes_written) )
 
     def writeByte( self, addr, data ):
-        if isinstance(data, (int, long)):
+        if isinstance(data, integer_types):
             data = struct.pack('<B', data)
         data_to_write = c_buffer(data, 1)
         bytes_written = c_uint32(0)
@@ -296,11 +295,14 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
     @staticmethod
     def stringCaseInsensetiveCmp(target):
         def _stringCaseInsensetiveCmp(x, r):
-            return x.replace('\x00', '').lower() == target.lower()
+            return x.replace(b'\x00', b'').lower() == target.lower()
         return _stringCaseInsensetiveCmp
 
     def search(self, target, ranges=None, targetLength=None, alignment=None, isVerbose=False):
-        integerTypes = (int, long, tuple, list)
+        if sys.version_info < (3,):
+            integerTypes = (int, long, tuple, list)
+        else:
+            integerTypes = (int, tuple, list)
         if None == ranges:
             if isVerbose:
                 print("Creating memory map")
@@ -338,7 +340,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             targetValidator = MemoryReader.isInListChecker(target)
         elif isinstance(target, tuple):
             targetValidator = MemoryReader.isInRangeChecker(target)
-        elif isinstance(target, (int, long)):
+        elif isinstance(target, integer_types):
             targetValidator = MemoryReader.isEqChecker(target)
         elif isinstance(target, str):
             targetValidator = MemoryReader.isEqChecker(target)

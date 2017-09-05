@@ -10,12 +10,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
@@ -24,6 +24,8 @@
 from abc import ABCMeta, abstractmethod
 from .Win32Structs import *
 from .MemReaderBaseWin import *
+from ..Utile import integer_types
+import sys
 
 class InjectDll( object ):
     __metaclass__ = ABCMeta
@@ -48,8 +50,8 @@ class InjectDll( object ):
         pass
 
     def injectDllCreateRemoteThread(self, dllName, LoadLibraryA_address=None, creationFlags=0):
-        if dllName[-1] != '\x00':
-            dllName += "\x00"
+        if dllName[-1] != b'\x00':
+            dllName += b"\x00"
         if None == LoadLibraryA_address:
             LoadLibraryA_address = self.findProcAddress("kernel32.dll", "LoadLibraryA")
         return self.createRemoteThreadAtAddress(LoadLibraryA_address, param=dllName, creationFlags=creationFlags)
@@ -57,7 +59,7 @@ class InjectDll( object ):
     def createRemoteThreadAtAddress(self, remoteAddress, param=None, creationFlags=0):
         if isinstance(param, str):
             param = self._allocateAndWrite( param )
-        elif isinstance(param, (int, long)):
+        elif isinstance(param, integer_types):
             pass
         elif None==param:
             param = 0
@@ -86,12 +88,11 @@ class InjectDll( object ):
                             None,
                             length,
                             win32con.MEM_COMMIT,
-                            win32con.PAGE_READWRITE ) 
+                            win32con.PAGE_READWRITE )
         return remoteAddress
 
     def injectRPyC(self, pythonDll=None):
         if None == pythonDll:
-            import sys
             pythonDll = 'python%d%d.dll' % (sys.version_info.major, sys.version_info.minor)
         pythonAddr = injectDll(pythonDll)
 

@@ -21,6 +21,7 @@
 
 from abc import ABCMeta, abstractmethod
 from ..Interfaces import MemReaderInterface, ReadError
+from ..Utile import integer_types
 
 import sys
 from os import linesep
@@ -39,7 +40,7 @@ def printPattern(pattern, depth=0):
         if hasattr(shape.data, 'content'):
             printPattern(shape.data.content, depth+1)
         if hasattr(shape.data, 'cases'):
-            keys = shape.data.cases.keys()
+            keys = list(shape.data.cases.keys())
             keys.sort()
             for key in keys:
                 print("%sCase %r" % (space, key))
@@ -113,7 +114,7 @@ class SearchContext( object ):
                     result += '0x%x' % val._val
                 result += ':\n'
                 result += val._repr(depth+1, noAddress=noAddress)
-            elif isinstance(val, list):
+            elif isinstance(val, (list, set)):
                 subAddr = 0
                 for i, var in enumerate(val):
                     result += '\n'
@@ -131,7 +132,7 @@ class SearchContext( object ):
                     subAddr += len(var)
                 result += '\n'
             else:
-                if isinstance(val, (int, long)):
+                if isinstance(val, integer_types):
                     val = hex(val).replace('L', '')
                 else:
                     val = repr(val)
@@ -142,7 +143,7 @@ class SearchContext( object ):
             result += '\n'
             for item in metaItems:
                 val = getattr(self, item)
-                if isinstance(val, (int, long)):
+                if isinstance(val, integer_types):
                     val = hex(val).replace('L', '')
                 else:
                     val = repr(val)
@@ -193,7 +194,7 @@ class PatternFinder( object ):
         return self._ENDIANITY
 
     def searchOne(self, pattern, startAddress, lastAddress=0, context=None):
-        return self.search(pattern, startAddress, lastAddress, context).next()
+        return next(self.search(pattern, startAddress, lastAddress, context))
 
     def search(self, pattern, startAddress, lastAddress=0, context=None):
         if None == context:
@@ -309,16 +310,16 @@ def GetItemsByName( context, name ):
                 yield result
 
 def GetOffsetByName( context, name ):
-    return GetItemsByName(context, 'OffsetOf' + name).next()
+    return next(GetItemsByName(context, 'OffsetOf' + name))
 
 def GetAddressByName( context, name ):
-    return GetItemsByName(context, 'AddressOf' + name).next()
+    return next(GetItemsByName(context, 'AddressOf' + name))
 
 def GetSizeOfByName( context, name ):
-    return GetItemsByName(context, 'SizeOf' + name).next()
+    return next(GetItemsByName(context, 'SizeOf' + name))
 
 def GetMemoryFootprintByName( context, name ):
-    return GetItemsByName(context, 'FootprintOf' + name).next()
+    return next(GetItemsByName(context, 'FootprintOf' + name))
 
 def xrangeWithOffset( start, end, step, addr ):
     pos = start
@@ -403,7 +404,7 @@ class SHAPE( SHAPE_WITH_NAME ):
                 self.maxOffset = place[0]
             else:
                 self.maxOffset = place[1]
-        elif isinstance(place, (int, long)):
+        elif isinstance(place, integer_types):
             self.minOffset = 0
             self.maxOffset = place
         elif isinstance(place, str):
@@ -663,7 +664,7 @@ class SWITCH( DATA_TYPE ):
     def __repr__(self):
         if self.context:
             return repr(self.context)
-        return repr(self.cases.keys())
+        return repr(list(self.cases.keys()))
     def readValue(self, patFinder, address):
         self.context = SearchContext(self.parentContext._root)
         parentContext = self.parentContext
@@ -723,11 +724,11 @@ class NUMBER( DATA_TYPE ):
         elif self._endianity == '>':
             result = 'big-endin_' + result
         value = self.value
-        if isinstance(value, (int, long)):
+        if isinstance(value, integer_types):
             result += 'CONST_VALUE_%d' % value
         elif isinstance(value, tuple):
             result += 'RANGE_FROM_%d_TO_%d' % (value[0], value[1])
-        elif isinstance(value, list):
+        elif isinstance(value, (list, set)):
             result += 'ENUM_%r' % value
         elif isinstance(value, dict):
             result += 'ENUM_%r' % value
@@ -755,10 +756,10 @@ class NUMBER( DATA_TYPE ):
         if isinstance(validValue, tuple):
             if value < self.value[1] and value >= self.value[0]:
                 yield True
-        elif isinstance(validValue, (int, long)):
+        elif isinstance(validValue, integer_types):
             if value == self.value:
                 yield True
-        elif isinstance(validValue, list):
+        elif isinstance(validValue, (list, set)):
             if value in self.value:
                 yield True
         elif isinstance(validValue, dict):
@@ -823,7 +824,7 @@ class FLOAT( NUMBER ):
             result += 'CONST_VALUE_%d' % value
         elif isinstance(value, tuple):
             result += 'RANGE_FROM_%d_TO_%d' % (value[0], value[1])
-        elif isinstance(value, list):
+        elif isinstance(value, (list, set)):
             result += 'ENUM_%s' % repr(value)
         elif None == value:
             result += 'ANYTHING'
@@ -910,7 +911,8 @@ def IsPrintable(s, isUnicode=False):
         if '\0' == s[-1]:
             s = s[:-1]
         for c in s:
-            if ord(c) > 0x7f or ord(c) < 0x20:
+            c = ord(c)
+            if c > 0x7f or c < 0x20:
                 return False
     return True
 
@@ -942,9 +944,9 @@ class BUFFER( DATA_TYPE ):
 class STRING( DATA_TYPE ):
     NULL_TERM = None
     def __init__(self, size=None, maxSize=0x1000, fixedValue=None, isPrintable=True, isUnicode=False, isCaseSensitive=True, **keys):
-        if isinstance(fixedValue, str):
+        if isinstance(fixedValue, (str, bytes)):
             size = len(fixedValue)
-        if isinstance(size, (int, long)) and size > maxSize:
+        if isinstance(size, integer_types) and size > maxSize:
             raise Exception('Invalid size for string')
         self.isPrintable    = isPrintable and (None == fixedValue)
         self.isUnicode      = isUnicode
@@ -959,7 +961,7 @@ class STRING( DATA_TYPE ):
     def __repr__(self):
         if self.NULL_TERM == self.length:
             return '\\0 STRING'
-        elif isinstance(self.length, (int, long)):
+        elif isinstance(self.length, integer_types):
             return 'STRING[%d]' % self.length
         return 'STRING'
 
@@ -1008,12 +1010,12 @@ class STRING( DATA_TYPE ):
                     if self.isCaseSensitive:
                         if value[i*2] != self.fixedValue[i]:
                             return
-                        if value[i*2 + 1] != '\x00':
+                        if value[i*2 + 1] != b'\x00':
                             return
                     else:
                         if value[i*2].lower() != self.fixedValue[i].lower():
                             return
-                        if value[i*2 + 1] != '\x00':
+                        if value[i*2 + 1] != b'\x00':
                             return
             else:
                 if self.isCaseSensitive and value != self.fixedValue:
@@ -1037,7 +1039,7 @@ class ARRAY( DATA_TYPE ):
         self.currentArraySize = 0
         if isinstance(count, str):
             self.arraySize = _genGetValProc(count)
-        elif isinstance(count, (int, long)):
+        elif isinstance(count, integer_types):
             self.currentArraySize = count
             self.arraySize = count
         else:
@@ -1069,7 +1071,7 @@ class ARRAY( DATA_TYPE ):
             var.setForSearch(patFinder, context)
 
     def readValue(self, patFinder, address):
-        if isinstance(self.arraySize, (int, long)):
+        if isinstance(self.arraySize, integer_types):
             self.currentArraySize = self.arraySize
         else:
             self.currentArraySize = self.arraySize(self.parentContext)

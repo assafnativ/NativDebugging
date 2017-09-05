@@ -1,3 +1,5 @@
+from builtins import bytes
+
 class win32con( object ):
     def __init__( self ):
         pass
@@ -151,8 +153,8 @@ def NtStatusCheck(ntStatus):
     else:
         return ntStatus
 
-TRUE = c_char(  chr( int( True  ) ) )
-FALSE = c_char( chr( int( False ) ) )
+TRUE = c_char(bytes([int(True)]))
+FALSE = c_char(bytes([int(False)]))
 void_NULL = c_void_p( win32con.NULL )
 pchar_NULL = c_char_p( win32con.NULL )
 
@@ -203,7 +205,7 @@ try:
         c_void_p,   # LPDWORD lpcbNeeded
         c_uint32]   # DWORD dwFilterFlag
     EnumProcessModulesEx.restype = ErrorIfZero
-except AttributeError, e:
+except AttributeError as e:
     EnumProcessModulesEx = None
 
 EnumProcesses = windll.psapi.EnumProcesses
