@@ -18,10 +18,11 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
-
+from __future__ import print_function
+from builtins import range
 from abc import ABCMeta
 from .Interfaces import MemReaderInterface, ReadError
-from .Utile import makeQwordsList, makeDwordsList
+from .Utile import makeQwordsList, makeDwordsList, integer_types
 
 class RecursiveFind( MemReaderInterface ):
     """ Search for offsets using a recurisve method """
@@ -49,7 +50,7 @@ class RecursiveFind( MemReaderInterface ):
             nextSearchLength = searchLength
             currentSearchLenght = searchLength
         try:
-            for offset in xrange(currentSearchLenght):
+            for offset in range(currentSearchLenght):
                 addr = startAddress + offset
                 if 0 == (addr % alignment):
                     data = targetReader(addr)
@@ -62,7 +63,7 @@ class RecursiveFind( MemReaderInterface ):
                     if hops > 0 and (0 == (pointer % alignment)) and self.isAddressValid(pointer):
                         for result in self._recursiveFind(targetValidator, pointer, nextSearchLength, pointerSize, targetReader, hops-1, alignment, limiter, path + [offset]):
                             yield result
-        except ReadError, e:
+        except ReadError as e:
             pass
 
     @staticmethod
@@ -83,7 +84,7 @@ class RecursiveFind( MemReaderInterface ):
     @staticmethod
     def stringCaseInsensetiveCmp(target):
         def _stringCaseInsensetiveCmp(x, r):
-            return x.replace('\x00', '').lower() == target.lower()
+            return x.replace(b'\x00', b'').lower() == target.lower()
         return _stringCaseInsensetiveCmp
 
     def recursiveFind( self, target, startAddress, searchLength, hops=1, targetLength=None, alignment=4, limiter=None, isVerbose=False):
@@ -102,7 +103,7 @@ class RecursiveFind( MemReaderInterface ):
             targetValidator = RecursiveFind.isInListChecker(target)
         elif isinstance(target, tuple):
             targetValidator = RecursiveFind.isInRangeChecker(target)
-        elif isinstance(target, (int, long)):
+        elif isinstance(target, integer_types):
             targetValidator = RecursiveFind.isEqChecker(target)
         elif isinstance(target, str):
             targetValidator = RecursiveFind.isEqChecker(target)
@@ -110,7 +111,7 @@ class RecursiveFind( MemReaderInterface ):
         else:
             targetValidator = target
 
-        if isinstance(target, (list, tuple, int, long)):
+        if isinstance(target, (list, tuple)) or isinstance(target, integer_types):
             if None == targetLength:
                 targetLength = 4
 

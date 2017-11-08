@@ -38,11 +38,11 @@ class DumpBase( object ):
         if None == dumpType:
             dumpType = self.DUMP_TYPE_NATIV_DEBUGGING
         if not isinstance(dumpFile, file):
-            dumpFile = file(dumpFile, 'wb')
+            dumpFile = open(dumpFile, 'wb')
         if self.DUMP_TYPE_NATIV_DEBUGGING == dumpType:
             self._writeDumpHeader(dumpFile)
         memMap = self.getMemoryMap()
-        addresses = memMap.keys()
+        addresses = list(memMap.keys())
         addresses.sort()
         for addr in addresses:
             regionInfo = memMap[addr]
@@ -67,16 +67,16 @@ class DumpBase( object ):
                 except ReadError:
                     if isVerbose:
                         print("Failed to read data from address %x to %x" % (addr, addr + currentReadSize))
-                    page = '\x00' * currentReadSize
+                    page = b'\x00' * currentReadSize
                 bytesLeft -= currentReadSize
                 addr += currentReadSize
                 dumpFile.write(page)
         if None != comments and self.DUMP_TYPE_NATIV_DEBUGGING == dumpType:
-            self._writeAtom(dumpFile, 'CMNT', comments)
+            self._writeAtom(dumpFile, b'CMNT', comments)
 
     def _writeDumpHeader(self, dumpFile):
-        self._writeAtom(dumpFile, 'NDMD', '')
-        self._writeAtom(dumpFile, 'INFO', [
+        self._writeAtom(dumpFile, b'NDMD', b'')
+        self._writeAtom(dumpFile, b'INFO', [
                 pack('>L', self.getPointerSize()),
                 pack('>L', self.getDefaultDataSize()),
                 self.getEndianity() ] )

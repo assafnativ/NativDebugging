@@ -1,4 +1,7 @@
 
+from __future__ import print_function
+from builtins import bytes, bytearray, file
+import io
 from ..Interfaces import ReadError
 from ..MemReaderBase import *
 from ..GUIDisplayBase import *
@@ -16,7 +19,7 @@ def loadDump(dumpFile):
     if len(dumpFile) > 200:
         magic = dumpFile[:4]
     else:
-        with file(dumpFile, 'rb') as dump:
+        with open(dumpFile, 'rb') as dump:
             magic = dump.read(4)
     if 'NDMD' == magic:
         return DumpReader(dumpFile)
@@ -31,7 +34,7 @@ class DumpReader( MemReaderBase, GUIDisplayBase ):
         if isinstance(dumpFile, file):
             self.dumpFile = dumpFile
         else:
-            self.dumpFile = file(dumpFile, 'rb')
+            self.dumpFile = io.open(dumpFile, 'rb')
         self._MEM_MAP = {}
         self._REGIONS = []
         self._DATA = {}
@@ -89,7 +92,7 @@ class DumpReader( MemReaderBase, GUIDisplayBase ):
         return self._MEM_MAP.copy()
 
     def searchBin(self, target):
-        addresses = self._DATA.keys()
+        addresses = list(self._DATA.keys())
         addresses.sort()
         for base in addresses:
             pos = -1

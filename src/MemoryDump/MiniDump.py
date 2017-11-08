@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import range
 
 from ..Interfaces import ReadError
 from ..MemReaderBase import *
@@ -20,7 +22,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
         self._ENDIANITY = '<'
         self.stream = ObjectWithStream(dumpFile)
         magic = self.stream.read(4)
-        if 'MDMP' != magic:
+        if b'MDMP' != magic:
             raise Exception("Wrong magic in MiniDump {%r}", magic)
         self.dumpVersion = self.stream.readUInt32()
         self.numStreams = self.stream.readUInt32()
@@ -32,7 +34,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
         self.directories = []
         self.stream.seek(streamDirRVA)
         self.memoryList = None
-        for streamNumber in xrange(self.numStreams):
+        for streamNumber in range(self.numStreams):
             self.directories.append((self.stream.readUInt32(),) + self._readLocationDescriptor())
         for streamType, length, rva in self.directories:
             self._parseDirectory(streamType, rva, length)
@@ -135,14 +137,14 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
     def _readThreadList(self):
         numThreads = self.stream.readUInt32()
         threads = []
-        for i in xrange(numThreads):
+        for i in range(numThreads):
             threads.append(self._readThread())
         return threads
 
     def _readThreadExList(self):
         numThreads = self.stream.readUInt32()
         threads = []
-        for i in xrange(numThreads):
+        for i in range(numThreads):
             threads.append(self._readThreadEx())
         return threads
 
@@ -173,7 +175,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
     def _readModuleList(self):
         numModules = self.stream.readUInt32()
         modules = []
-        for i in xrange(numModules):
+        for i in range(numModules):
             modules.append(self._readModule())
         return modules
 
@@ -204,7 +206,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
         numMemoryRanges = self.stream.readUInt32()
         memoryRanges = []
         MEMORY_RANGE_TYPE = namedtuple('MEMORY_DESCRIPTOR', ['startOfMemoryRange', 'memory'])
-        for i in xrange(numMemoryRanges):
+        for i in range(numMemoryRanges):
             memoryRanges.append(MEMORY_RANGE_TYPE(
                     self.stream.readUInt64(),
                     self._readLocationDescriptor()))
@@ -215,7 +217,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
         baseRva = self.stream.readUInt64()
         memoryRanges = []
         MEMORY_DESCRIPTOR_TYPE = namedtuple('MEMORY_DESCRIPTOR', ['startOfMemoryRange', 'dataSize'])
-        for i in xrange(numMemoryRanges):
+        for i in range(numMemoryRanges):
             memoryRanges.append(MEMORY_DESCRIPTOR_TYPE(
                     self.stream.readUInt64(),
                     self.stream.readUInt64()))
@@ -347,7 +349,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
                 'pointerCount',
                 'objectInfoRva',
                 'reserved0'])
-        for i in xrange(handleData.numberOfDescriptors):
+        for i in range(handleData.numberOfDescriptors):
             if 0x28 == handleData.sizeOfDescriptor:
                 handleDescriptor = HANDLE_DESCRIPTOR_TYPE(
                         self.stream.readUInt64(),
@@ -396,7 +398,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
                 'baseAddress',
                 'entryCount',
                 'sizeOfAlignPad'])
-        for i in xrange(functionTable.numberOfDescriptors):
+        for i in range(functionTable.numberOfDescriptors):
             functionInfo = FUNCTION_TYPE(
                     self.stream.readUInt64(),
                     self.stream.readUInt64(),
@@ -419,7 +421,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
                 [])
         assert(self.stream.tell() - pos == unloadedModuleList.sizeOfHeader)
         UNLOADED_MODULE_TYPE = namedtuple('UNLOADED_MODULE', ['baseOfImage', 'sizeOfImage', 'checkSum', 'timeDateStamp', 'name'])
-        for i in xrange(unloadedModuleList.numberOfEntries):
+        for i in range(unloadedModuleList.numberOfEntries):
             module = UNLOADED_MODULE_TYPE(
                     self.stream.readUInt64(),
                     self.stream.readUInt32(),
@@ -478,7 +480,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
                 self.stream.readUInt64(),
                 [])
         MEMORY_INFO_TYPE = namedtuple('MEMORY_INFO', ['baseAddress', 'allocationBase', 'allocationProtect', 'alignment1', 'regionSize', 'state', 'protect', 'type', 'alignment2'])
-        for i in xrange(memoryInfoList.numberOfEntries):
+        for i in range(memoryInfoList.numberOfEntries):
             memory = MEMORY_INFO_TYPE(
                     self.stream.readUInt64(),
                     self.stream.readUInt64(),
@@ -503,7 +505,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
                 self.stream.readUInt32(),
                 [])
         THREAD_INFO_TYPE = namedtuple('THREAD_INFO', [ 'threadId', 'dumpFlags', 'dumpError', 'exitStatus', 'createTime', 'exitTime', 'kernelTime', 'userTime', 'startAddress', 'affinity'])
-        for i in xrange(threadInfoList.numberOfEntries):
+        for i in range(threadInfoList.numberOfEntries):
             threadInfo = THREAD_INFO_TYPE(
                     self.stream.readUInt32(),
                     self.stream.readUInt32(),
@@ -531,7 +533,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
                 self.stream.readUInt32(),
                 [])
         AVRF_BACKTRACE_INFORMATION_TYPE = namedtuple('AVRF_BACKTRACE_INFORMATION', ['handle', 'processId', 'threadId', 'operationType', 'spare0', 'depth', 'index', 'returnAddresses'])
-        for i in xrange(handleOperationList.numberOfEntries):
+        for i in range(handleOperationList.numberOfEntries):
             handleOperaiton = AVRF_BACKTRACE_INFORMATION_TYPE(
                     self.stream.readUInt64(),
                     self.stream.readUInt32(),
@@ -541,7 +543,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
                     self.stream.readUInt32(),
                     self.stream.readUInt32(),
                     [])
-            for t in xrange(32):
+            for t in range(32):
                 handleOperaiton.returnAddresses.append(self.stream.readUInt64())
             handleOperationList.handleOperaiton.append(handleOperaiton)
         return handleOperationList
@@ -578,7 +580,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
 
     def getRegionStartEnd(self, addr):
         index = bisect_left(self._REGIONS_ENDS, addr)
-        if index > len(self._REGIONS):
+        if len(self._REGIONS) <= index:
             return None
         region = self._REGIONS[index]
         if addr < region[0]:

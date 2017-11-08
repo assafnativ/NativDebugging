@@ -10,7 +10,7 @@ PDB7_SIGNATURE = "Microsoft C/C++ MSF 7.00\r\n\x1ADS\0\0\0"
 
 PDB7_PATTERN = [
         SHAPE("signature",      0,  STRING(fixedValue=PDB7_SIGNATURE)),
-        SHAPE("pageSize",       0,  DWORD()), 
+        SHAPE("pageSize",       0,  DWORD()),
         ASSERT(lambda reader,ctx:0==(ctx.pageSize&0xff)),
         SHAPE("allocTablePtr",  0,  DWORD()),
         SHAPE("numFilePages",   0,  DWORD()),
@@ -55,8 +55,6 @@ class StreamReader(MemReaderBase, GUIDisplayBase):
     def readWord( self, addr ):
         return unpack(self._ENDIANITY + 'H', self.readMemory(addr, 2))[0]
     def readByte( self, addr ):
-        return ord(self.fileReader.readByte(self.virtualAddrToPhy(addr)))
-    def readChar( self, addr ):
         return self.fileReader.readByte(self.virtualAddrToPhy(addr))
 
     def readMemory( self, addr, length ):
@@ -107,12 +105,12 @@ class StreamReader(MemReaderBase, GUIDisplayBase):
 
 def getRootStream(fileReader):
     patFinder = PatternFinder(fileReader)
-    header = patFinder.search(PDB7_PATTERN, 0).next()
+    header = next(patFinder.search(PDB7_PATTERN, 0))
     return StreamReader(fileReader, [x.Item for x in header.root], header.pageSize)
 
 PDB_ROOT_STREAM_PATTERN = [
         SHAPE("numStreams",     0,  DWORD()),
-        SHAPE("streamSizes",    0,  
+        SHAPE("streamSizes",    0,
             ARRAY("numStreams", DWORD, [])) ]
 
 def getStreams(rootStream):
@@ -168,7 +166,7 @@ TYPE_PATTERN = [
             "LF_UNION"      : LF_UNION_PATTERN,
             "LF_UNION_ST"   : LF_UNIONST_PATTERN,
             "LF_VTSHAPE"    : LF_VTSHAPE_PATTERN }))]
-            
+
 PDB_TYPES_STREAM_PATTERN = [
         SHAPE("version",        0,  DWORD()),
         SHAPE("headerSize",     0,  DWORD()),
@@ -182,6 +180,6 @@ PDB_TYPES_STREAM_PATTERN = [
         SHAPE("hashVals",       0,  STRUCT(OFF_CB_PATTERN)),
         SHAPE("tiOff",          0,  STRUCT(OFF_CB_PATTERN)),
         SHAPE("hashAdj",        0,  STRUCT(OFF_CB_PATTERN)),
-        SHAPE("types",          0,  
+        SHAPE("types",          0,
             ARRAY(lambda ctx:ctx.tiMax-ctx.tiMin, STRUCT, [TYPE_PATTERN]))]
 

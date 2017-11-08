@@ -10,12 +10,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
@@ -30,7 +30,7 @@ from .DllInfo import *
 from .Win32Structs import *
 from .Win32Utile import *
 from ..Utile import *
-    
+
 # For debugging
 import traceback
 import sys
@@ -40,7 +40,7 @@ from thread import *
 try:
     import distorm3
     IS_DISTORM_SUPPORTED = True
-except ImportError, e:
+except ImportError as e:
     IS_DISTORM_SUPPORTED = False
 
 # Consts
@@ -77,7 +77,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             cmd_line=None, \
             create_suspended=False, \
             create_info=None ):
-        """ 
+        """
         Constructor of the Win32Debugger class.
         """
 
@@ -96,7 +96,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
 
         # Create the control thread
         self._controlThread = start_new_thread( self._mainControl, () )
-        
+
         self._lastDebugEvent = DEBUG_EVENT()
         # A temp thread would use us to make go command not blocking
         self._tempThread = None
@@ -106,7 +106,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         self._processId = 0
         self._isDirty = False
         self.solveAddr = None
- 
+
         # Get myself debugging privileges
         adjustDebugPrivileges()
 
@@ -118,8 +118,8 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             else:
                 create_info['CREATION_FLAGS'] |= win32con.DEBUG_PROCESS
             self._create(
-                    cmd_line = cmd_line, 
-                    create_suspended = create_suspended, 
+                    cmd_line = cmd_line,
+                    create_suspended = create_suspended,
                     create_info = create_info)
         else:
             # Attach to process
@@ -128,37 +128,37 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         self.d   = self.readNPrintBin
         self.dd  = self.readNPrintDwords
         DebuggerBase.__init__(self)
-        
+
     def __del__( self ):
         """
         Destructor of the Win32Debugger class
         """
         # Kill the control center
         self._setCommand( CTRL_CMD_EXIT )
-        
+
     def _setCommand( self, command, params ):
         """
         Send a command to the main control thread.
         """
         # Mutex
         self._commandLock.acquire()
-        
+
         # Now we can safly set the command and its' params
         self._commands.append((command, params))
-        
+
         # Free Mutex
         self._commandLock.release()
 
     def _nop( self ):
-        pass 
+        pass
 
     def _mainControl( self ):
         """
         This function handles commands sent from user and executes the right handler.
-        It must be done this way to make the debugger none blocking (Coz the win32 
+        It must be done this way to make the debugger none blocking (Coz the win32
         debug API must be used from the debugging thread).
         """
-        
+
         cmd = CTRL_CMD_NOP
         while( CTRL_CMD_EXIT != cmd ):
             # Mutex
@@ -173,7 +173,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
 
             # Handle the new command
             if( CTRL_CMD_NOP != cmd ):
-                # For debug 
+                # For debug
                 if( True == DEBUG_MODE ):
                     print(cmd)
                     print(params)
@@ -202,10 +202,10 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             create_info=None ):
 
         self.createOrAttachProcess(
-                target_process_id = None, 
-                target_open_handle = None, 
-                cmd_line = cmd_line, 
-                create_suspended = create_suspended, 
+                target_process_id = None,
+                target_open_handle = None,
+                cmd_line = cmd_line,
+                create_suspended = create_suspended,
                 create_info = create_info)
 
         self._clearAllForFirstTime()
@@ -215,9 +215,9 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         """
         Load a new executable.
         """
-    
+
         if None == create_info:
-            create_info = {'CREATION_FLAGS' : 
+            create_info = {'CREATION_FLAGS' :
                     win32con.DEBUG_PROCESS | win32con.NORMAL_PRIORITY_CLASS }
         else:
             if 'CREATION_FLAGS' in create_info:
@@ -238,7 +238,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
 
         # Make one go, to stop after program is loaded
         self._run()
-        
+
         # Done loading
         self._isDoneLoading.acquire()
 
@@ -248,14 +248,14 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         # TBD: need to think of a better way to do it...
         while( not self._isDoneLoading.locked() ):
             pass
-        
+
     def _attach( self, processId ):
         """
         Attach to running process
         """
 
         DebugActiveProcess( processId )
-        
+
         # Setup
         MemoryReader.__init__(self, processId)
         self._processId = processId
@@ -295,7 +295,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             pass
         while( self._commandLock.locked() ):
             pass
-        
+
     def detach( self ):
         self._uninstallAllBreakPoints()
         self._setCommand( CTRL_CMD_DETACH, () )
@@ -308,13 +308,13 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
     def _runBlocking( self ):
         if( True == self._pause ):
             if( True == self._isExceptionHandled ):
-                ContinueDebugEvent( 
+                ContinueDebugEvent(
                         self._lastDebugEvent.dwProcessId,
                         self._lastDebugEvent.dwThreadId,
                         win32con.DBG_CONTINUE )
             else:
                 #print 'Debug exception was not handled by us, pass it to the program'
-                ContinueDebugEvent( 
+                ContinueDebugEvent(
                         self._lastDebugEvent.dwProcessId,
                         self._lastDebugEvent.dwThreadId,
                         win32con.DBG_EXCEPTION_NOT_HANDLED )
@@ -324,14 +324,14 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         #exception_code = exception_info.ExceptionRecord.ExceptionCode
         #print 'Got new debug event', self._lastDebugEvent.dwDebugEventCode, exception_info.dwFirstChance, exception_code, self._pause
         self._pause = True
-        
+
     def getThreadsList( self ):
         return self._thread_dictionary.copy()
 
     def getCurrentContext( self ):
         self.context.ContextFlags = win32con.CONTEXT_FULL | win32con.CONTEXT_i386
         GetThreadContext( self._currentThread, byref( self.context ) )
-    
+
     def setCurrentContext( self ):
         # print 'DEBUG: Setting current context EIP = ', hex(self.context.eip )
         self.context.ContextFlags = win32con.CONTEXT_FULL | win32con.CONTEXT_i386
@@ -356,13 +356,13 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
 
     def isProcessRunning( self ):
         return PROCESS_STATE_RUN == self._state
-            
+
     def _debugerMainLoop( self ):
         """
         Run until break worth thee event
         used from go command
         """
-        
+
         try:
             while True:
                 # Run
@@ -377,10 +377,10 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
                     exception_info = self._lastDebugEvent.u.Exception
                     exception_code = exception_info.ExceptionRecord.ExceptionCode
                     # print "DEBUG: Exception event ", exception_code, 'EIP = ', hex(self.context.eip)
-                    
+
                     # Exception considered unhandled until proved otherwise
                     self._isExceptionHandled = False
-                    
+
                     if( exception_code == win32con.EXCEPTION_ACCESS_VIOLATION ):
                         pass
                     elif( exception_code == win32con.EXCEPTION_ARRAY_BOUNDS_EXCEEDED ):
@@ -403,7 +403,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
                             self._isExceptionHandled = True
                             self._makeProcessReadyToRun()
 
-                        
+
                     elif( exception_code == win32con.EXCEPTION_DATATYPE_MISALIGNMENT ):
                         pass
                     elif( exception_code == win32con.EXCEPTION_FLT_DENORMAL_OPERAND ):
@@ -443,7 +443,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
                         self._state = PROCESS_STATE_RECOVER_FROM_SINGLE_STEP
                         print("Single step")
                         return( -1 )
-                        
+
                     elif( exception_code == win32con.EXCEPTION_STACK_OVERFLOW ):
                         pass
                     elif( exception_code == win32con.DBG_CONTROL_C ):
@@ -457,12 +457,12 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
                     if( 0 == exception_info.dwFirstChance ):
                         print("None first chance exception not handled")
                         return( -1 )
-     
+
                 elif( event_code == win32con.CREATE_THREAD_DEBUG_EVENT ):
                     self._currentThread    = self._lastDebugEvent.u.CreateThread.hThread
                     self._thread_dictionary[ self._lastDebugEvent.dwThreadId ] = self._currentThread
                     #print "Thread created (Id: %x)" % self._currentThread
-                    
+
                 elif( event_code == win32con.CREATE_PROCESS_DEBUG_EVENT ):
                     # Probebly raised due to attach
 
@@ -485,8 +485,8 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
                                 module_name = self.readUnicodeString( process_info.lpImageName )
                             except:
                                 pass
-                            module_name = module_name.replace( '\x00', '' )
-                    
+                            module_name = module_name.replace( b'\x00', b'' )
+
                     # Save its info
                     self._dlls.append( DllInfo(
                                             process_info.hFile,
@@ -495,7 +495,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
                                             process_info.lpImageName,
                                             process_info.fUnicode,
                                             module_name) )
-                    
+
                     print("Create Process", module_name)
 
                 elif( event_code == win32con.EXIT_THREAD_DEBUG_EVENT ):
@@ -521,7 +521,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
                                 name = self.readUnicodeString( new_dll.lpImageName )
                             except:
                                 pass
-                            name = name.replace( '\x00', '' )
+                            name = name.replace( b'\x00', b'' )
                         #print '%s is now loaded' % name
                     dll_info = DllInfo(
                             new_dll.hFile,
@@ -541,7 +541,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
                             print('{0:s} is unloaded'.format(dll.name))
                             self._dlls.remove( dll )
                             break
-                            
+
                 elif( event_code == win32con.OUTPUT_DEBUG_STRING_EVENT ):
                     print("Output string")
                 elif( event_code == win32con.RIP_EVENT ):
@@ -575,7 +575,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             bytes_to_read = [lines * 8, 100][lines * 8 < 100]   # Thats should be enough, and if not who cares.
         else:
             bytes_to_read = 100     # That's a magic number
-        
+
         # First read the relavent data.
         # Remove all break points, so we wont read them
         self._uninstallAllBreakPoints()
@@ -595,7 +595,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
     def u( self, address = None, lines = None ):
         """ Wrapper for the disassemble command """
         self.disassemble(address, lines)
-        
+
     def breakpointSet( self, address, proc = pause ):
         """
         Set a break point on execution.
@@ -610,7 +610,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             if( bp.address == address ):
                 print('Already a breakpoint')
                 return -1
-        # Save the original byte 
+        # Save the original byte
         original_byte = self.readByte( address )
         if( BREAK_POINT_BYTE == original_byte ):
             print('Already a breakpoint - Adding it to the list')
@@ -618,7 +618,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         self.writeByte( address, BREAK_POINT_BYTE )
         self._breakPoints.append( BreakPoint(address, 1, original_byte, proc) )
         return( len(self._breakPoints) - 1 )
-        
+
     def breakpointsList( self ):
         """
         List all break points.
@@ -635,7 +635,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             result += hex( break_point.address )
             result += '\n'
         return result
-                
+
     def _breakpointRemove( self, break_point ):
         """
         Makes the actually remove of the breakpoint, in a safly way.
@@ -694,7 +694,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             # Disable a single breakpoint
             break_point = self._breakPoints[index]
             self._breakpointDisable( break_point )
-        
+
     def _breakpointEnable( self, break_point ):
         if( BREAK_POINT_ACTIVE & break_point.state ):
             #print("Break point is allread enabled")

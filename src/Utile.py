@@ -22,6 +22,8 @@
 
 # Platform independent
 
+from builtins import bytes
+import codecs
 import struct
 import sys
 import os
@@ -30,22 +32,28 @@ import subprocess
 if sys.platform == 'win32':
     from .Win32.Win32Utile import *
 
+if sys.version_info < (3,):
+    integer_types = (int, long,)
+else:
+    integer_types = (int,)
+
 def DATA( data, base = 0, itemsInRow=0x10 ):
     result = ''
     for i in range(0, len(data), itemsInRow):
         line = '%08X  ' % (i + base)
-        line_data = data[i:][:itemsInRow]
+        line_data = bytes(data[i:][:itemsInRow])
         for t in range(len(line_data)):
             if( (0 == (t % 8)) and (t > 0) ):
-                line += '- %02X' % ord(line_data[t])
+                line += '- %02X' % line_data[t]
             elif( 0 == (t & 1) ):
-                line += '%02X' % ord(line_data[t])
+                line += '%02X' % line_data[t]
             elif( 1 == (t & 1) ):
-                line += '%02X ' % ord(line_data[t])
+                line += '%02X ' % line_data[t]
 
         spacesLeft = 13 + int(itemsInRow * 2.5) + (2 * ((itemsInRow - 1)//8))
         line += ' ' * (spacesLeft - len(line))
         for t in line_data:
+            t = chr(t)
             if( t == repr(t)[1] ):
                 line += t
             else:
@@ -57,21 +65,18 @@ def DATA( data, base = 0, itemsInRow=0x10 ):
 
 def makeQwordsList( data, endianity='=' ):
     if len(data) % 8 != 0:
-        data += '\x00' * (8 - (len(data) % 8))
-    return list(struct.unpack(endianity + ('Q' * (len(data) / 8)), data))
+        data += b'\x00' * (8 - (len(data) % 8))
+    return list(struct.unpack(endianity + ('Q' * (len(data) // 8)), data))
 
 def makeDwordsList( data, endianity='=' ):
     if len(data) % 4 != 0:
-        data += '\x00' * (4 - (len(data) % 4))
-    return list(struct.unpack(endianity + ('L' * (len(data) / 4)), data))
+        data += b'\x00' * (4 - (len(data) % 4))
+    return list(struct.unpack(endianity + ('L' * (len(data) // 4)), data))
 
 def makeWordsList( data, endianity='=' ):
     if len(data) % 2 != 0:
-        data += '\x00' * (2 - (len(data) % 2))
-    return list(struct.unpack(endianity + ('H' * (len(data) / 2)), data))
-
-def makeBytesList( data ):
-    return list(map(ord, data))
+        data += b'\x00' * (2 - (len(data) % 2))
+    return list(struct.unpack(endianity + ('H' * (len(data) // 2)), data))
 
 def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8, endianity='=' ):
     result = ''
@@ -103,7 +108,8 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8, endianity='=' 
         spacesLeft = ((itemSize * 2 + 1) * itemsInRow) + 19
         line += ' ' * (spacesLeft - len(line))
         for t in line_data:
-            for x in struct.pack(packSize, t):
+            for x in bytes(struct.pack(packSize, t)):
+                x = chr(x)
                 if( x == repr(x)[1] ):
                     line += x
                 else:
@@ -128,12 +134,27 @@ def printAsWordsTable( data, base = 0, itemsInRow = 0x8, endianity='=' ):
     return table
 
 def hex2data( h ):
-    if h[:2] == '0x':
-        return h[2:].decode('hex')
-    return h.decode('hex')
+    if isinstance(h, (str, unicode)):
+        if sys.version_info < (3,):
+            if h[:2] == '0x':
+                return h[2:].decode('hex')
+            return h.decode('hex')
+        else:
+            if h[:2] == '0x':
+                return bytes.fromhex(h[2:])
+            return bytes.fromhex(h[2:])
+    else:
+        if h[:2] == b'0x':
+            return codecs.decode(h[2:], 'hex')
+        return codecs.decode(h, 'hex')
 
 def data2hex( d ):
-    return d.encode('hex')
+    if isinstance(d, (str, unicode)):
+        if sys.version_info < (3,):
+            return d.encode('hex')
+        else:
+            return d.encode('utf-8').hex()
+    return codecs.encode(d, 'hex')
 
 def data2dword(x, endianity='='):
     return struct.unpack(endianity + 'L', x)[0]
@@ -355,10 +376,13 @@ def clipHex(x):
         if value[-1].lower() == 'l':
             value = value[:-1]
         value = int(value, 0)
-    if isinstance(value, (int, long)):
+    if isinstance(value, integer_types):
         value = "0x%x" % value
     else:
         value = hex(value)
+    clip(value)
+
+def clip(value):
     import ctypes
     strcpy = ctypes.cdll.msvcrt.strcpy
     ocb = ctypes.windll.user32.OpenClipboard    #Basic Clipboard functions

@@ -1,10 +1,18 @@
-import urllib
 import subprocess
 import datetime
 import threading
 import time
 import os
 import tempfile
+from ..Utile import integer_types
+import sys
+if sys.version_info < (3,):
+    from urllib import FancyURLopener
+    from urllib import urlretrieve
+else:
+    from urllib.request import FancyURLopener
+    from urllib.request import urlretrieve
+import urllib
 
 def downloadBinaryAsMSSymcheck(url, filenameToDownload, cacheDirName):
     if cacheDirName:
@@ -15,9 +23,9 @@ def downloadBinaryAsMSSymcheck(url, filenameToDownload, cacheDirName):
         if not os.path.isdir(targetDir):
             os.makedirs(targetDir)
     else:
-        ext = filename.split(os.path.extsep)[-1]
+        ext = filenameToDownload.split(os.path.extsep)[-1]
         outputFileName = tempfile.mktemp('.' + ext)
-    class MSURLOpener(urllib.FancyURLopener):
+    class MSURLOpener(FancyURLopener):
         verison = "Microsoft-Symbol-Server/6.2.9200.16384"
     msurlOpener = MSURLOpener()
     msurlOpener.addheader("Accept-Encoding", "gzip")
@@ -27,9 +35,8 @@ def downloadBinaryAsMSSymcheck(url, filenameToDownload, cacheDirName):
     msurlOpener.addheader("Cache-Control", "no-cache")
     urllib._urlopener = msurlOpener
     try:
-        urllib.urlretrieve(url+filenameToDownload, outputFileName)
-    except Exception, e:
-        print(repr(e))
+        urlretrieve(url+filenameToDownload, outputFileName)
+    except Exception as e:
         return None
     return outputFileName
 
@@ -38,9 +45,9 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
         if isinstance(date_time, str):
             # Minuts Hours DayOfTheMonth Month Year
             date_time = int(time.mktime(time.strptime(date_time, '%M %H %d %m %Y')))
-        elif not isinstance(date_time, (int, long)):
+        elif not isinstance(date_time, integer_types):
             date_time = int(time.mktime(date_time))
-        elif not data_time:
+        elif not date_time:
             raise Exception("Missing information")
         dbg_id = '%X%X' % (date_time, file_size)
 
@@ -63,6 +70,9 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
                 if 0 != os.stat(cacheFileName).st_size:
                     return cacheFileName
                 os.unlink(cacheFileName)
+        else:
+            cacheDirName = None
+            cacheFileName = None
 
         url = server
         if url[-1] != "/":
@@ -76,7 +86,7 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
             outputFileName = downloadBinaryAsMSSymcheck(url, filenameToDownload, cacheDirName)
             if not outputFileName:
                 continue
-            with file(outputFileName, 'rb') as outputFile:
+            with open(outputFileName, 'rb') as outputFile:
                 data = outputFile.read(1024)
             if len(data) < 1024:
                 os.unlink(outputFileName)
@@ -95,7 +105,7 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
 def normalizeDate(date):
     if isinstance(date, tuple):
         date = int(time.mktime((date[0], date[1], date[2], 0, 0, 0, 0, 0, 0)))
-    elif isinstance(date, (int, long)):
+    elif isinstance(date, integer_types):
         pass
     elif isinstance(date, None):
         date = int(time.mktime(time.strptime(end.ctime())))
@@ -117,13 +127,13 @@ def bruteForceDateTimeDownload(filename, date, file_size, is_verbose=True):
     start, end = _setStartAndEndDate(date)
     function_timing = time.time()
     if is_verbose:
-        print "Starting from timestamp %x" % start
-        print "Would end on timestamp  %x" % end
+        print("Starting from timestamp %x" % start)
+        print("Would end on timestamp  %x" % end)
     for date_time in range(start, end):
         try:
             r = downloadBinaryFromSymbolsServer(filename, date_time, file_size)
             if None != r:
-                print hex(date_time)
+                print(hex(date_time))
                 return r
             attempts = 0
             if is_verbose and date_time == (date_time & 0xfffffff0):
@@ -133,9 +143,9 @@ def bruteForceDateTimeDownload(filename, date, file_size, is_verbose=True):
                 if 0 != avg:
                     left = end - date_time
                     left_sec = float(left) / avg
-                    print "Last attempt:", hex(date_time), "Secs passed:", int(running_time), "Avg of", avg, "quries/sec. ~%f secs left" % left_sec
-        except Exception, e:
-            print e
+                    print("Last attempt:", hex(date_time), "Secs passed:", int(running_time), "Avg of", avg, "quries/sec. ~%f secs left" % left_sec)
+        except Exception as e:
+            print(repr(e))
             attempts += 1
             if attempts > 3:
                 raise e

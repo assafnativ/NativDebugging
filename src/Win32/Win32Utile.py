@@ -7,7 +7,7 @@ def adjustDebugPrivileges():
 
     OpenProcessToken( GetCurrentProcess(), win32con.TOKEN_QUERY | win32con.TOKEN_ADJUST_PRIVILEGES, byref(access_token) )
     access_token = access_token.value
-    LookupPrivilegeValue( None, "SeDebugPrivilege", byref(privileges.Luid) )
+    LookupPrivilegeValue( None, b"SeDebugPrivilege", byref(privileges.Luid) )
     privileges.PrivilegeCount = 1
     privileges.Attributes = 2
     AdjustTokenPrivileges(
@@ -59,7 +59,7 @@ def enumProcesses():
             byref(processesIds),
             cb,
             byref(bytesReturned))
-    processes = bytesReturned.value / sizeof(c_uint32())
+    processes = bytesReturned.value // sizeof(c_uint32())
 
     results = []
     module  = c_uint32()
@@ -79,14 +79,16 @@ def enumProcesses():
         if process:
             moduleName = c_buffer(0x2048)
             try:
-                GetProcessImageFileName(process, moduleName, sizeof(moduleName))
+                nameLen = GetProcessImageFileName(process, moduleName, sizeof(moduleName))
+                if nameLen <= 4:
+                    continue
             except WindowsError as e:
                 if 87 == e.winerror:
                     # print("Failed to get module name for process %d (%r)" % (process, e))
                     continue
                 if 299 != e.winerror:
                     raise e
-            results.append((moduleName.value.replace('\x00', ''), processesIds[i]))
+            results.append((moduleName.value[:nameLen].decode('utf8'), processesIds[i]))
     return results
 
 def findProcessId(name):
