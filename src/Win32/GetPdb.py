@@ -47,7 +47,7 @@ def downloadBinaryFromSymbolsServer( filename, date_time=None, file_size=None, d
             date_time = int(time.mktime(time.strptime(date_time, '%M %H %d %m %Y')))
         elif not isinstance(date_time, integer_types):
             date_time = int(time.mktime(date_time))
-        elif not data_time:
+        elif not date_time:
             raise Exception("Missing information")
         dbg_id = '%X%X' % (date_time, file_size)
 

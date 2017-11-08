@@ -580,7 +580,7 @@ class MiniDump( MemReaderBase, GUIDisplayBase ):
 
     def getRegionStartEnd(self, addr):
         index = bisect_left(self._REGIONS_ENDS, addr)
-        if index > len(self._REGIONS):
+        if len(self._REGIONS) <= index:
             return None
         region = self._REGIONS[index]
         if addr < region[0]:
