@@ -21,7 +21,7 @@ packagesDirs['NativDebugging/File'] = 'src/File'
 packagesDirs['NativDebugging/MemoryDump'] = 'src/MemoryDump'
 packagesDirs['NativDebugging/Patterns'] = 'src/Patterns'
 
-from distutils.core import setup
+from setuptools import setup
 setup(
         name = 'NativDebugging',
         version = '31',
