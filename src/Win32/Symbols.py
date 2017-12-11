@@ -234,21 +234,43 @@ class PDBSymbols(object):
                         { 'desc':dataTypeName } )
             elif dataTypeName.startswith('nonstd::optional'):
                 structSize, struct = self._getOptionalTypeAndSize(dataType, maxDepth-1)
+                if 1 == structSize:
+                    alignment = 0
+                elif structSize in [1,2,4,8]:
+                    alignment = structSize
+                else:
+                    alignment = None
                 def chooser(ctx):
                     return 0 != (ctx.has_value_ & 0xff)
-                return (
-                        name,
-                        base,
-                        STRUCT,
-                        [[
-                            SHAPE('has_value_', 0, SIZE_T()),
-                            SHAPE('contained', 0,
-                                SWITCH(
-                                    chooser,
-                                    {
-                                        True: struct,
-                                        False: [] }))]],
-                        { 'desc':dataTypeName })
+                if alignment:
+                    return (
+                            name,
+                            base,
+                            STRUCT,
+                            [[
+                                SHAPE('has_value_', 0, BYTE()),
+                                SHAPE('contained', (0, 0, alignment),
+                                    SWITCH(
+                                        chooser,
+                                        {
+                                            True: struct,
+                                            False: [] }))]],
+                            { 'desc':dataTypeName })
+                else:
+                    return (
+                            name,
+                            base,
+                            STRUCT,
+                            [[
+                                SHAPE('has_value_', 0, SIZE_T()),
+                                SHAPE('contained', 0,
+                                    SWITCH(
+                                        chooser,
+                                        {
+                                            True: struct,
+                                            False: [] }))]],
+                            { 'desc':dataTypeName })
+
             else:
                 content = self._getAllMembers(dataType.findChildren(0, None, 0), base=0, maxDepth=maxDepth)
                 if not content:
