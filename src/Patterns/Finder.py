@@ -1106,6 +1106,6 @@ class ARRAY( DATA_TYPE ):
     def isValid(self, patFinder, address, values):
         for _ in self.recursiveIsValid(patFinder, address, values):
             yield True
-        if 0 == len(values) and isZeroSizeValid:
+        if 0 == len(values) and self.isZeroSizeValid:
             yield True
 
