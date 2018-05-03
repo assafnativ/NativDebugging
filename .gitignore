@@ -1,4 +1,6 @@
+# Python
 *.py[cod]
+MANIFEST
 
 # C extensions
 *.so

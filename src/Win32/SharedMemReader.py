@@ -10,12 +10,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
@@ -24,12 +24,12 @@ import sys
 import struct
 from ctypes import c_char, c_void_p, c_int8, c_int16, c_int32, c_int64, c_uint8, c_uint16, c_uint32, c_uint64, cdll, sizeof
 from .Win32Structs import *
-from .Win32Utile import *
+from .Win32Utilities import *
 
 from ..Interfaces import ReadError
 from ..MemReaderBase import *
 from ..GUIDisplayBase import *
-from ..Utile import *
+from ..Utilities import *
 try:
     from ..QtWidgets import *
     IS_GUI_FOUND = True
@@ -40,9 +40,9 @@ except ImportError as e:
 class SharedMemInfo(object):
     def __init__(self, id, localAddress, base, size, mappingHandle):
         self.id = id
-        self.localAddress = localAddress 
+        self.localAddress = localAddress
         self.localAddressEnd = localAddress + size
-        self.end = base + size 
+        self.end = base + size
         self.size = size
         self.base = base
         self.delta = self.localAddress - base
@@ -82,10 +82,10 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
             if None == localAddress:
                 raise Exception("Map view of file failed for memory %s" %  memInfo[0])
             self.memMap.append(SharedMemInfo(
-                                    memInfo[0], 
-                                    localAddress, 
-                                    memInfo[1], 
-                                    memInfo[2], 
+                                    memInfo[0],
+                                    localAddress,
+                                    memInfo[1],
+                                    memInfo[2],
                                     mappingHandle))
 
     def remoteAddressToLocalAddress(self, address):
@@ -119,14 +119,14 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
         return self._DEFAULT_DATA_SIZE
 
     def getEndianity(self):
-	    return self._ENDIANITY 
+        return self._ENDIANITY
 
     def readMemory(self, address, length, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)
         val = (c_char * length).from_address(address)
         return val.raw
-    
+
     def readQword(self, address, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)

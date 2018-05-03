@@ -1,8 +1,8 @@
 
 from abc import ABCMeta, abstractmethod
 from .Win32Structs import *
-from .Win32Utile import *
-from ..Utile import *
+from .Win32Utilities import *
+from ..Utilities import *
 
 class ProcessCreateAndAttach( object ):
     @abstractmethod

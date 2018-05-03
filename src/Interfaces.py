@@ -20,7 +20,7 @@
 #
 
 from abc import ABCMeta, abstractmethod
-from .Utile import *
+from .Utilities import *
 
 class DebuggerInterface( object ):
     """ Pure Interface for Debugger """

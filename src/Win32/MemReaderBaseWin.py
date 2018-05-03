@@ -20,8 +20,8 @@
 
 from ..MemReaderBase import *
 from .Win32Structs import *
-from .Win32Utile import *
-from ..Utile import printIfVerbose, integer_types
+from .Win32Utilities import *
+from ..Utilities import printIfVerbose, integer_types
 
 class MemReaderBaseWin( MemReaderBase ):
     def __init__(self, *argv, **argm):

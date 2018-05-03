@@ -6,7 +6,7 @@ __all__ = [
         "GUIDisplayBase",
         "DumpBase",
         "MemReaderInProcess",
-        "Utile" ]
+        "Utilities" ]
 from . import File
 from . import MemoryDump
 from . import Patterns

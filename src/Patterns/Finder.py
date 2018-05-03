@@ -21,7 +21,7 @@
 
 from abc import ABCMeta, abstractmethod
 from ..Interfaces import MemReaderInterface, ReadError
-from ..Utile import integer_types
+from ..Utilities import integer_types
 
 import sys
 from os import linesep

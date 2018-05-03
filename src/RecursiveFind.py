@@ -22,7 +22,7 @@ from __future__ import print_function
 from builtins import range
 from abc import ABCMeta
 from .Interfaces import MemReaderInterface, ReadError
-from .Utile import makeQwordsList, makeDwordsList, integer_types
+from .Utilities import makeQwordsList, makeDwordsList, integer_types
 
 class RecursiveFind( MemReaderInterface ):
     """ Search for offsets using a recurisve method """

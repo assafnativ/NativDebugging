@@ -23,7 +23,7 @@
 from builtins import bytes
 import io
 from ..Interfaces import MemWriterInterface, ReadError
-from ..Utile import integer_types
+from ..Utilities import integer_types
 from ..MemReaderBase import *
 from ..GUIDisplayBase import *
 

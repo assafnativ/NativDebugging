@@ -4,7 +4,7 @@ import threading
 import time
 import os
 import tempfile
-from ..Utile import integer_types
+from ..Utilities import integer_types
 import sys
 if sys.version_info < (3,):
     from urllib import FancyURLopener

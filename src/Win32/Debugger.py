@@ -28,8 +28,8 @@ from .MemoryReader import MemoryReader
 from .BreakPoint import *
 from .DllInfo import *
 from .Win32Structs import *
-from .Win32Utile import *
-from ..Utile import *
+from .Win32Utilities import *
+from ..Utilities import *
 
 # For debugging
 import traceback

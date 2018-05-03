@@ -1,7 +1,7 @@
 #
-#   utile.py
+#   Utilities.py
 #
-#   Utile - Utile functions and procedures for NativDebugging
+#   Utilities - Utilities functions and procedures for NativDebugging
 #   https://svn3.xp-dev.com/svn/nativDebugging/
 #   Nativ.Assaf+debugging@gmail.com
 #   Copyright (C) 2011  Assaf Nativ
@@ -30,7 +30,7 @@ import os
 import subprocess
 
 if sys.platform == 'win32':
-    from .Win32.Win32Utile import *
+    from .Win32.Win32Utilities import *
 
 if sys.version_info < (3,):
     integer_types = (int, long,)

@@ -5,7 +5,7 @@ import io
 from ..Interfaces import ReadError
 from ..MemReaderBase import *
 from ..GUIDisplayBase import *
-from ..Utile import *
+from ..Utilities import *
 from struct import unpack
 from .MiniDump import *
 

@@ -24,7 +24,7 @@
 from abc import ABCMeta, abstractmethod
 from .Win32Structs import *
 from .MemReaderBaseWin import *
-from ..Utile import integer_types
+from ..Utilities import integer_types
 import sys
 
 class InjectDll( object ):

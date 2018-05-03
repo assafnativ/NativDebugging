@@ -20,7 +20,7 @@
 
 from abc import ABCMeta
 from .Interfaces import MemReaderInterface, ReadError
-from .Utile import *
+from .Utilities import *
 from .RecursiveFind import *
 from .DumpBase import *
 

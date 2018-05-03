@@ -10,12 +10,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
@@ -29,7 +29,7 @@ from subprocess import Popen
 from ..Interfaces import ReadError
 from ..MemReaderBase import *
 from ..GUIDisplayBase import *
-from ..Utile import *
+from ..Utilities import *
 try:
     from ..QtWidgets import *
     IS_GUI_FOUND = True
@@ -40,9 +40,9 @@ except ImportError as e:
 class SharedMemInfo(object):
     def __init__(self, id, localAddress, base, size):
         self.id = id
-        self.localAddress = localAddress 
+        self.localAddress = localAddress
         self.localAddressEnd = localAddress + size
-        self.end = base + size 
+        self.end = base + size
         self.size = size
         self.base = base
         self.delta = self.localAddress - base
@@ -112,7 +112,7 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
             address = self.remoteAddressToLocalAddress(address)
         val = (c_char * length).from_address(address)
         return val.raw
-    
+
     def readQword(self, address, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)
