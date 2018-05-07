@@ -1,3 +1,4 @@
+# python setup.py bdist_wheel
 
 import sys
 if sys.platform.lower().startswith('win'):

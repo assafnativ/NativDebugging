@@ -94,9 +94,9 @@ class ProcessCreateAndAttach( object ):
         else:
             dllToInject = None
 
-        CreateProcess( 
+        CreateProcess(
                     None,
-                    cmdLine, 
+                    cmdLine,
                     byref(securityAttributes),
                     byref(threadAttributes),
                     TRUE,
@@ -123,7 +123,7 @@ class ProcessCreateAndAttach( object ):
 
     def _openProcess( self, target_pid ):
         bytes_read = c_uint32(0)
-        self._process = OpenProcess( 
+        self._process = OpenProcess(
                 self.REQUIRED_ACCESS | win32con.PROCESS_DUP_HANDLE,
                 0,
                 target_pid )
