@@ -98,8 +98,6 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         self._controlThread = start_new_thread( self._mainControl, () )
 
         self._lastDebugEvent = DEBUG_EVENT()
-        # A temp thread would use us to make go command not blocking
-        self._tempThread = None
         self.context = CONTEXT()
 
         self._state = PROCESS_STATE_NO_PROCESS
@@ -107,7 +105,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         self._isDirty = False
         self.solveAddr = None
 
-        # Get myself debugging privileges
+        # Get myself some debugging privileges
         adjustDebugPrivileges()
 
         if None == target_process_id:
