@@ -101,3 +101,22 @@ def findProcessId(name):
     return results
 
 
+def clip(value):
+    import ctypes
+    strcpy = ctypes.cdll.msvcrt.strcpy
+    ocb = ctypes.windll.user32.OpenClipboard    #Basic Clipboard functions
+    ecb = ctypes.windll.user32.EmptyClipboard
+    scd = ctypes.windll.user32.SetClipboardData
+    ccb = ctypes.windll.user32.CloseClipboard
+    ga = ctypes.windll.kernel32.GlobalAlloc    # Global Memory allocation
+    gl = ctypes.windll.kernel32.GlobalLock     # Global Memory Locking
+    gul = ctypes.windll.kernel32.GlobalUnlock
+    ocb(None) # Open Clip, Default task
+    ecb()
+    hCd = ga( 0x2000, len(value)+1 )
+    pchData = gl(hCd)
+    strcpy(ctypes.c_char_p(pchData),value)
+    gul(hCd)
+    scd(1,hCd)
+    ccb()
+

@@ -56,10 +56,7 @@ class ProcessCreateAndAttach( object ):
             startupInfo.cb = sizeof(STARTUPINFO)
         else:
             startupInfo = createInfo['STARTUPINFO']
-        if 'PROCESSINFO' not in createInfo:
-            processInfo = PROCESS_INFORMATION()
-        else:
-            processInfo = createInfo['PROCESSINFO']
+        processInfo = PROCESS_INFORMATION()
         if 'SECURITY_ATTRIBUTES' not in createInfo:
             securityAttributes = SECURITY_ATTRIBUTES()
             securityAttributes.Length = sizeof(SECURITY_ATTRIBUTES)
@@ -74,25 +71,14 @@ class ProcessCreateAndAttach( object ):
             threadAttributes.InheritHandle = True
         else:
             threadAttributes = createInfo['SECURITY_ATTRIBUTES']
-        if 'CURRENT_DIRECTORY' not in createInfo:
-            currentDirectory = None
-        else:
-            currentDirectory = createInfo['CURRENT_DIRECTORY']
-        if 'ENVIRONMENT' not in createInfo:
-            environment = None
-        else:
-            environment = createInfo['ENVIRONMENT']
-        if 'CREATION_FLAGS' in createInfo:
-            creationFlags = createInfo['CREATION_FLAGS']
-        else:
-            creationFlags = 0
+        currentDirectory = createInfo.get('CURRENT_DIRECTORY', None)
+        creationFlags = createInfo.get('CREATION_FLAGS', 0)
         if createSuspended:
             creationFlags |= win32con.CREATE_SUSPENDED
-        if 'WITH_DLL' in createInfo:
+        dllToInject = createInfo.get('WITH_DLL', None)
+        if dllToInject:
             creationFlags |= win32con.CREATE_SUSPENDED
-            dllToInject = createInfo['WITH_DLL']
-        else:
-            dllToInject = None
+            creationFlags |= win32con.CREATE_DEFAULT_ERROR_MODE
 
         CreateProcess(
                     None,
@@ -101,7 +87,7 @@ class ProcessCreateAndAttach( object ):
                     byref(threadAttributes),
                     TRUE,
                     creationFlags,
-                    environment,
+                    createInfo.get('ENVIRONMENT', None),
                     currentDirectory,
                     byref(startupInfo),
                     byref(processInfo) )
@@ -113,13 +99,13 @@ class ProcessCreateAndAttach( object ):
         self._currentThreadId = processInfo.dwThreadId
         self._isSuspended = createSuspended
         if dllToInject:
-            threadHandle = self.injectDll(dllToInject)
-            ResumeThread(threadHandle)
-            if not createSuspended:
-                self.resumeSuspendedProcess()
+            self.injectDllPatchImportsTable(dllToInject)
+        if not createSuspended:
+            ResumeThread(self._mainThread)
 
     def _closeProcess( self ):
-        CloseHandle( self._process )
+        if hasattr(self, '_process') and self._process:
+            CloseHandle( self._process )
 
     def _openProcess( self, target_pid ):
         bytes_read = c_uint32(0)

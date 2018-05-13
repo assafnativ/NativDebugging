@@ -613,7 +613,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         if( BREAK_POINT_BYTE == original_byte ):
             print('Already a breakpoint - Adding it to the list')
         # Write the int3 opcode
-        self.writeByte( address, BREAK_POINT_BYTE )
+        self.deprotectAndWriteByte( address, BREAK_POINT_BYTE )
         self._breakPoints.append( BreakPoint(address, 1, original_byte, proc) )
         return( len(self._breakPoints) - 1 )
 
@@ -642,7 +642,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             current_byte = self.readByte( break_point.address )
             if( current_byte != break_point.original_byte ):
                 raise Exception('Somone overwritten the breakpoint!')
-            self.writeByte( break_point.address, break_point.original_byte )
+            self.deprotectAndWriteByte( break_point.address, break_point.original_byte )
 
     def breakpointRemove( self, index ):
         """
@@ -672,7 +672,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             if( BREAK_POINT_BYTE != self.readByte( break_point.address ) ):
                 print("Program state = {0:s}".format(str(self._state)))
                 raise Exception( 'Breakpoint had been overwrite by somthing' )
-            self.writeByte( break_point.address, break_point.original_byte )
+            self.deprotectAndWriteByte( break_point.address, break_point.original_byte )
         break_point.state &= ~BREAK_POINT_ACTIVE
 
     def breakpointDisable( self, index ):
@@ -698,7 +698,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             #print("Break point is allread enabled")
             return
         if( True == self._areBreakPointsInstalled ):
-            self.writeByte( break_point.address, BREAK_POINT_BYTE )
+            self.deprotectAndWriteByte( break_point.address, BREAK_POINT_BYTE )
         break_point.state |= BREAK_POINT_ACTIVE
 
     def breakpointEnable( self, index ):
@@ -760,7 +760,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
 
         TBD: not working yet
         """
-        self.writeByte( self.readDword(0x7ffde030) + 2, 0 )
+        self.deprotectAndWriteByte( self.readDword(0x7ffde030) + 2, 0 )
 
     def _uninstallAllBreakPoints( self ):
         """
@@ -769,7 +769,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         # print 'DEBUG: Uninstall'
         for break_point in self._breakPoints:
             if( BREAK_POINT_ACTIVE | break_point.state ):
-                self.writeByte( break_point.address, break_point.original_byte )
+                self.deprotectAndWriteByte( break_point.address, break_point.original_byte )
             break_point.state |= BREAK_POINT_HIDE
         self._areBreakPointsInstalled = False
 
@@ -781,7 +781,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         self._areBreakPointsInstalled = True
         for break_point in self._breakPoints:
             if( BREAK_POINT_ACTIVE | break_point.state ):
-                self.writeByte( break_point.address, BREAK_POINT_BYTE )
+                self.deprotectAndWriteByte( break_point.address, BREAK_POINT_BYTE )
             break_point.state &= ~BREAK_POINT_HIDE
 
     def _onBreakPoint( self ):

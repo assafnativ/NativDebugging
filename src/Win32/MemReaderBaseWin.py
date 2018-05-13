@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+from builtins import bytes
 from ..MemReaderBase import *
 from .Win32Structs import *
 from .Win32Utilities import *
@@ -30,17 +31,70 @@ class MemReaderBaseWin( MemReaderBase ):
     def getEndianity(self):
         return '<' # Intel is always Little-endian
 
+    def enumModulesAddresses(self):
+        ALLOCATION_GRANULARITY = 0x1000
+        mem_basic_info = MEMORY_BASIC_INFORMATION()
+        addr = ALLOCATION_GRANULARITY
+        while True:
+            if 0x7ffffffffff < addr:
+                break
+            queryResult = VirtualQueryEx(self._process, c_void_p(addr), byref(mem_basic_info), sizeof(mem_basic_info))
+            assert(queryResult == sizeof(mem_basic_info))
+            if 0xfff == (mem_basic_info.RegionSize & 0xfff):
+                # This is the last mem region in user space
+                break
+            if (mem_basic_info.BaseAddress + mem_basic_info.RegionSize) < addr:
+                # Overflow in address, we are probably done
+                break
+            else:
+                new_addr = mem_basic_info.BaseAddress + mem_basic_info.RegionSize
+                assert(addr < new_addr)
+                addr = new_addr
+            if (
+                    (mem_basic_info.State != win32con.MEM_COMMIT) or
+                    (win32con.PAGE_NOACCESS == (mem_basic_info.Protect & 0xff)) or
+                    (0 != (mem_basic_info.Protect & win32con.PAGE_GUARD)) ):
+                # Not a module
+                continue
+            module_addr = mem_basic_info.BaseAddress
+            if b'MZ' != self.readMemory(module_addr, 2):
+                # Not an MZ, not a module
+                continue
+            lfanew = self.readDword(module_addr + 0x3c)
+            if (mem_basic_info.RegionSize - 4) < lfanew:
+                # Invalid MZ header
+                continue
+            nt_header_addr = module_addr + lfanew
+            if b'PE\x00\x00' != self.readMemory(nt_header_addr, 4):
+                # Invalid PE
+                continue
+
+            yield module_addr
+
+    def getPEBAddress(self):
+        processInfo = PROCESS_BASIC_INFORMATION()
+        NtQueryInformationProcess(self._process, win32con.PROCESS_BASIC_INFORMATION, byref(processInfo), sizeof(processInfo), None)
+        return processInfo.PebBaseAddress
+
+    def imageBaseAddressFromPeb(self, peb):
+        return self.readAddr(peb + (self.getPointerSize() * 2))
+
     def enumModules( self, isVerbose=False ):
         """
         Return list of tuples containg infromation about the modules loaded in memory in the form of
         (Address, module_name, module_size)
         """
-        modules = c_ARRAY( c_void_p, 10000 )(0)
+        modules = c_ARRAY( c_void_p, 0x10000 )(0)
         bytes_written = c_uint32(0)
-        EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written) )
-        num_modules = bytes_written.value / sizeof(c_void_p(0))
+        res = EnumProcessModules( self._process, byref(modules), sizeof(modules), byref(bytes_written))
+        if 0 == res and 0 == bytes_written.value:
+            # If this function is called from a 32-bit application running on WOW64, it can only enumerate the modules
+            # of a 32-bit process. If the process is a 64-bit process, this function fails and the last error code is
+            # ERROR_PARTIAL_COPY (299).
+            # Or process not started yet
+            raise Exception("Not supported")
+        num_modules = bytes_written.value // sizeof(c_void_p(0))
         printIfVerbose("Found %d modules" % num_modules, isVerbose)
-
         for module_iter in range(num_modules):
             module_name = c_ARRAY( c_char, 10000 )(b'\x00')
             GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
@@ -48,8 +102,10 @@ class MemReaderBaseWin( MemReaderBase ):
             module_info = MODULEINFO(0)
             GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
             module_base = module_info.lpBaseOfDll
+            if module_base != module_info.lpBaseOfDll:
+                printIfVerbose("This is strange, found inconsistency module address (0x{0:x} 0x{1:x})".format(module_base, module_info.lpBaseOfDll), isVerbose)
             module_size = module_info.SizeOfImage
-            printIfVerbose("Module: (0x{0:x}) {1:s} of size (0x{2:x})".format(module_base, module_name, module_size), isVerbose)
+            printIfVerbose("Module: (0x{0:x}) {1!s} of size (0x{2:x})".format(module_base, module_name, module_size), isVerbose)
             yield (module_base, module_name, module_size)
 
     def findModule( self, target_module, isVerbose=False ):
@@ -57,7 +113,7 @@ class MemReaderBaseWin( MemReaderBase ):
         for base, name, moduleSize in self.enumModules(isVerbose):
             if target_module in name.lower():
                 return base
-        raise Exception("Can't find module %s" % target_module)
+        raise Exception("Can't find module {0!s}".format(target_module))
 
     def getModulePath( self, base ):
         if isinstance(base, str):
@@ -155,7 +211,7 @@ class MemReaderBaseWin( MemReaderBase ):
             namesTable  = base + self.readDword(rva + win32con.RVA_PROCS_NAMES_OFFSET)
             for i in range(numNames):
                 procNameAddr = base + self.readDword(namesTable + (i*4))
-                procName = self.readString(procNameAddr)
+                procName = bytes(self.readString(procNameAddr), 'utf8')
                 procIndex = self.readWord(ordinalsTable + (i*2))
                 yield (procName, base + self.readDword(procsTable + (procIndex * 4)))
 

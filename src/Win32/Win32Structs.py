@@ -16,7 +16,11 @@ win32con.PROCESS_QUERY_INFORMATION      = 0x0400
 win32con.PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 win32con.PROCESS_ALL_ACCESS             = 0x1f0fff
 win32con.MEM_COMMIT                     = 0x1000
+win32con.MEM_FREE                       = 0x10000
+win32con.MEM_RESERVE                    = 0x2000
+win32con.PAGE_NOACCESS                  = 0x01
 win32con.PAGE_EXECUTE_READWRITE         = 0x40
+win32con.PAGE_GUARD                     = 0x100
 win32con.ObjectBasicInformation         = 0
 win32con.ObjectNameInformation          = 1
 win32con.ObjectTypeInformation          = 2
@@ -53,7 +57,11 @@ win32con.LOAD_DLL_DEBUG_EVENT           = 6
 win32con.UNLOAD_DLL_DEBUG_EVENT         = 7
 win32con.OUTPUT_DEBUG_STRING_EVENT      = 8
 win32con.CREATE_SUSPENDED               = 4
+win32con.CREATE_DEFAULT_ERROR_MODE      = 0x04000000
 win32con.PAGE_READWRITE                 = 4
+win32con.IMAGE_FILE_DLL                 = 0x2000
+win32con.IMAGE_NT_OPTIONAL_HDR32_MAGIC  = 0x10b
+win32con.IMAGE_NT_OPTIONAL_HDR64_MAGIC  = 0x20b
 STATUS_WAIT_0                    = 0
 STATUS_ABANDONED_WAIT_0          = 128
 STATUS_USER_APC                  = 192
@@ -135,6 +143,7 @@ win32con.FILE_MAP_READ                       = 4
 win32con.FILE_MAP_WRITE                      = 2
 win32con.FILE_MAP_EXECUTE                    = 0x20
 
+
 from ctypes import c_char, c_wchar, c_int64, c_int32, c_int16, c_int8, c_uint64, c_uint32, c_uint16, c_uint8, c_size_t, c_void_p, c_char_p, c_wchar_p, c_buffer
 from ctypes import create_string_buffer, byref, cast, addressof, sizeof, windll, Structure, Union, WINFUNCTYPE
 from ctypes import ARRAY as c_ARRAY
@@ -146,6 +155,12 @@ def ErrorIfZero(handle):
         raise WinError()
     else:
         return handle
+
+def ErrorIfMinous1(result):
+    if result == -1 or result == 0xffffffff:
+        raise WinError()
+    else:
+        return result
 
 def NtStatusCheck(ntStatus):
     if ntStatus < 0 or ntStatus > 0x80000000:
@@ -199,6 +214,17 @@ EnumProcessModules.argtypes = [
 EnumProcessModules.restype = c_uint32
 
 try:
+    EnumProcessModules = windll.kernel32.K32EnumProcessModules
+    EnumProcessModules.argtypes = [
+        c_void_p,   # HANDLE hProcess
+        c_void_p,   # HMODULE* lphModule
+        c_uint32,   # DWORD cb
+        c_void_p ]  # LPDWORD lpcbNeeded
+    EnumProcessModules.restype = c_uint32
+except AttributeError as e:
+    pass
+
+try:
     EnumProcessModulesEx = windll.psapi.EnumProcessModulesEx
     EnumProcessModulesEx.argtypes = [
         c_void_p,   # HANDLE hProcess
@@ -209,6 +235,18 @@ try:
     EnumProcessModulesEx.restype = ErrorIfZero
 except AttributeError as e:
     EnumProcessModulesEx = None
+
+try:
+    EnumProcessModulesEx = windll.kernel32.K32EnumProcessModulesEx
+    EnumProcessModulesEx.argtypes = [
+        c_void_p,   # HANDLE hProcess
+        c_void_p,   # HMODULE* lphModule
+        c_uint32,   # DWORD cb
+        c_void_p,   # LPDWORD lpcbNeeded
+        c_uint32]   # DWORD dwFilterFlag
+    EnumProcessModulesEx.restype = ErrorIfZero
+except AttributeError as e:
+    pass
 
 EnumProcesses = windll.psapi.EnumProcesses
 EnumProcesses.argtypes = [
@@ -325,13 +363,13 @@ VirtualAllocEx.argtypes = [
         c_uint32,       # SIZE_T dwSize
         c_uint32,       # DWORD flAllocationType
         c_uint32 ]      # DWORD flProtect
-VirtualAllocEx.restype = ErrorIfZero
+VirtualAllocEx.restype = c_void_p
 
 # WriteProcessMemory
 WriteProcessMemory = windll.kernel32.WriteProcessMemory
 WriteProcessMemory.argtypes = [
         c_uint32,       # HANDLE hProcess
-        c_uint32,       # LPVOID lpBaseAddress
+        c_void_p,       # LPVOID lpBaseAddress
         c_char_p,       # LPCVOID lpBuffer
         c_uint32,       # SIZE_T nSize
         c_void_p ]      # SIZE_T* lpNumberOfBytesWritten
@@ -628,8 +666,8 @@ class STARTUPINFO( Structure ):
 
 class PROCESS_INFORMATION( Structure ):
     _fields_ = [
-        ('hProcess',    c_int32),
-        ('hThread', c_int32),
+        ('hProcess',    c_void_p),
+        ('hThread',     c_void_p),
         ('dwProcessId', c_uint32),
         ('dwThreadId',  c_uint32) ]
 
@@ -649,11 +687,11 @@ CreateProcess.restype = ErrorIfZero
 
 ResumeThread = windll.kernel32.ResumeThread
 ResumeThread.argtypes = [c_uint32]
-ResumeThread.restype = c_uint32
+ResumeThread.restype = ErrorIfMinous1
 
 CreateRemoteThread = windll.kernel32.CreateRemoteThread
 CreateRemoteThread.argtypes = [
-        c_uint32,       # HANDLE hProcess
+        c_void_p,       # HANDLE hProcess
         c_void_p,       # LPSECURITY_ATTRIBUTES lpThreadAttributes
         c_uint32,       # SIZE_T dwStackSize
         c_void_p,       # LPTHREAD_START_ROUTINE lpStartAddress
@@ -770,13 +808,13 @@ WaitForDebugEvent.restype = ErrorIfZero
 
 GetThreadContext = windll.kernel32.GetThreadContext
 GetThreadContext.argtypes = [
-    c_int32,      # hThread // handle to thread with context
+    c_void_p,   # hThread // handle to thread with context
     c_void_p]   # lpContext // context structure
 GetThreadContext.restype = ErrorIfZero
 
 SetThreadContext = windll.kernel32.SetThreadContext
 SetThreadContext.argtypes = [
-    c_int32,      # hThread // handle to thread
+    c_void_p,   # hThread // handle to thread
     c_void_p]   # *lpContext // context structure
 SetThreadContext.restype = ErrorIfZero
 
@@ -823,9 +861,9 @@ class CONTEXT( Structure ):
 
 FlushInstructionCache = windll.kernel32.FlushInstructionCache
 FlushInstructionCache.argtypes = [
-    c_int32,      # hProcess // handle to the process
+    c_void_p,   # hProcess // handle to the process
     c_void_p,   # lpBaseAddress // A pointer to the base of the region to be flushed
-    c_uint32 ]    # dwSize // The size of the region to be flushed
+    c_uint32 ]  # dwSize // The size of the region to be flushed
 FlushInstructionCache.restype = ErrorIfZero
 
 GetModuleHandle = windll.kernel32.GetModuleHandleA
@@ -839,7 +877,7 @@ LoadLibrary.restype = ErrorIfZero
 
 GetProcAddress = windll.kernel32.GetProcAddress
 GetProcAddress.argtypes = [
-    c_int32,      # hModule // handle to DLL module
+    c_void_p,    # hModule // handle to DLL module
     c_char_p ]  # lpProcName // function name
 GetProcAddress.restype = ErrorIfZero
 
@@ -855,7 +893,7 @@ DebugActiveProcessStop.restyp = ErrorIfZero
 
 GetProcessId = windll.kernel32.GetProcessId
 GetProcessId.argtypes = [
-        c_int32 ] # handle
+        c_void_p ] # handle
 GetProcessId.restype = ErrorIfZero
 
 class SYSTEM_INFO( Structure ):
@@ -884,7 +922,7 @@ OpenFileMapping.restype = ErrorIfZero
 
 MapViewOfFile = windll.kernel32.MapViewOfFile
 MapViewOfFile.argtypes = [
-          c_uint32, # HANDLE hFileMappingObject
+          c_void_p, # HANDLE hFileMappingObject
           c_uint32, # DWORD dwDesiredAccess
           c_uint32, # DWORD dwFileOffsetHigh
           c_uint32, # DWORD dwFileOffsetLow

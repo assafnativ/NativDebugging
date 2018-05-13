@@ -166,9 +166,9 @@ ImageResourceDirectory = [
         SHAPE("MinorVersion",     0, WORD()),
         SHAPE("NumOfNamedEntries", 0, WORD()),
         SHAPE("NumOfIdEntries",   0, WORD()),
-        SHAPE("NamedEntries",   0,  
+        SHAPE("NamedEntries",   0,
             ARRAY("NumOfNamedEntries",  STRUCT, (ResourceDirectoryNameEntry,))),
-        SHAPE("IdEntries",   0,  
+        SHAPE("IdEntries",   0,
             ARRAY("NumOfIdEntries",     STRUCT, (ResourceDirectoryIdEntry,)))]
 
 RESOURCE_TYPES = {
