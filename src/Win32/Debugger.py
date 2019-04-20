@@ -2,9 +2,9 @@
 #   Debugger.py
 #
 #   Debugger - Win32 debugger python module
-#   https://svn3.xp-dev.com/svn/nativDebugging/
+#   https://github.com/assafnativ/NativDebugging
 #   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#   Copyright (C) 2019  Assaf Nativ
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ from ..Utilities import *
 import traceback
 import sys
 # For making debugger blocking free
-from thread import *
+from _thread import start_new_thread
 # Arkon's disassembler
 try:
     import distorm3
