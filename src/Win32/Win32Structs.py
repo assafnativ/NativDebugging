@@ -146,6 +146,7 @@ win32con.FILE_MAP_EXECUTE                    = 0x20
 
 from ctypes import c_char, c_wchar, c_int64, c_int32, c_int16, c_int8, c_uint64, c_uint32, c_uint16, c_uint8, c_size_t, c_void_p, c_char_p, c_wchar_p, c_buffer
 from ctypes import create_string_buffer, byref, cast, addressof, sizeof, windll, Structure, Union, WINFUNCTYPE
+from ctypes import wstring_at, string_at
 from ctypes import ARRAY as c_ARRAY
 from ctypes import POINTER as c_POINTER
 from ctypes import WinError

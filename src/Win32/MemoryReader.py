@@ -28,11 +28,6 @@ from .InjectDll import *
 from .MemoryMap import *
 from .Win32Structs import *
 
-try:
-    import distorm3
-    IS_DISASSEMBLER_FOUND = True
-except ImportError as e:
-    IS_DISASSEMBLER_FOUND = False
 import sys
 import struct
 
@@ -67,7 +62,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
                 win32con.PROCESS_VM_READ | \
                 win32con.PROCESS_VM_WRITE | \
                 win32con.PROCESS_VM_OPERATION
-        self.createOrAttachProcess(
+        ProcessCreateAndAttach.__init__(self,
                 target_process_id,
                 target_open_handle,
                 cmd_line,
@@ -239,16 +234,6 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             raise Exception("Failed to query memory attributes for address 0x%x" % i)
         return (memBasicInfo.Protect)
 
-
-    def isAddressWritable( self, addr ):
-        return 0 != (self.getAddressAttributes(addr) & self.WRITE_ATTRIBUTES_MASK)
-
-    def isAddressReadable( self, addr ):
-        return 0 != (self.getAddressAttributes(addr) & self.READ_ATTRIBUTES_MASK)
-
-    def isAddressExecuatable( self, addr ):
-        return 0 != (self.getAddressAttributes(addr) & self.EXECUTE_ATTRIBUTES_MASK)
-
     def isAddressValid( self, addr ):
         if addr <= self._minVAddress or addr > self._maxVAddress:
             return False
@@ -390,21 +375,4 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             except ReadError:
                 if isVerbose:
                     print("Range 0x%x to 0x%x stopped after address 0x%x" % (r[0], r[1], addr))
-
-    def disasm(self, addr, length=0x100, decodeType=1):
-        if IS_DISASSEMBLER_FOUND:
-            for opcode in distorm3.Decode(
-                    addr,
-                    self.readMemory(addr, length),
-                    decodeType):
-                print('{0:x} {1:24s} {2:s}'.format(opcode[0], opcode[3], opcode[2]))
-        else:
-            raise Exception("No disassembler module")
-
-    def getPointerSize(self):
-        return self._POINTER_SIZE
-
-    def getDefaultDataSize(self):
-        return self._DEFAULT_DATA_SIZE
-
 

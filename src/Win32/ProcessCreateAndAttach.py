@@ -6,15 +6,11 @@ from ..Utilities import *
 
 class ProcessCreateAndAttach( object ):
     @abstractmethod
-    def __init__(self):
-        """ Pure virtual """
-        raise NotImplementedError("Pure function call")
-
-    def createOrAttachProcess( self, \
-            target_process_id=None, \
-            target_open_handle=None, \
-            cmd_line=None, \
-            create_suspended=False, \
+    def __init__( self,
+            target_process_id=None,
+            target_open_handle=None,
+            cmd_line=None,
+            create_suspended=False,
             create_info=None ):
 
         if None == create_info:

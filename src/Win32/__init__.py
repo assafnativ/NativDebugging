@@ -4,6 +4,8 @@ __all__ = [
         "MemoryMap",
         "DifferentialSearch",
         "ExternalMemoryReader",
+        "MemReaderOverRPyC",
+        "SelfInspector",
         "Symbols",
         "InjectDll",
         "ProcessCreateAndAttach",

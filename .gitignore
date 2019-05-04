@@ -44,3 +44,8 @@ nosetests.xml
 # pycharm
 .idea/*
 venv/*
+
+# Visual Studio build
+*.ipch
+.vs/
+output/

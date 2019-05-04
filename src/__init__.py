@@ -5,7 +5,6 @@ __all__ = [
         "QtWidgets",
         "GUIDisplayBase",
         "DumpBase",
-        "MemReaderInProcess",
         "Utilities" ]
 from . import File
 from . import MemoryDump

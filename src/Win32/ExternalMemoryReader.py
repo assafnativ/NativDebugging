@@ -3,9 +3,9 @@
 #
 #   ExternalMemoryReader - Remote process memory inspection python module
 #       that uses an external program to read memory.
-#   https://svn3.xp-dev.com/svn/nativDebugging/
+#   https://github.com/assafnativ/NativDebugging
 #   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#   Copyright (C) 2019  Assaf Nativ
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -52,9 +52,10 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
                 stdout  = subprocess.PIPE,
                 stderr  = subprocess.STDOUT )
         if platform == self.PLATFORM_X86:
-            self._pointerSize = 4
+            self._POINTER_SIZE = 4
         elif platform == self.PLATFORM_IA64 or platform == self.PLATFORM_AMD64:
-            self._pointerSize = 8
+            self._POINTER_SIZE = 8
+        self._DEFAULT_DATA_SIZE = 4
 
     def __del__(self):
         self.__detach()
@@ -65,12 +66,6 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
     def __detach(self):
         self.reader.stdin.write('0 0' + os.linesep)
         self.reader.communicate()
-
-    def getPointerSize(self):
-        return self._pointerSize
-
-    def getDefaultDataSize(self):
-        return 4
 
     def readMemory(self, address, length):
         self.reader.stdin.write('%x %x%s' % (address, length, os.linesep))

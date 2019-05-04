@@ -2,9 +2,9 @@
 #   InjectDll.py
 #
 #   InjectDll - Dll injection module for python
-#   https://svn3.xp-dev.com/svn/nativDebugging/
+#   https://github.com/assafnativ/NativDebugging
 #   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#   Copyright (C) 2019  Assaf Nativ
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -162,7 +162,6 @@ class InjectDll( object ):
                 number_of_imports * sizeof_IMAGE_IMPORT_DESCRIPTOR)
         if (b'\x00' * sizeof_IMAGE_IMPORT_DESCRIPTOR) == old_import_dir[-sizeof_IMAGE_IMPORT_DESCRIPTOR:]:
             old_import_dir = old_import_dir[:-sizeof_IMAGE_IMPORT_DESCRIPTOR]
-        self.dd(module_base + import_dir_offset, 0x200)
         # Add one more for the new DLL
         number_of_imports += 1
         # Caculate the required space for the new IAT
@@ -183,7 +182,6 @@ class InjectDll( object ):
         # Allocate remote buffer
         free_memory_address = self.findFreeMemoryNearBase(module_base, required_space)
         allocated_address = self.allocateRemoteAtAddress(free_memory_address, required_space)
-        print(hex(module_base))
         assert(free_memory_address == allocated_address)
 
         # Generate the patch
@@ -213,7 +211,6 @@ class InjectDll( object ):
         # Write offset to the new import dir
         self.deprotectAndWriteDword(directory_addr + 8, new_import_dir_offset)
         self.deprotectAndWriteDword(directory_addr + 8 + 4, imports_table_size)
-        printAsDwordsTable(patch_buffer)
 
     def _sanitizeDllName(self, dllName):
         if dllName[-1] != b'\x00':

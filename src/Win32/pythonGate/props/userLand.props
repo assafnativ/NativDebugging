@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets">
+    <Import Project="main.props" />
+  </ImportGroup>
+  <ItemDefinitionGroup Condition="'$(Platform)'=='Win32'" Label="x86Only">
+    <ClCompile>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'" Label="ReleaseOnly">
+    <ClCompile>
+      <PreprocessorDefinitions>_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'" Label="DebugOnly">
+    <ClCompile>
+      <PreprocessorDefinitions>_ITERATOR_DEBUG_LEVEL=2;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING;NOMINMAX;USERLAND=1;GTEST_HAS_TR1_TUPLE=0;GTEST_USE_OWN_TR1_TUPLE=0;GTEST_LANG_CXX11=1;RPC_USE_NATIVE_WCHAR;_ATL_NO_WIN_SUPPORT;_ATL_NO_AUTOMATIC_NAMESPACE;_ATL_CSTRING_EXPLICIT_CONSTRUCTORS;_NO_PPLXIMP;_NO_ASYNCRTIMP;_WINSOCK_DEPRECATED_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;WIN32;_WINDOWS;_UNICODE;UNICODE;STRICT;STRICT_TYPED_ITEMIDS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='Win32'">$(SolutionDir)WscIsvApi\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Platform)'=='x64'">$(SolutionDir)WscIsvApi\amd64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Bcrypt.lib;Msi.lib;FltLib.lib;Rstrtmgr.lib;Wtsapi32.lib;Netapi32.lib;Rpcrt4.lib;%(AdditionalDependencies);ntdll.lib</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>
