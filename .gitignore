@@ -41,4 +41,6 @@ nosetests.xml
 *~
 *.swp
 
-.idea/
+# pycharm
+.idea/*
+venv/*

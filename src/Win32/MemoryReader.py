@@ -78,8 +78,12 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         self._closeProcess()
 
     def deprotectMem( self, addr, size ):
+        return self.setMemProtection(addr, size, win32con.PAGE_EXECUTE_READWRITE)
+
+    def setMemProtection( self, addr, size, protection ):
         old_protection = c_uint32(0)
-        VirtualProtectEx( self._process, addr, size, win32con.PAGE_EXECUTE_READWRITE, byref(old_protection) )
+        VirtualProtectEx( self._process, addr, size, protection, byref(old_protection) )
+        return old_protection
 
     def readAddr( self, addr ):
         result = c_void_p(0)
@@ -172,12 +176,22 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 8, byref(bytes_written) )
 
+    def deprotectAndWriteQword( self, addr, data ):
+        originalAttributes = self.deprotectMem(addr, 8)
+        self.writeQword(addr, data)
+        self.setMemProtection(addr, 8, originalAttributes)
+
     def writeDword( self, addr, data ):
         if isinstance(data, integer_types):
             data = struct.pack('<L', data)
         data_to_write = c_buffer(data, 4)
         bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 4, byref(bytes_written) )
+
+    def deprotectAndWriteDword( self, addr, data ):
+        originalAttributes = self.deprotectMem(addr, 4)
+        self.writeDword(addr, data)
+        self.setMemProtection(addr, 4, originalAttributes)
 
     def writeWord( self, addr, data ):
         if isinstance(data, integer_types):
@@ -186,6 +200,11 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 2, byref(bytes_written) )
 
+    def deprotectAndWriteWord( self, addr, data ):
+        originalAttributes = self.deprotectMem(addr, 2)
+        self.writeWord(addr, data)
+        self.setMemProtection(addr, 2, originalAttributes)
+
     def writeByte( self, addr, data ):
         if isinstance(data, integer_types):
             data = struct.pack('<B', data)
@@ -193,12 +212,21 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, 1, byref(bytes_written) )
 
+    def deprotectAndWriteByte( self, addr, data ):
+        originalAttributes = self.deprotectMem(addr, 1)
+        self.writeByte(addr, data)
+        self.setMemProtection(addr, 1, originalAttributes)
+
     def writeMemory( self, addr, data ):
-        #data_to_write = c_ARRAY(c_char, len(data))(tuple(data))
         data_to_write = c_buffer(data)
         bytes_written = c_uint32(0)
         WriteProcessMemory( self._process, addr, data_to_write, len(data), byref(bytes_written) )
         return bytes_written.value
+
+    def deprotectAndWriteMemory( self, addr, data ):
+        originalAttributes = self.deprotectMem(addr, len(data))
+        self.writeMemory(addr, data)
+        self.setMemProtection(addr, len(data), originalAttributes)
 
     def getAddressAttributes(self, addr):
         memBasicInfo = MEMORY_BASIC_INFORMATION()
