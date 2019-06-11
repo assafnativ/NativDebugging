@@ -23,6 +23,11 @@ from ..MemReaderBase import *
 from .Win32Structs import *
 from .Win32Utilities import *
 from ..Utilities import printIfVerbose, integer_types
+try:
+    import distorm3
+    IS_DISASSEMBLER_FOUND = True
+except ImportError as e:
+    IS_DISASSEMBLER_FOUND = False
 
 class MemReaderBaseWin( MemReaderBase ):
     def __init__(self, *argv, **argm):
@@ -319,4 +324,30 @@ class MemReaderBaseWin( MemReaderBase ):
 
             if needToClose:
                 CloseHandle(objectHandle)
+
+    def isAddressWritable( self, addr ):
+        return 0 != (self.getAddressAttributes(addr) & self.WRITE_ATTRIBUTES_MASK)
+
+    def isAddressReadable( self, addr ):
+        return 0 != (self.getAddressAttributes(addr) & self.READ_ATTRIBUTES_MASK)
+
+    def isAddressExecuatable( self, addr ):
+        return 0 != (self.getAddressAttributes(addr) & self.EXECUTE_ATTRIBUTES_MASK)
+
+    def disasm(self, addr, length=0x100, decodeType=1):
+        if IS_DISASSEMBLER_FOUND:
+            for opcode in distorm3.Decode(
+                    addr,
+                    self.readMemory(addr, length),
+                    decodeType):
+                print('{0:x} {1:24s} {2:s}'.format(opcode[0], opcode[3], opcode[2]))
+        else:
+            raise Exception("No disassembler module")
+
+    def getPointerSize(self):
+        return self._POINTER_SIZE
+
+    def getDefaultDataSize(self):
+        return self._DEFAULT_DATA_SIZE
+
 

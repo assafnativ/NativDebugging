@@ -24,6 +24,7 @@
 # Imports
 from ..DebuggerBase import DebuggerBase
 from .MemoryReader import MemoryReader
+from .ProcessCreateAndAttach import *
 
 from .BreakPoint import *
 from .DllInfo import *
@@ -71,7 +72,7 @@ def attach(targetProcessId):
 def create(processName):
     return Win32Debugger(cmd_line=str(processName))
 
-class Win32Debugger( DebuggerBase, MemoryReader ):
+class Win32Debugger( DebuggerBase, MemoryReader, ProcessCreateAndAttach ):
     def __init__(self, \
             target_process_id=None, \
             cmd_line=None, \
@@ -199,7 +200,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
             create_suspended=False, \
             create_info=None ):
 
-        self.createOrAttachProcess(
+        ProcessCreateAndAttach.__init__(self,
                 target_process_id = None,
                 target_open_handle = None,
                 cmd_line = cmd_line,
@@ -227,7 +228,7 @@ class Win32Debugger( DebuggerBase, MemoryReader ):
         self._clearAllForFirstTime()
         self._thread_dictionary = { self._currentThread : _processInfo.dwThreadId }
 
-        self.createOrAttachProcess(
+        ProcessCreateAndAttach.__init__(self,
                 None,
                 None,
                 command_line,
