@@ -25,6 +25,7 @@ from abc import ABCMeta, abstractmethod
 from .Win32Structs import *
 from .MemReaderBaseWin import *
 from .MemoryReader import MemoryReader
+from .DetoursWrapper import Detours
 from ..Utilities import integer_types
 from builtins import range
 import struct
@@ -32,9 +33,10 @@ import struct
 def attach():
     return SelfReader()
 
-class SelfReader( MemoryReader ):
+class SelfReader( MemoryReader, Detours ):
     def __init__(self):
         MemReaderBase.__init__(self)
+        Detours.__init__(self)
         self._POINTER_SIZE = struct.calcsize('P')
         self._DEFAULT_DATA_SIZE = 4
         self._process = GetCurrentProcess()

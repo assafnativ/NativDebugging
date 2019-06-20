@@ -1,0 +1,3 @@
+[submodule "src/Win32/Detours"]
+	path = src/Win32/Detours
+	url = https://github.com/assafnativ/Detours.git

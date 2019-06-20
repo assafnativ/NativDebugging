@@ -91,8 +91,10 @@ class MemReaderOverRPyCFactory( MemoryReader, ProcessCreateAndAttach ):
         remote.modules.sys.stdin = sys.stdin
         remote.modules.sys.stderr = sys.stderr
         remote.execute('from NativDebugging.Win32.SelfInspector import *')
-        remoteSelfInspector = remote.eval('attach()')
+        remoteModule = remote.modules.NativDebugging.Win32.SelfInspector
+        remoteSelfInspector = remoteModule.attach()
         remoteSelfInspector.remote = remote
+        remoteSelfInspector.NativDebugging = remoteModule
         self.remote = remote
-        return remote
+        return remoteSelfInspector
 
