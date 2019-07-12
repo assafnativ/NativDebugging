@@ -29,7 +29,7 @@ packagesDirs['NativDebugging/Patterns'] = 'src/Patterns'
 from setuptools import setup
 setup(
         name = 'NativDebugging',
-        version = '35',
+        version = '36',
         description = 'Debugging tools for many platforms',
         author = 'Assaf Nativ',
         author_email = 'Nativ.Assaf@gmail.com',
