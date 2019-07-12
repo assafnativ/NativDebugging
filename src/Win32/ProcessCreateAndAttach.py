@@ -27,13 +27,8 @@ class ProcessCreateAndAttach( object ):
             self._isSuspended = False
         elif (None == target_open_handle) and (None == target_process_id) and (None != cmd_line):
             self._createProcess(cmd_line, create_suspended, create_info)
-        temp_void_p = c_void_p(1)
-        temp_void_p.value -= 2
-        self._is_win64 = (temp_void_p.value > (2**33))
-        if self._is_win64:
-            self._POINTER_SIZE = 8
-        else:
-            self._POINTER_SIZE = 4
+        self._POINTER_SIZE = sizeof(c_void_p)
+        self._is_win64 = self._POINTER_SIZE == 8
         self._DEFAULT_DATA_SIZE = 4
         self._mem_map = None
         sysInfo = SYSTEM_INFO()
@@ -44,7 +39,7 @@ class ProcessCreateAndAttach( object ):
         self._pageSizeMask  = self._pageSize - 1
 
     def _createProcess(self, cmdLine, createSuspended, createInfo):
-        cmdLine = c_char_p(cmdLine)
+        cmdLine = c_wchar_p(cmdLine)
         if 'STARTUPINFO' not in createInfo:
             startupInfo = STARTUPINFO()
             startupInfo.dwFlags = 0

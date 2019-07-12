@@ -4,12 +4,14 @@ import sys
 if sys.platform.lower().startswith('win'):
     packagesNames = ['NativDebugging', 'NativDebugging/Win32']
     packagesDirs = {'NativDebugging' : 'src', 'NativDebugging/Win32' : 'src/Win32'}
-    ExtraDataFiles = [('Lib\\site-packages\\NativDebugging\\Win32', (
+    ExtraDataFiles = [('NativDebugging\\Win32', (
         'src/Win32/memReaderAMD64.exe',
         'src/Win32/memReaderIa64.exe',
         'src/Win32/memReaderx86.exe',
         'src/Win32/pythonGateAMD64.dll',
-        'src/Win32/pythonGatex86.dll'))]
+        'src/Win32/pythonGatex86.dll',
+        'src/Win32/Detoursx86.dll',
+        'src/Win32/DetoursAMD64.dll'))]
 else:
     packagesNames = ['NativDebugging', 'NativDebugging/Linux', 'NativDebugging/Unix']
     packagesDirs = { \
@@ -27,7 +29,7 @@ packagesDirs['NativDebugging/Patterns'] = 'src/Patterns'
 from setuptools import setup
 setup(
         name = 'NativDebugging',
-        version = '34',
+        version = '35',
         description = 'Debugging tools for many platforms',
         author = 'Assaf Nativ',
         author_email = 'Nativ.Assaf@gmail.com',
@@ -36,6 +38,6 @@ setup(
         url = 'https://github.com/assafnativ/NativDebugging',
         keywords = ['debugger', 'memory', 'patterns', 'research', 'lowlevel', 'native'],
         license = "LGPLv3",
-        data_files = [('Lib\\\site-packages', ('NativDebugging.pth',))] + ExtraDataFiles)
+        data_files = [('', ('NativDebugging.pth',))] + ExtraDataFiles)
 
 

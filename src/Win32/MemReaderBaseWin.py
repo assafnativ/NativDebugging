@@ -41,7 +41,7 @@ class MemReaderBaseWin( MemReaderBase ):
         mem_basic_info = MEMORY_BASIC_INFORMATION()
         addr = ALLOCATION_GRANULARITY
         while True:
-            if 0x7ffffffffff < addr:
+            if 0x7fffffffffff < addr:
                 break
             queryResult = VirtualQueryEx(self._process, c_void_p(addr), byref(mem_basic_info), sizeof(mem_basic_info))
             assert(queryResult == sizeof(mem_basic_info))

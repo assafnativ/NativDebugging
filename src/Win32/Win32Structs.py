@@ -145,17 +145,21 @@ win32con.FILE_MAP_EXECUTE                    = 0x20
 
 
 from ctypes import c_char, c_wchar, c_int64, c_int32, c_int16, c_int8, c_uint64, c_uint32, c_uint16, c_uint8, c_size_t, c_void_p, c_char_p, c_wchar_p, c_buffer
-from ctypes import create_string_buffer, byref, cast, addressof, sizeof, windll, Structure, Union, WINFUNCTYPE
+from ctypes import create_string_buffer, byref, cast, addressof, sizeof, windll, WinDLL, Structure, Union, WINFUNCTYPE
 from ctypes import wstring_at, string_at
 from ctypes import ARRAY as c_ARRAY
 from ctypes import POINTER as c_POINTER
 from ctypes import WinError
 
-def ErrorIfZero(handle):
-    if handle == 0:
+def ErrorIfZero(res, *arg):
+    if res == 0:
         raise WinError()
-    else:
-        return handle
+    return res
+
+def ErrorIfNotZero(res, *arg):
+    if res != 0:
+        raise WinError(res)
+    return res
 
 def ErrorIfMinous1(result):
     if result == -1 or result == 0xffffffff:
@@ -163,40 +167,62 @@ def ErrorIfMinous1(result):
     else:
         return result
 
-def NtStatusCheck(ntStatus):
+def NtStatusCheck(ntStatus, *arg):
     if ntStatus < 0 or ntStatus > 0x80000000:
         raise WinError()
-    else:
-        return ntStatus
+    return ntStatus
+
+def FakeRrturnFalse(*arg):
+    return False
 
 TRUE = c_char(bytes([int(True)]))
 FALSE = c_char(bytes([int(False)]))
 void_NULL = c_void_p( win32con.NULL )
 pchar_NULL = c_char_p( win32con.NULL )
 
-import platform
-if '64' in platform.architecture()[0]:
-    from .Win64Structs import *
+ntdll    = windll.ntdll
+kernel32 = windll.kernel32
+user32   = windll.user32
+ole32    = windll.ole32
+dbghelp  = windll.dbghelp
+psapi    = windll.psapi
+advapi32 = windll.advapi32
 
-OpenProcess = windll.kernel32.OpenProcess
+try:
+    IsWow64Process = kernel32.IsWow64Process
+    IsWow64Process.argtypes = [
+                    c_void_p,
+                    c_void_p ]
+    IsWow64Process.restype = ErrorIfZero
+except AttributeError as e:
+    IsWow64Process = FakeRrturnFalse
+
+OpenProcess = kernel32.OpenProcess
 OpenProcess.argtypes = [
     c_uint32,     # DWORD dwDesiredAccess
     c_int32,      # BOOL bInheritHandle
     c_uint32 ]    # DWORD dwProcessId
-OpenProcess.restype = ErrorIfZero
+OpenProcess.restype = c_void_p
+OpenProcess.errcheck = ErrorIfZero
 
-GetCurrentProcess = windll.kernel32.GetCurrentProcess
+GetCurrentProcess = kernel32.GetCurrentProcess
 GetCurrentProcess.argtypes = []
-GetCurrentProcess.restype = ErrorIfZero
+GetCurrentProcess.restype = c_void_p
+GetCurrentProcess.errcheck = ErrorIfZero
 
-OpenProcessToken = windll.advapi32.OpenProcessToken
+GetCurrentThread = kernel32.GetCurrentThread
+GetCurrentThread.argtypes = []
+GetCurrentThread.restype = c_void_p
+GetCurrentThread.errcheck = ErrorIfZero
+
+OpenProcessToken = advapi32.OpenProcessToken
 OpenProcessToken.argtypes = [
     c_void_p,   # HANDLE ProcessHandle
     c_uint32,     # DWORD DesiredAccess
     c_void_p ]  # PHANDLE TokenHandle
 OpenProcessToken.restype = ErrorIfZero
 
-AdjustTokenPrivileges = windll.advapi32.AdjustTokenPrivileges
+AdjustTokenPrivileges = advapi32.AdjustTokenPrivileges
 AdjustTokenPrivileges.argtypes = [
     c_void_p,   # HANDLE TokenHandle
     c_int32,    # BOOL DisableAllPrivileges
@@ -206,7 +232,7 @@ AdjustTokenPrivileges.argtypes = [
     c_void_p ]  # PDWORD ReturnLength
 AdjustTokenPrivileges.restype = ErrorIfZero
 
-EnumProcessModules = windll.psapi.EnumProcessModules
+EnumProcessModules = psapi.EnumProcessModules
 EnumProcessModules.argtypes = [
     c_void_p,   # HANDLE hProcess
     c_void_p,   # HMODULE* lphModule
@@ -215,7 +241,7 @@ EnumProcessModules.argtypes = [
 EnumProcessModules.restype = c_uint32
 
 try:
-    EnumProcessModules = windll.kernel32.K32EnumProcessModules
+    EnumProcessModules = kernel32.K32EnumProcessModules
     EnumProcessModules.argtypes = [
         c_void_p,   # HANDLE hProcess
         c_void_p,   # HMODULE* lphModule
@@ -226,7 +252,7 @@ except AttributeError as e:
     pass
 
 try:
-    EnumProcessModulesEx = windll.psapi.EnumProcessModulesEx
+    EnumProcessModulesEx = psapi.EnumProcessModulesEx
     EnumProcessModulesEx.argtypes = [
         c_void_p,   # HANDLE hProcess
         c_void_p,   # HMODULE* lphModule
@@ -238,7 +264,7 @@ except AttributeError as e:
     EnumProcessModulesEx = None
 
 try:
-    EnumProcessModulesEx = windll.kernel32.K32EnumProcessModulesEx
+    EnumProcessModulesEx = kernel32.K32EnumProcessModulesEx
     EnumProcessModulesEx.argtypes = [
         c_void_p,   # HANDLE hProcess
         c_void_p,   # HMODULE* lphModule
@@ -249,21 +275,21 @@ try:
 except AttributeError as e:
     pass
 
-EnumProcesses = windll.psapi.EnumProcesses
+EnumProcesses = psapi.EnumProcesses
 EnumProcesses.argtypes = [
     c_void_p,
     c_uint32,
     c_void_p]
 EnumProcesses.restype = ErrorIfZero
 
-GetProcessImageFileName = windll.psapi.GetProcessImageFileNameA
+GetProcessImageFileName = psapi.GetProcessImageFileNameA
 GetProcessImageFileName.argtypes = [
         c_void_p,   # HANDLE hProcess
         c_void_p,   # lpImageFileName
         c_uint32 ]  # DWORD nSize
 GetProcessImageFileName.restype = ErrorIfZero
 
-GetModuleBaseName = windll.psapi.GetModuleBaseNameA
+GetModuleBaseName = psapi.GetModuleBaseNameA
 GetModuleBaseName.argtypes = [
     c_void_p,   # HANDLE hProcess
     c_void_p,   # HMODULE hModule
@@ -271,14 +297,14 @@ GetModuleBaseName.argtypes = [
     c_uint32 ]  # DWORD nSize
 GetModuleBaseName.restype = ErrorIfZero
 
-GetModuleFileName = windll.kernel32.GetModuleFileNameW
+GetModuleFileName = kernel32.GetModuleFileNameW
 GetModuleFileName.argtypes = [
     c_void_p,   # HMODULE hModule
     c_void_p,   # LPTSTR lpFilename
     c_void_p ]  # DWORD nSize
 GetModuleFileName.restype = ErrorIfZero
 
-GetModuleInformation = windll.psapi.GetModuleInformation
+GetModuleInformation = psapi.GetModuleInformation
 GetModuleInformation.argtypes = [
     c_void_p,   # HANDLE hProcess
     c_void_p,   # HMODULE hModule
@@ -286,13 +312,13 @@ GetModuleInformation.argtypes = [
     c_uint32 ]  # DWORD cb
 GetModuleInformation.restype = ErrorIfZero
 
-GetProcessHeaps = windll.kernel32.GetProcessHeaps
+GetProcessHeaps = kernel32.GetProcessHeaps
 GetProcessHeaps.argtypes = [
     c_uint32,   # DWORD NumberOfHeaps
     c_void_p ]  # PHANDLE ProcessHeaps
 GetProcessHeaps.restype = c_uint32
 
-HeapQueryInformation = windll.kernel32.HeapQueryInformation
+HeapQueryInformation = kernel32.HeapQueryInformation
 HeapQueryInformation.argtypes = [
     c_void_p,   # HANDLE HeapHandle
     c_int32,    # HEAP_INFORMATION_CLASS HeapInformationClass
@@ -301,20 +327,20 @@ HeapQueryInformation.argtypes = [
     c_void_p ]  # PSIZE_T ReturnLength
 HeapQueryInformation.restype = ErrorIfZero
 
-HeapWalk = windll.kernel32.HeapWalk
+HeapWalk = kernel32.HeapWalk
 HeapWalk.argtypes = [
     c_void_p,   # HANDLE hHeap
     c_void_p ]  # LPPROCESS_HEAP_ENTRY lpEntry
 HeapWalk.restype = c_uint32
 
-LookupPrivilegeValue = windll.advapi32.LookupPrivilegeValueA
+LookupPrivilegeValue = advapi32.LookupPrivilegeValueA
 LookupPrivilegeValue.argtypes = [
     c_char_p,   # LPCTSTR lpSystemName
     c_char_p,   # LPCTSTR lpName
     c_void_p ]  # PLUID lpLuid
 LookupPrivilegeValue.restype = ErrorIfZero
 
-ReadProcessMemory = windll.kernel32.ReadProcessMemory
+ReadProcessMemory = kernel32.ReadProcessMemory
 ReadProcessMemory.argtypes = [
     c_int32,    # hProcess // handle to the process
     c_void_p,   # lpBaseAddress // base of memory area
@@ -323,7 +349,7 @@ ReadProcessMemory.argtypes = [
     c_void_p]   # lpNumberOfBytesWritten // number of bytes write
 ReadProcessMemory.restype = c_uint32
 
-WriteProcessMemory = windll.kernel32.WriteProcessMemory
+WriteProcessMemory = kernel32.WriteProcessMemory
 WriteProcessMemory.argtypes = [
     c_int32,      # hProcess // handle to the process
     c_uint32,     # lpBaseAddress // base of memory area
@@ -332,14 +358,14 @@ WriteProcessMemory.argtypes = [
     c_void_p]     # lpNumberOfBytesRead // number of bytes read
 WriteProcessMemory.restype = ErrorIfZero
 
-QueryWorkingSet = windll.psapi.QueryWorkingSet
+QueryWorkingSet = psapi.QueryWorkingSet
 QueryWorkingSet.argtypes = [
     c_void_p,   # HANDLE hProcess
     c_void_p,   # PVOID pv
     c_uint32]   # DWORD cb
 QueryWorkingSet.restype = c_uint32
 
-VirtualProtectEx = windll.kernel32.VirtualProtectEx
+VirtualProtectEx = kernel32.VirtualProtectEx
 VirtualProtectEx.argtypes = [
     c_void_p,   # HANDLE
     c_void_p,   # Address
@@ -348,7 +374,7 @@ VirtualProtectEx.argtypes = [
     c_void_p ]  # Old protection
 VirtualProtectEx.restype = ErrorIfZero
 
-VirtualQueryEx = windll.kernel32.VirtualQueryEx
+VirtualQueryEx = kernel32.VirtualQueryEx
 VirtualQueryEx.argtypes = [
     c_int32,    # HANDLE hProces
     c_void_p,   # LPCVOID lpAddress
@@ -357,7 +383,7 @@ VirtualQueryEx.argtypes = [
 VirtualQueryEx.restype = ErrorIfZero
 
 # VirtualAllocEx
-VirtualAllocEx = windll.kernel32.VirtualAllocEx
+VirtualAllocEx = kernel32.VirtualAllocEx
 VirtualAllocEx.argtypes = [
         c_uint32,       # HANDLE hProcess
         c_void_p,       # LPVOID lpAddress
@@ -367,7 +393,7 @@ VirtualAllocEx.argtypes = [
 VirtualAllocEx.restype = c_void_p
 
 # WriteProcessMemory
-WriteProcessMemory = windll.kernel32.WriteProcessMemory
+WriteProcessMemory = kernel32.WriteProcessMemory
 WriteProcessMemory.argtypes = [
         c_uint32,       # HANDLE hProcess
         c_void_p,       # LPVOID lpBaseAddress
@@ -376,7 +402,7 @@ WriteProcessMemory.argtypes = [
         c_void_p ]      # SIZE_T* lpNumberOfBytesWritten
 WriteProcessMemory.restype = ErrorIfZero
 
-CloseHandle = windll.kernel32.CloseHandle
+CloseHandle = kernel32.CloseHandle
 CloseHandle.argtypes = [ c_int32 ]
 CloseHandle.restype = ErrorIfZero
 
@@ -482,19 +508,18 @@ class SYSTEM_PROCESS_INFORMATION_DETAILD( Structure ):
             ('PrivatePageCount',    c_uint32),
             ('Reserved6',           c_uint64*6) ]
 
-DuplicateHandle = windll.kernel32.DuplicateHandle
+DuplicateHandle = kernel32.DuplicateHandle
 DuplicateHandle.argtypes = [
-    c_int32,      #  __in   HANDLE hSourceProcessHandle,
-    c_int32,      #  __in   HANDLE hSourceHandle,
-    c_int32,      #  __in   HANDLE hTargetProcessHandle,
+    c_void_p,     #  __in   HANDLE hSourceProcessHandle,
+    c_void_p,     #  __in   HANDLE hSourceHandle,
+    c_void_p,     #  __in   HANDLE hTargetProcessHandle,
     c_void_p,     #  __out  LPHANDLE lpTargetHandle,
     c_uint32,     #  __in   DWORD dwDesiredAccess,
     c_int32,      #  __in   BOOL bInheritHandle,
     c_uint32 ]    #  __in   DWORD dwOptions
 DuplicateHandle.restype = ErrorIfZero
 
-
-NtQueryObject = windll.ntdll.NtQueryObject
+NtQueryObject = ntdll.NtQueryObject
 NtQueryObject.argtypes = [
     c_void_p,   #  __in_opt   HANDLE Handle,
     c_uint32,   #  __in       OBJECT_INFORMATION_CLASS ObjectInformationClass,
@@ -503,7 +528,7 @@ NtQueryObject.argtypes = [
     c_void_p ]  #  __out_opt  PULONG ReturnLength
 NtQueryObject.restype = c_uint32
 
-NtQuerySystemInformation = windll.ntdll.NtQuerySystemInformation
+NtQuerySystemInformation = ntdll.NtQuerySystemInformation
 NtQuerySystemInformation.argtypes = [
     c_void_p,   #  __in       SYSTEM_INFORMATION_CLASS SystemInformationClass,
     c_void_p,   #  __inout    PVOID SystemInformation,
@@ -520,21 +545,21 @@ class PROCESS_BASIC_INFORMATION( Structure ):
             ('UniqueProcessId', c_void_p),
             ('InheritedFromUniqueProcessId', c_void_p)]
 
-NtQueryInformationProcess = windll.ntdll.NtQueryInformationProcess
+NtQueryInformationProcess = ntdll.NtQueryInformationProcess
 NtQueryInformationProcess.argtypes = [
-        c_uint32,   # _In_       HANDLE ProcessHandle
+        c_void_p,   # _In_       HANDLE ProcessHandle
         c_void_p,   # _In_       PROCESSINFOCLASS ProcessInformationClass
         c_void_p,   # _Out_      PVOID ProcessInformation
         c_uint32,   # _In_       ULONG ProcessInformationLength
         c_void_p ]  # _Out_opt_  PULONG ReturnLength
 NtQueryInformationProcess.restype = NtStatusCheck
 
-GetModuleFileNameEx = windll.psapi.GetModuleFileNameExA
+GetModuleFileNameEx = psapi.GetModuleFileNameExA
 GetModuleFileNameEx.argtypes = [
-        c_int32,      #  __in      HANDLE hProcess,
-        c_uint32,     #  __in_opt  HMODULE hModule,
+        c_void_p,   #  __in      HANDLE hProcess,
+        c_uint32,   #  __in_opt  HMODULE hModule,
         c_void_p,   #  __out     LPTSTR lpFilename,
-        c_uint32 ]    #  __in      DWORD nSize
+        c_uint32 ]  #  __in      DWORD nSize
 GetModuleFileNameEx.restype = ErrorIfZero
 
 class SYSTEM_HANDLE( Structure ):
@@ -558,35 +583,35 @@ class SYSTEM_HANDLE_INFORMATION( Structure ):
 
 SYMOPT_DEBUG = 0x80000000
 
-SymGetOptions = windll.dbghelp.SymGetOptions
+SymGetOptions = dbghelp.SymGetOptions
 SymGetOptions.argtypes = []
 SymGetOptions.restype = c_uint32
 
-SymSetOptions = windll.dbghelp.SymSetOptions
+SymSetOptions = dbghelp.SymSetOptions
 SymSetOptions.argtypes = [ c_uint32 ]
 SymSetOptions.restype = c_uint32
 
-SymInitialize = windll.dbghelp.SymInitialize
+SymInitialize = dbghelp.SymInitialize
 SymInitialize.argtypes = [
-        c_uint32,     # HANDLE hProcess
+        c_void_p,   # HANDLE hProcess
         c_char_p,   # PCTSTR UserSearchPath
-        c_uint32 ]    # BOOL fInvadeProcess
+        c_uint32 ]  # BOOL fInvadeProcess
 SymInitialize.restype = ErrorIfZero
 
 SYM_FIND_FILE_IN_PATCH_CALLBACK = WINFUNCTYPE(
                                         c_char_p, # PCTSTR fileName
                                         c_void_p) # PVOID context
-SymFindFileInPath = windll.dbghelp.SymFindFileInPath
+SymFindFileInPath = dbghelp.SymFindFileInPath
 SymFindFileInPath.argtypes = [
-        c_uint32,     # HANDLE hProcess
+        c_void_p,   # HANDLE hProcess
         c_char_p,   # PCTSTR SearchPath
         c_char_p,   # PCTSTR FileName
         c_void_p,   # PVOID id
-        c_uint32,     # DWORD two
-        c_uint32,     # DWORD three
-        c_uint32,     # DWORD flags
+        c_uint32,   # DWORD two
+        c_uint32,   # DWORD three
+        c_uint32,   # DWORD flags
         c_void_p,   # PTSTR FilePath
-        c_void_p,   #SYM_FIND_FILE_IN_PATCH_CALLBACK,  # PFINDFILEINPATHCALLBACK callback
+        c_void_p,   # SYM_FIND_FILE_IN_PATCH_CALLBACK,  # PFINDFILEINPATHCALLBACK callback
         c_void_p ]  # PVOID contex
 SymFindFileInPath.restype = ErrorIfZero
 
@@ -594,14 +619,14 @@ win32con.SSRVOPT_DWORD      = 0x02 # The id parameter is a DWORD.
 win32con.SSRVOPT_DWORDPTR   = 0x04 # The id parameter is a pointer to a DWORD.
 win32con.SSRVOPT_GUIDPTR    = 0x08 # The id parameter is a pointer to a GUID.
 
-SymLoadModule64 = windll.dbghelp.SymLoadModule64
+SymLoadModule64 = dbghelp.SymLoadModule64
 SymLoadModule64.argtypes = [
-        c_uint32,     # HANDLE hProcess
-        c_uint32,     # HANDLE hFile
+        c_void_p,   # HANDLE hProcess
+        c_void_p,   # HANDLE hFile
         c_char_p,   # PCSTR ImageNmae
         c_char_p,   # PCSTR ModuleName
         c_uint64,   # DWORD64 BaseOfDll
-        c_uint32 ]    # SizeOfDll
+        c_uint32 ]  # SizeOfDll
 SymLoadModule64.restype = c_uint64
 
 class SYMBOL_INFO( Structure ):
@@ -625,23 +650,23 @@ class SYMBOL_INFO( Structure ):
 
 SYM_ENUMERATESYMBOLS_CALLBACK = WINFUNCTYPE( c_uint32, c_POINTER(SYMBOL_INFO), c_uint32, c_void_p )
 
-SymEnumSymbols = windll.dbghelp.SymEnumSymbols
+SymEnumSymbols = dbghelp.SymEnumSymbols
 SymEnumSymbols.argtypes = [
-        c_uint32,     # HANDLE hProcess
+        c_void_p,   # HANDLE hProcess
         c_uint64,   # ULONG64 BaseOfDll
         c_char_p,   # PCTSTR Mask
         SYM_ENUMERATESYMBOLS_CALLBACK, # PSYM_ENUMERATESYMBOLS_CALLBACK EnumSymbolsCallback
         c_void_p ]  # PVOID UserContext
 SymEnumSymbols.restype = ErrorIfZero
 
-SymUnloadModule64 = windll.dbghelp.SymUnloadModule64
+SymUnloadModule64 = dbghelp.SymUnloadModule64
 SymUnloadModule64.argtypes = [
-        c_uint32,     # HANDLE hProcess
+        c_void_p,   # HANDLE hProcess
         c_uint64 ]  # DWORD64 BaseOfDll
 SymUnloadModule64.restype = ErrorIfZero
 
-SymCleanup = windll.dbghelp.SymCleanup
-SymCleanup.argtypes = [ c_uint32 ] # HANDLE hProcess
+SymCleanup = dbghelp.SymCleanup
+SymCleanup.argtypes = [ c_void_p ] # HANDLE hProcess
 SymCleanup.restype = ErrorIfZero
 
 class STARTUPINFO( Structure ):
@@ -672,25 +697,25 @@ class PROCESS_INFORMATION( Structure ):
         ('dwProcessId', c_uint32),
         ('dwThreadId',  c_uint32) ]
 
-CreateProcess = windll.kernel32.CreateProcessA
+CreateProcess = kernel32.CreateProcessW
 CreateProcess.argtypes = [
-    c_char_p,   # lpApplicationName // name of executable module
-    c_char_p,   # lpCommandLine     // command line string
+    c_wchar_p,  # lpApplicationName // name of executable module
+    c_wchar_p,  # lpCommandLine     // command line string
     c_void_p,   # lpProcessAttributes   // SD
     c_void_p,   # lpThreadAttributes    // SD
     c_char,     # bInheritHandles   // handle inheritance option
     c_uint32,   # dwCreationFlags   // creation flags
     c_void_p,   # lpEnvironment     // new environment block
-    c_char_p,   # lpCurrentDirectory    // current directory name
+    c_wchar_p,  # lpCurrentDirectory    // current directory name
     c_void_p,   # lpStartupInfo     // startup information
     c_void_p ]  # lpProcessInformation  // process information
 CreateProcess.restype = ErrorIfZero
 
-ResumeThread = windll.kernel32.ResumeThread
+ResumeThread = kernel32.ResumeThread
 ResumeThread.argtypes = [c_uint32]
 ResumeThread.restype = ErrorIfMinous1
 
-CreateRemoteThread = windll.kernel32.CreateRemoteThread
+CreateRemoteThread = kernel32.CreateRemoteThread
 CreateRemoteThread.argtypes = [
         c_void_p,       # HANDLE hProcess
         c_void_p,       # LPSECURITY_ATTRIBUTES lpThreadAttributes
@@ -794,26 +819,26 @@ class DEBUG_EVENT( Structure ):
         ('dwThreadId',          c_uint32),
         ('u',                   DEBUG_EVENT_u) ]
 
-ContinueDebugEvent = windll.kernel32.ContinueDebugEvent
+ContinueDebugEvent = kernel32.ContinueDebugEvent
 ContinueDebugEvent.argtypes = [
     c_uint32,     # dwProcessId // process to continue
     c_uint32,     # dwThreadId // thread to continue
     c_uint32 ]    # dwContinueStatus // continuation status
 ContinueDebugEvent.restype = ErrorIfZero
 
-WaitForDebugEvent = windll.kernel32.WaitForDebugEvent
+WaitForDebugEvent = kernel32.WaitForDebugEvent
 WaitForDebugEvent.argtypes = [
     c_void_p,   # lpDebugEvent // debug event information
     c_uint32]   # dwMilliseconds // time-out value
 WaitForDebugEvent.restype = ErrorIfZero
 
-GetThreadContext = windll.kernel32.GetThreadContext
+GetThreadContext = kernel32.GetThreadContext
 GetThreadContext.argtypes = [
     c_void_p,   # hThread // handle to thread with context
     c_void_p]   # lpContext // context structure
 GetThreadContext.restype = ErrorIfZero
 
-SetThreadContext = windll.kernel32.SetThreadContext
+SetThreadContext = kernel32.SetThreadContext
 SetThreadContext.argtypes = [
     c_void_p,   # hThread // handle to thread
     c_void_p]   # *lpContext // context structure
@@ -860,41 +885,40 @@ class CONTEXT( Structure ):
     ('segss',       c_uint32),
     ('ExtendedRegisters',   c_ARRAY( c_char, 512 )) ]
 
-FlushInstructionCache = windll.kernel32.FlushInstructionCache
+FlushInstructionCache = kernel32.FlushInstructionCache
 FlushInstructionCache.argtypes = [
     c_void_p,   # hProcess // handle to the process
     c_void_p,   # lpBaseAddress // A pointer to the base of the region to be flushed
     c_uint32 ]  # dwSize // The size of the region to be flushed
 FlushInstructionCache.restype = ErrorIfZero
 
-GetModuleHandle = windll.kernel32.GetModuleHandleA
-GetModuleHandle.argtypes = [
-    c_char_p ]  # lpModuleName // module name
-GetModuleHandle.restype = ErrorIfZero
+GetModuleHandle = kernel32.GetModuleHandleA
+GetModuleHandle.argtypes = [ c_char_p ]  # lpModuleName // module name
+GetModuleHandle.restype = c_void_p
+GetModuleHandle.errcheck = ErrorIfZero
 
-LoadLibrary = windll.kernel32.LoadLibraryA
-LoadLibrary.argtypes = [ c_char_p ]
-LoadLibrary.restype = ErrorIfZero
+LoadLibrary = kernel32.LoadLibraryW
+LoadLibrary.argtypes = [ c_wchar_p ]
+LoadLibrary.restype = c_void_p
+LoadLibrary.errcheck = ErrorIfZero
 
-GetProcAddress = windll.kernel32.GetProcAddress
+GetProcAddress = kernel32.GetProcAddress
 GetProcAddress.argtypes = [
     c_void_p,    # hModule // handle to DLL module
     c_char_p ]  # lpProcName // function name
-GetProcAddress.restype = ErrorIfZero
+GetProcAddress.restype = c_void_p
+GetProcAddress.errcheck = ErrorIfZero
 
-DebugActiveProcess = windll.kernel32.DebugActiveProcess
-DebugActiveProcess.argtypes = [
-    c_uint32 ]    # dwProcessId // process to be debugged
+DebugActiveProcess = kernel32.DebugActiveProcess
+DebugActiveProcess.argtypes = [ c_uint32 ]  # dwProcessId // process to be debugged
 DebugActiveProcess.restype = ErrorIfZero
 
-DebugActiveProcessStop = windll.kernel32.DebugActiveProcessStop
-DebugActiveProcessStop.argtypes = [
-        c_uint32 ]    # dwProcessId // process to stop debugging
+DebugActiveProcessStop = kernel32.DebugActiveProcessStop
+DebugActiveProcessStop.argtypes = [ c_uint32 ]  # dwProcessId // process to stop debugging
 DebugActiveProcessStop.restyp = ErrorIfZero
 
-GetProcessId = windll.kernel32.GetProcessId
-GetProcessId.argtypes = [
-        c_void_p ] # handle
+GetProcessId = kernel32.GetProcessId
+GetProcessId.argtypes = [ c_void_p ] # handle
 GetProcessId.restype = ErrorIfZero
 
 class SYSTEM_INFO( Structure ):
@@ -910,18 +934,18 @@ class SYSTEM_INFO( Structure ):
             ('dwAllocationGranularity',     c_uint32),
             ('wProcessorLevel',             c_uint32),
             ('wProcessorRevision',          c_uint32) ]
-GetSystemInfo = windll.kernel32.GetSystemInfo
+GetSystemInfo = kernel32.GetSystemInfo
 GetSystemInfo.argtypes = [ c_void_p ] # LPSYSTEM_INFO
 GetSystemInfo.restype = None
 
-OpenFileMapping = windll.kernel32.OpenFileMappingA
+OpenFileMapping = kernel32.OpenFileMappingA
 OpenFileMapping.argtypes = [
           c_uint32, # dwDesiredAccess
           c_uint32, # bInheritHandle
           c_char_p ] # lpName
 OpenFileMapping.restype = ErrorIfZero
 
-MapViewOfFile = windll.kernel32.MapViewOfFile
+MapViewOfFile = kernel32.MapViewOfFile
 MapViewOfFile.argtypes = [
           c_void_p, # HANDLE hFileMappingObject
           c_uint32, # DWORD dwDesiredAccess
@@ -931,11 +955,11 @@ MapViewOfFile.argtypes = [
 MapViewOfFile.restype = c_void_p
 
 # Symbols
-CoInitialize = windll.ole32.CoInitialize
+CoInitialize = ole32.CoInitialize
 CoInitialize.argtypes = [ c_void_p ]
 CoInitialize.restype = c_int32
 
-CoCreateInstance = windll.ole32.CoCreateInstance
+CoCreateInstance = ole32.CoCreateInstance
 CoCreateInstance.argtypes = [
         c_void_p,
         c_uint32,
