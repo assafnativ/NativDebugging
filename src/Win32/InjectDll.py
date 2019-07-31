@@ -21,7 +21,6 @@
 #
 
 # Imports
-from abc import ABCMeta, abstractmethod
 from .Win32Structs import *
 from .MemReaderBaseWin import *
 from ..Utilities import integer_types
@@ -30,9 +29,6 @@ from builtins import range
 import sys
 
 class InjectDll( object ):
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
     def __init__(self):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
@@ -98,13 +94,13 @@ class InjectDll( object ):
         # Process has not started yet, try to inject by modifying imports list
         # Based on https://docs.microsoft.com/en-us/windows/desktop/debug/pe-format
         for module_base in self.enumModulesAddresses():
-            lfanew = self.readDword(module_base + 0x3c)
+            lfanew = self.readUInt32(module_base + 0x3c)
             nt_header_addr = module_base + lfanew
-            machine = self.readWord(nt_header_addr + 0x4)
+            machine = self.readUInt16(nt_header_addr + 0x4)
             if 0 == machine:
                 continue
-            optional_header_size = self.readWord(nt_header_addr + 0x14)
-            characteristics = self.readWord(nt_header_addr + 0x16)
+            optional_header_size = self.readUInt16(nt_header_addr + 0x14)
+            characteristics = self.readUInt16(nt_header_addr + 0x16)
             if characteristics & win32con.IMAGE_FILE_DLL:
                 continue
 
@@ -116,7 +112,7 @@ class InjectDll( object ):
         # Pad dll name
         dllName = padBuffer(dllName, 0x10)
 
-        magic = self.readWord(nt_header_addr + 0x18)
+        magic = self.readUInt16(nt_header_addr + 0x18)
         if magic == win32con.IMAGE_NT_OPTIONAL_HDR32_MAGIC:
             is32Bit = True
         elif magic == win32con.IMAGE_NT_OPTIONAL_HDR64_MAGIC:
@@ -125,35 +121,35 @@ class InjectDll( object ):
             raise Exception("Unknown image magic: 0x%x" % magic)
 
         # Check for CLR (Common Language Runtime)
-        number_of_sections = self.readWord(nt_header_addr + 0x6)
+        number_of_sections = self.readUInt16(nt_header_addr + 0x6)
         if is32Bit:
             directory_addr = nt_header_addr + 0x7c
         else:
             directory_addr = nt_header_addr + 0x88
 
-        iat_dir_offset = self.readDword(directory_addr + (12 * 8))
-        iat_dir_size   = self.readDword(directory_addr + (12 * 8) + 4)
+        iat_dir_offset = self.readUInt32(directory_addr + (12 * 8))
+        iat_dir_size   = self.readUInt32(directory_addr + (12 * 8) + 4)
         iat_dir_addr   = module_base + iat_dir_offset
-        import_dir_offset = self.readDword(directory_addr + 8)
-        import_dir_size   = self.readDword(directory_addr + 8 + 4)
+        import_dir_offset = self.readUInt32(directory_addr + 8)
+        import_dir_size   = self.readUInt32(directory_addr + 8 + 4)
 
         # Nullify the checksum, not sure why
-        self.deprotectAndWriteDword(nt_header_addr + 0x58, 0)
+        self.deprotectAndWriteUInt32(nt_header_addr + 0x58, 0)
 
         # Zero out the bound table so loader doesn't use it instead of our new table.
-        self.deprotectAndWriteDword(directory_addr + (11 * 8), 0)
-        self.deprotectAndWriteDword(directory_addr + (11 * 8) + 4, 0)
+        self.deprotectAndWriteUInt32(directory_addr + (11 * 8), 0)
+        self.deprotectAndWriteUInt32(directory_addr + (11 * 8) + 4, 0)
 
         # If the file didn't have an IAT_DIRECTORY we create a new one
         for section_index in range(number_of_sections):
             if 0 != iat_dir_addr:
                 break
-            section_offset = self.readDword((section_index * 0x28) + 0xc)
-            section_size   = self.readDword((section_index * 0x28) + 0x8)
+            section_offset = self.readUInt32((section_index * 0x28) + 0xc)
+            section_size   = self.readUInt32((section_index * 0x28) + 0x8)
             section_end = section_offset + section_size
             if (section_offset <= import_dir_offset) and (import_dir_offset < section_end):
-                self.deprotectAndWriteDword(directory_addr + (12 * 8), section_offset)
-                self.deprotectAndWriteDword(directory_addr + (12 * 8) + 4, section_size)
+                self.deprotectAndWriteUInt32(directory_addr + (12 * 8), section_offset)
+                self.deprotectAndWriteUInt32(directory_addr + (12 * 8) + 4, section_size)
 
         sizeof_IMAGE_IMPORT_DESCRIPTOR = 0x14
         number_of_imports = import_dir_size // sizeof_IMAGE_IMPORT_DESCRIPTOR
@@ -209,8 +205,8 @@ class InjectDll( object ):
         self.deprotectAndWriteMemory(free_memory_address, patch_buffer)
 
         # Write offset to the new import dir
-        self.deprotectAndWriteDword(directory_addr + 8, new_import_dir_offset)
-        self.deprotectAndWriteDword(directory_addr + 8 + 4, imports_table_size)
+        self.deprotectAndWriteUInt32(directory_addr + 8, new_import_dir_offset)
+        self.deprotectAndWriteUInt32(directory_addr + 8 + 4, imports_table_size)
 
     def _sanitizeDllName(self, dllName):
         if dllName[-1] != b'\x00':

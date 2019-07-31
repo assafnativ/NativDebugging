@@ -31,10 +31,8 @@ except ImportError as e:
 
 class MemReaderBaseWin( MemReaderBase ):
     def __init__(self, *argv, **argm):
-        MemReaderBase(self, *argv, **argm)
-
-    def getEndianity(self):
-        return '<' # Intel is always Little-endian
+        self._ENDIANITY = '<' # Intel is always Little-endian
+        MemReaderBase.__init__(self, *argv, **argm)
 
     def enumModulesAddresses(self):
         ALLOCATION_GRANULARITY = 0x1000
@@ -65,7 +63,7 @@ class MemReaderBaseWin( MemReaderBase ):
             if b'MZ' != self.readMemory(module_addr, 2):
                 # Not an MZ, not a module
                 continue
-            lfanew = self.readDword(module_addr + 0x3c)
+            lfanew = self.readUInt32(module_addr + 0x3c)
             if (mem_basic_info.RegionSize - 4) < lfanew:
                 # Invalid MZ header
                 continue
@@ -101,9 +99,9 @@ class MemReaderBaseWin( MemReaderBase ):
         num_modules = bytes_written.value // sizeof(c_void_p(0))
         printIfVerbose("Found %d modules" % num_modules, isVerbose)
         for module_iter in range(num_modules):
-            module_name = c_ARRAY( c_char, 10000 )(b'\x00')
-            GetModuleBaseName( self._process, modules[module_iter], byref(module_name), sizeof(module_name) )
-            module_name = module_name.raw.replace(b'\x00', b'')
+            module_name = c_wchar_p('a' * 0x1000)
+            GetModuleBaseName(self._process, modules[module_iter], len(module_name.value))
+            module_name = module_name.value
             module_info = MODULEINFO(0)
             GetModuleInformation( self._process, modules[module_iter], byref(module_info), sizeof(module_info) )
             module_base = module_info.lpBaseOfDll
@@ -129,10 +127,10 @@ class MemReaderBaseWin( MemReaderBase ):
         return file_name.raw.replace(b'\x00\x00', b'').decode('utf16')
 
     def _getSomePEInfo( self, module_base ):
-        pe = module_base + self.readDword( module_base + win32con.PE_POINTER_OFFSET )
-        first_section = self.readWord( pe + win32con.PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET) + win32con.PE_SIZEOF_NT_HEADER
-        num_sections = self.readWord( pe + win32con.PE_NUM_OF_SECTIONS_OFFSET )
-        isPePlus = (0x20b == self.readWord(pe + win32con.PE_OPTIONAL_HEADER_TYPE) )
+        pe = module_base + self.readUInt32( module_base + win32con.PE_POINTER_OFFSET )
+        first_section = self.readUInt16( pe + win32con.PE_SIZEOF_OF_OPTIONAL_HEADER_OFFSET) + win32con.PE_SIZEOF_NT_HEADER
+        num_sections = self.readUInt16( pe + win32con.PE_NUM_OF_SECTIONS_OFFSET )
+        isPePlus = (0x20b == self.readUInt16(pe + win32con.PE_OPTIONAL_HEADER_TYPE) )
 
         return (pe, first_section, num_sections, isPePlus)
 
@@ -147,9 +145,9 @@ class MemReaderBaseWin( MemReaderBase ):
                     pe + first_section + (sections_iter * win32con.IMAGE_SIZEOF_SECTION_HEADER), \
                     win32con.PE_SECTION_NAME_SIZE )
             section_name = section_name.replace(b'\x00', b'')
-            section_base = self.readDword( \
+            section_base = self.readUInt32( \
                     pe + first_section + (sections_iter * win32con.IMAGE_SIZEOF_SECTION_HEADER) + win32con.PE_SECTION_VOFFSET_OFFSET )
-            section_size = self.readDword( \
+            section_size = self.readUInt32( \
                     pe + first_section + (sections_iter * win32con.IMAGE_SIZEOF_SECTION_HEADER) + win32con.PE_SECTION_SIZE_OF_RAW_DATA_OFFSET )
             result.append( (section_name, section_base, section_size) )
             if isVerbose:
@@ -182,13 +180,16 @@ class MemReaderBaseWin( MemReaderBase ):
             extraBytes = win32con.PE_PLUS_EXTRA_BYTES
         else:
             extraBytes = 0
-        return base + self.readDword(pe + win32con.PE_RVA_OFFSET + extraBytes)
+        return base + self.readUInt32(pe + win32con.PE_RVA_OFFSET + extraBytes)
 
     def findProcAddress(self, dllName, target):
         """
-        Search for exported function in a remote process.
+        Search for exported function in the remote process.
         """
         base = self.findModule(dllName, isVerbose=False)
+        return self.findProcAddressFromModuleBase(base, target)
+
+    def findProcAddressFromModuleBase(self, base, target):
         rva = self.findRVA(base)
         if isinstance(target, integer_types):
             isOrdinals = True
@@ -197,28 +198,28 @@ class MemReaderBaseWin( MemReaderBase ):
         for proc, procAddr in self._enumRemoteModuleProcs(base, rva, isOrdinals):
             if proc == target:
                 return procAddr
-        raise Exception("Function %s not found in %s" % (str(target), dllName))
+        raise Exception("Function %s not found! (Base = %x)" % (str(target), base))
 
     def _enumRemoteModuleProcs(self, base, rva, isOrdinals=False):
-        numProcs    = self.readDword(rva + win32con.RVA_NUM_PROCS_OFFSET)
-        procsTable  = base + self.readDword(rva + win32con.RVA_PROCS_ADDRESSES_OFFSET)
-        ordinalsTable = base + self.readDword(rva + win32con.RVA_PROCS_ORDINALS_OFFSET)
+        numProcs    = self.readUInt32(rva + win32con.RVA_NUM_PROCS_OFFSET)
+        procsTable  = base + self.readUInt32(rva + win32con.RVA_PROCS_ADDRESSES_OFFSET)
+        ordinalsTable = base + self.readUInt32(rva + win32con.RVA_PROCS_ORDINALS_OFFSET)
         procIndex = None
         if isOrdinals:
             # By ordinal
             # I think there is a bug here, but no one realy uses ordinal load
             for i in range(numProcs):
-                ordinal = self.readWord(ordinalsTable + (i*2))
-                yield (ordinal, base + self.readDword(procsTable + (ordinal * 4)))
+                ordinal = self.readUInt16(ordinalsTable + (i*2))
+                yield (ordinal, base + self.readUInt32(procsTable + (ordinal * 4)))
         else:
             # By name
-            numNames    = self.readDword(rva + win32con.RVA_NUM_PROCS_NAMES_OFFSET)
-            namesTable  = base + self.readDword(rva + win32con.RVA_PROCS_NAMES_OFFSET)
+            numNames    = self.readUInt32(rva + win32con.RVA_NUM_PROCS_NAMES_OFFSET)
+            namesTable  = base + self.readUInt32(rva + win32con.RVA_PROCS_NAMES_OFFSET)
             for i in range(numNames):
-                procNameAddr = base + self.readDword(namesTable + (i*4))
+                procNameAddr = base + self.readUInt32(namesTable + (i*4))
                 procName = bytes(self.readString(procNameAddr), 'utf8')
-                procIndex = self.readWord(ordinalsTable + (i*2))
-                yield (procName, base + self.readDword(procsTable + (procIndex * 4)))
+                procIndex = self.readUInt16(ordinalsTable + (i*2))
+                yield (procName, base + self.readUInt32(procsTable + (procIndex * 4)))
 
     def enumRemoteModuleProcs(self, dllName, isOrdinals=False):
         """

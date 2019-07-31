@@ -1,4 +1,5 @@
 # python setup.py bdist_wheel
+# python -m twine upload dist/*
 
 import sys
 if sys.platform.lower().startswith('win'):

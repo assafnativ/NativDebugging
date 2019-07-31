@@ -1,21 +1,23 @@
 def printCreateFile(dc, isUnicode):
     esp = dc.context.esp
     returnAddress = dc.readAddr(esp)
-    fname = dc.readAddr(esp + 4)
-    access = dc.readDword(esp + 8)
-    sharedMode = dc.readDword(esp + 0xc)
-    securityAttrib = dc.readAddr(esp + 0x10)
-    creationDispos = dc.readDword(esp + 0x14)
-    flags = dc.readDword(esp + 0x18)
-    template = dc.readAddr(esp + 0x1c)
-    print "Fanem: ", dc.readString(fname, isUnicode=isUnicode)
-    print "Return address: %x" % returnAddress
-    print "Access: %x" % access
-    print "Shared mode: %x" % sharedMode
-    print "SecurityAttrib: %x" % securityAttrib
-    print "Creation dispos: %x" % creationDispos
-    print "Flags: %x" % flags
-    print "Template: %x" % template
+    pointerSize = dc.getPointerSize()
+    offset = pointerSize
+    fname = dc.readAddr(esp + offset); offset += pointerSize
+    access = dc.readUInt32(esp + offset); offset += 4
+    sharedMode = dc.readUInt32(esp + offset); offset += 4
+    securityAttrib = dc.readAddr(esp + offset); offset += pointerSize
+    creationDispos = dc.readUInt32(esp + offset); offset += 4
+    flags = dc.readUInt32(esp + offset); offset += 4
+    template = dc.readAddr(esp + offset)
+    print("Fname: ", dc.readString(fname, isUnicode=isUnicode))
+    print("Return address: %x" % returnAddress)
+    print("Access: %x" % access)
+    print("Shared mode: %x" % sharedMode)
+    print("SecurityAttrib: %x" % securityAttrib)
+    print("Creation dispos: %x" % creationDispos)
+    print("Flags: %x" % flags)
+    print("Template: %x" % template)
 
 def printCreateFileA(dc):
     printCreateFile(dc, False)
@@ -32,14 +34,15 @@ if len(target) > 0:
     d = attach(target)
 else:
     d = create(sys.argv[1])
-# To solve a race condition bug...
-time.sleep(1)
+# To workaround a race condition bug...
+while d.isProcessRunning():
+    pass
 d.run()
 time.sleep(1)
-d.bpx(d.findProcAddress('kernel32.dll', 'CreateFileW'), printCreateFileW)
-d.bpx(d.findProcAddress('kernel32.dll', 'CreateFileA'), printCreateFileA)
+d.bpx(d.findProcAddress('kernel32.dll', b'CreateFileW'), printCreateFileW)
+d.bpx(d.findProcAddress('kernel32.dll', b'CreateFileA'), printCreateFileA)
 d.run()
 
 while d.isProcessAlive():
     pass
-    
+

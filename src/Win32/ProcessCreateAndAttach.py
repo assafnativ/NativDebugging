@@ -1,11 +1,9 @@
 
-from abc import ABCMeta, abstractmethod
 from .Win32Structs import *
 from .Win32Utilities import *
 from ..Utilities import *
 
 class ProcessCreateAndAttach( object ):
-    @abstractmethod
     def __init__( self,
             target_process_id=None,
             target_open_handle=None,
@@ -62,7 +60,10 @@ class ProcessCreateAndAttach( object ):
             threadAttributes.InheritHandle = True
         else:
             threadAttributes = createInfo['SECURITY_ATTRIBUTES']
-        currentDirectory = createInfo.get('CURRENT_DIRECTORY', None)
+        if 'CURRENT_DIRECTORY' in createInfo:
+            currentDirectory = c_wchar_p(createInfo['CURRENT_DIRECTORY'])
+        else:
+            currentDirectory = None
         creationFlags = createInfo.get('CREATION_FLAGS', 0)
         if createSuspended:
             creationFlags |= win32con.CREATE_SUSPENDED
@@ -76,7 +77,7 @@ class ProcessCreateAndAttach( object ):
                     cmdLine,
                     byref(securityAttributes),
                     byref(threadAttributes),
-                    TRUE,
+                    True,
                     creationFlags,
                     createInfo.get('ENVIRONMENT', None),
                     currentDirectory,

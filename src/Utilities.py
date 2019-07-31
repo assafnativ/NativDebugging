@@ -63,20 +63,18 @@ def DATA( data, base = 0, itemsInRow=0x10 ):
     return( result )
 
 
-def makeQwordsList( data, endianity='=' ):
-    if len(data) % 8 != 0:
-        data += b'\x00' * (8 - (len(data) % 8))
-    return list(struct.unpack(endianity + ('Q' * (len(data) // 8)), data))
+def makeUIntList(data, size, endianity, packer):
+    data += b'\x00' * -(len(data) % (-size))
+    return list(struct.unpack(endianity + (packer * (len(data) // size)), data))
 
-def makeDwordsList( data, endianity='=' ):
-    if len(data) % 4 != 0:
-        data += b'\x00' * (4 - (len(data) % 4))
-    return list(struct.unpack(endianity + ('L' * (len(data) // 4)), data))
+def makeUInt64List( data, endianity='=' ):
+    return makeUIntList(data, 8, endianity, 'Q')
 
-def makeWordsList( data, endianity='=' ):
-    if len(data) % 2 != 0:
-        data += b'\x00' * (2 - (len(data) % 2))
-    return list(struct.unpack(endianity + ('H' * (len(data) // 2)), data))
+def makeUInt32List( data, endianity='=' ):
+    return makeUIntList(data, 4, endianity, 'L')
+
+def makeUInt16List( data, endianity='=' ):
+    return makeUIntList(data, 2, endianity, 'H')
 
 def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8, endianity='=' ):
     result = ''
@@ -118,18 +116,18 @@ def printIntTable( table, base = 0, itemSize=4, itemsInRow = 0x8, endianity='=' 
         result += line
     print(result)
 
-def printAsQwordsTable( data, base = 0, itemsInRow = 0x8, endianity='=' ):
-    table = makeQwordsList(data, endianity=endianity)
+def printAsUInt64Table( data, base = 0, itemsInRow = 0x8, endianity='=' ):
+    table = makeUInt64List(data, endianity=endianity)
     printIntTable(table, base, itemSize=8, itemsInRow=itemsInRow)
     return table
 
-def printAsDwordsTable( data, base = 0, itemsInRow = 0x8, endianity='=' ):
-    table = makeDwordsList(data, endianity=endianity)
+def printAsUInt32Table( data, base = 0, itemsInRow = 0x8, endianity='=' ):
+    table = makeUInt32List(data, endianity=endianity)
     printIntTable(table, base, itemSize=4, itemsInRow=itemsInRow)
     return table
 
-def printAsWordsTable( data, base = 0, itemsInRow = 0x8, endianity='=' ):
-    table = makeWordsList(data, endianity=endianity)
+def printAsUInt16Table( data, base = 0, itemsInRow = 0x8, endianity='=' ):
+    table = makeUInt16List(data, endianity=endianity)
     printIntTable(table, base, itemSize=2, itemsInRow=itemsInRow)
     return table
 
@@ -156,10 +154,10 @@ def data2hex( d ):
             return d.encode('utf-8').hex()
     return codecs.encode(d, 'hex')
 
-def data2dword(x, endianity='='):
+def data2uint32(x, endianity='='):
     return struct.unpack(endianity + 'L', x)[0]
 
-def dword2data(x, endianity='='):
+def uint322data(x, endianity='='):
     return struct.pack(endianity + 'L', x)
 
 def buffDiff( buffers, chunk_size = 1, endianity='=' ):

@@ -19,16 +19,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-from abc import ABCMeta, abstractmethod
 from ..Interfaces import MemReaderInterface, ReadError
 from ..Utilities import integer_types
 
 import sys
 from os import linesep
 import struct
-import datetime
-import itertools
-from types import FunctionType
 
 def printPattern(pattern, depth=0):
     space = '  ' * depth
@@ -153,20 +149,24 @@ class SearchContext( object ):
 
         return result
 
-def CreatePatternsFinder( memReader ):
+def CreatePatternsFinder( memReader, isSafeSearch=False, raiseOnNotFound=False ):
     if not isinstance(memReader, MemReaderInterface):
         raise Exception("Mem Reader must be of MemReaderInterface type")
-    return PatternFinder(memReader)
+    return PatternFinder(memReader, isSafeSearch=isSafeSearch, raiseOnNotFound=raiseOnNotFound)
 
 class PatternFinder( object ):
-    def __init__(self, memReader, isSafeSearch=False):
+    def __init__(self, memReader, isSafeSearch=False, raiseOnNotFound=False):
         self.memReader          = memReader
         self.isAddressValid     = memReader.isAddressValid
         self.readMemory         = memReader.readMemory
-        self.readByte           = memReader.readByte
-        self.readWord           = memReader.readWord
-        self.readDword          = memReader.readDword
-        self.readQword          = memReader.readQword
+        self.readUInt8          = memReader.readUInt8
+        self.readInt8           = memReader.readInt8
+        self.readUInt16         = memReader.readUInt16
+        self.readInt16          = memReader.readInt16
+        self.readUInt32         = memReader.readUInt32
+        self.readInt32          = memReader.readInt32
+        self.readUInt64         = memReader.readUInt64
+        self.readInt64          = memReader.readInt64
         self.readAddr           = memReader.readAddr
         self.readString         = memReader.readString
         self.debugContext       = None
@@ -184,7 +184,7 @@ class PatternFinder( object ):
             self._search = self._safeSearch
         else:
             self._search = self._unSafeSearch
-        self.raiseOnNotFound = False
+        self.raiseOnNotFound = raiseOnNotFound
 
     def getPointerSize(self):
         return self._POINTER_SIZE
@@ -236,36 +236,33 @@ class PatternFinder( object ):
             for _ in shape.isValid(self, shape_address, shape_offset, context):
                 # Search the next shape if needed
                 if len(pattern) > 1:
-                    for result in self._search(pattern[1:], startAddress, shape_address + len(shape.getData()), context):
+                    for result in self._search(pattern[1:], startAddress, shape_address + len(shape.data), context):
                         yield result
                 else:
                     # No more shapes in pattern
                     yield context
         # Shape not found
 
-    def __genConcatedProc(self, proc1, proc2):
-        return lambda context, value: proc1(context, value) and proc2(context, value)
-    def __genSetColor(self, displayContext, name, size, color):
-        return lambda context, value: displayContext.addColorRanges( \
-                (
+    def _genSetColor(self, displayContext, name, size, color, extraCheck=None):
+        def tmpSetColor(context, value):
+            displayContext.addColorRanges(
                     getattr(context, 'AddressOf' + name),
                     max(getattr(context, 'SizeOf' + name), 1),
                     color,
-                    name) ) or True
-    def __paintPattern(self, depth, pattern, displayContext):
+                    name)
+            if extraCheck:
+                return extraCheck(context, value)
+            return True
+        return tmpSetColor
+    def _paintPattern(self, depth, pattern, displayContext):
         if 0 == depth:
             return
         for shape in pattern:
-            data = shape.getData()
+            data = shape.data
             # Check if recursive
-            if isinstance(data, (POINTER_TO_STRUCT, STRUCT)):
-                self.__paintPattern(depth-1, data.pattern.content, displayContext)
-            if None == shape.extraCheck:
-                shape.extraCheck = self.__genSetColor(displayContext, shape.name, '#%06x' % self.color)
-            else:
-                shape.extraCheck = self.__genConcatedProc(
-                        shape.extraCheck,
-                        self.__genSetColor(displayContext, shape.name, '#%06x' % self.color) )
+            if isinstance(data, (n_struct_ptr, n_struct)):
+                self._paintPattern(depth-1, data.pattern.content, displayContext)
+            shape.extraCheck = self._genSetColor(displayContext, shape.name, '#%06x' % self.color, shape.extraCheck)
             brightness = 0
             while brightness < 0x190:
                 self.color += 0x102030
@@ -275,26 +272,29 @@ class PatternFinder( object ):
                 brightness += (self.color >> 0x10) & 0xff
     def displaySearch(self, pattern, startAddress, displayContext, maxDepth=3, context=None):
         self.color = 0x2090d0
-        self.__paintPattern(maxDepth, pattern, displayContext)
+        self._paintPattern(maxDepth, pattern, displayContext)
         return self.search(pattern, startAddress, context=context)
-    def __genDisplayText(self, name):
-        return lambda context, value: sys.stdout.write('%s found @%08x Offset %08x%s'  % (name, getattr(context, 'AddressOf%s' % name), getattr(context, 'OffsetOf%s' % name), linesep) ) or True
-    def __textPattern(self, depth, pattern):
+    def _genDisplayText(self, name, extraCheck=None):
+        def tmpDisplayText(context, value):
+            print('%s found @%08x Offset %08x' % (
+                name,
+                getattr(context, 'AddressOf%s' % name),
+                getattr(context, 'OffsetOf%s' % name)) )
+            if extraCheck:
+                return extraCheck(context, value)
+            return True
+        return tmpDisplayText
+    def _textifyPattern(self, depth, pattern):
         if 0 == depth:
             return
         for shape in pattern:
-            data = shape.getData()
+            data = shape.data
             # Check if recursive
-            if isinstance(data, (POINTER_TO_STRUCT, STRUCT)):
-                self.__textPattern(depth-1, data.content)
-            if None == shape.extraCheck:
-                shape.extraCheck = self.__genDisplayText(shape.name)
-            else:
-                shape.extraCheck = self.__genConcatedProc(
-                        shape.extraCheck,
-                        self.__genDisplayText(shape.name) )
+            if isinstance(data, (n_struct_ptr, n_struct)):
+                data.content = self._textifyPattern(depth-1, data.content)
+            shape.extraCheck = self._genDisplayText(shape.name, shape.extraCheck)
     def verboseSearch(self, pattern, startAddress, maxDepth=3, context=None):
-        self.__textPattern(maxDepth, pattern)
+        self._textifyPattern(maxDepth, pattern)
         return self.search(pattern, startAddress, context=context)
 
 
@@ -357,7 +357,6 @@ def isValidShapeName(name):
     return True
 
 class SHAPE_INTERFACE(object):
-    @abstractmethod
     def __init__(self):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
@@ -371,9 +370,6 @@ class SHAPE_INTERFACE(object):
         return self.__class__.__name__
     def GetValidRange(self, start, lastAddress=0, context=None):
         return [(lastAddress,0)]
-    def getData(self):
-        return ''
-    @abstractmethod
     def isValid(self, patFinder, address, offset, context):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
@@ -438,8 +434,6 @@ class SHAPE( SHAPE_WITH_NAME ):
         else:
             return self.procIterator(self.rangeProc, context, start)
         return self.iterator( self.minOffset, self.maxOffset, self.alignment, start )
-    def getData(self):
-        return self.data
     def isValid(self, patFinder, address, offset, context):
         setattr(context, self.name, self.data.readValue(patFinder, address))
         setattr(context, 'AddressOf' + self.name, address)
@@ -512,17 +506,14 @@ class DATA_TYPE( object ):
     def getAlignment(self):
         return 1
 
-    @abstractmethod
     def __len__(self):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def readValue(self, patFinder, address):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def isValid(self, patFinder, address, value):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
@@ -530,7 +521,7 @@ class DATA_TYPE( object ):
     def memoryFootprint(self, patFinder, value):
         return len(self)
 
-class ANYTHING( DATA_TYPE ):
+class n_anything( DATA_TYPE ):
     def __init__(self, size = 0, **kw):
         DATA_TYPE.__init__(self, **kw)
         self.datasize = size
@@ -541,7 +532,7 @@ class ANYTHING( DATA_TYPE ):
     def isValid(self, patFinder, address, value):
         yield True
 
-class POINTER( DATA_TYPE ):
+class n_pointer( DATA_TYPE ):
     def __init__(self, isNullValid=False, valueRange=None, **kw):
         self.isNullValid = isNullValid
         self.valueRange = valueRange
@@ -565,7 +556,7 @@ class POINTER( DATA_TYPE ):
         elif patFinder.isAddressValid(value):
             yield True
 
-class STRUCT( DATA_TYPE ):
+class n_struct( DATA_TYPE ):
     def __init__(self, content, **kw):
         self.content = content
         self.context = None
@@ -590,18 +581,18 @@ class STRUCT( DATA_TYPE ):
         for _ in patFinder.search(content, address, lastAddress=0, context=value):
             yield True
 
-class POINTER_TO_STRUCT( POINTER ):
+class n_struct_ptr( n_pointer ):
     def __init__(self, content, **kw):
         self.content = content
         self.context = None
-        POINTER.__init__(self, **kw)
+        n_pointer.__init__(self, **kw)
     def setForSearch(self, patFinder, context):
-        POINTER.setForSearch(self, patFinder, context)
+        n_pointer.setForSearch(self, patFinder, context)
         self.context = SearchContext(root=context._root)
         self.context._parent = context
         patFinder.setPatternForSearch(self.content, self.context)
     def memoryFootprint(self, patFinder, value):
-        total = super(POINTER, self).memoryFootprint(patFinder, value)
+        total = super(n_pointer, self).memoryFootprint(patFinder, value)
         if not value._val:
             return total
         total += ~self.context
@@ -625,7 +616,7 @@ class POINTER_TO_STRUCT( POINTER ):
 
         # To prevent reads from invalid memory during pattern search
         try:
-            patFinder.readByte(ptr)
+            patFinder.readUInt8(ptr)
         except ReadError:
             return
 
@@ -646,7 +637,7 @@ class DATA_TYPE_FAIL( DATA_TYPE ):
         return
 
 # At the time of the call to the switch the context must contain all the information needed to decide
-class SWITCH( DATA_TYPE ):
+class n_switch( DATA_TYPE ):
     def __init__(self, chooseProc, cases, **kw):
         self.cases = cases
         if isinstance(chooseProc, str):
@@ -687,7 +678,7 @@ class SWITCH( DATA_TYPE ):
             for x in patFinder.search(self.currentPattern, address, lastAddress=0, context=self.context):
                 yield True
 
-class NUMBER( DATA_TYPE ):
+class n_number( DATA_TYPE ):
     def __init__(self, value=None, size=None, alignment=None, isSigned=False, endianity='=', **kw):
         self.sizeOfData = size
         if 128 < self.sizeOfData or 0 >= self.sizeOfData:
@@ -713,7 +704,7 @@ class NUMBER( DATA_TYPE ):
             self.alignment = self.sizeOfData
 
     def __repr__(self):
-        sizesNames = {None:'DefaultSize', 1:'BYTE', 2:'WORD', 4:'DWORD', 8:'QWORD'}
+        sizesNames = {None:'DefaultSize', 1:'Byte', 2:'UInt16', 4:'UInt32', 8:'UInt64'}
         if self.sizeOfData not in sizesNames:
             result = 'NUMBER'
         else:
@@ -741,10 +732,10 @@ class NUMBER( DATA_TYPE ):
         if ">" == self._endianity:
             for i in range(self.sizeOfData):
                 result <<= 8
-                result += patFinder.readByte(address + i)
+                result += patFinder.readUInt8(address + i)
         else:
             for i in range(0, self.sizeOfData):
-                result += patFinder.readByte(address + i) << (i * 8)
+                result += patFinder.readUInt8(address + i) << (i * 8)
         if self.isSigned:
             maxPositive = 1 << (self.sizeOfData * 8 - 1)
             if result >= maxPositive:
@@ -774,7 +765,7 @@ class NUMBER( DATA_TYPE ):
     def getAlignment(self):
         return self.alignment
 
-class SIZE_T( NUMBER ):
+class n_size_t( n_number ):
     def __init__(self, value=None, alignment=None, endianity='=', **kw):
         self.alignment = alignment
         self.value = value
@@ -797,11 +788,11 @@ class SIZE_T( NUMBER ):
     def getAlignment(self):
         return self.sizeOfData
 
-class FLOAT( NUMBER ):
+class n_float( n_number ):
     def __init__(self, size=None, *arg, **kw):
         if None == size:
             size = 4
-        NUMBER.__init__(self, size=size, *arg, **kw)
+        n_number.__init__(self, size=size, *arg, **kw)
         if self.sizeOfData == 4:
             self._unpacktype = self._endianity + 'f'
         elif self.sizeOfData == 8:
@@ -833,22 +824,22 @@ class FLOAT( NUMBER ):
     def readValue(self, patFinder, address):
         return struct.unpack(self._unpacktype, patFinder.readMemory(address, self.sizeOfData))[0]
 
-class DOUBLE(FLOAT):
+class n_double(n_float):
     def __init__(self, *arg, **kw):
         kw['size'] = 8
         FLOAT.__init__(self, *arg, **kw)
 
-class CTIME( NUMBER ):
+class n_ctime( n_number ):
     def __init__(self, value=None, alignment=4, endianity="=", **kw):
-        NUMBER.__init__(self, value, size=4, alignment=alignment, isSigned=False, endianity=endianity, **kw)
+        n_number.__init__(self, value, size=4, alignment=alignment, isSigned=False, endianity=endianity, **kw)
     def __repr__(self):
         return "CTime"
 
-class FLAGS( NUMBER ):
+class n_flags( n_number ):
     def __init__(self, flagsDesc, checkInvalidFlags=True, **kw):
         self.flagsDesc = flagsDesc
         self.checkInvalidFlags = checkInvalidFlags
-        NUMBER.__init__(self, **kw)
+        n_number.__init__(self, **kw)
     def __repr__(self):
         return "Flags"
     def isValid(self, patFinder, address, value):
@@ -859,45 +850,46 @@ class FLAGS( NUMBER ):
                     return
         yield True
 
-class BYTE( NUMBER ):
+class n_uint8( n_number ):
     def readValue(self, patFinder, address):
-        if False == self.isSigned:
-            return patFinder.readByte(address)
-        else:
-            value = patFinder.readByte(address)
-            if value >= 0x80:
-                return 0 - (0x100 - value)
-            else:
-                return value
-    def __init__(self, value=(0,0x100), isSigned=False, alignment=1, endianity='=', **kw):
-        NUMBER.__init__(self, value, size=1, alignment=alignment, isSigned=isSigned, endianity=endianity, **kw)
-
-class WORD( NUMBER ):
+        return patFinder.readUInt8(address)
+    def __init__(self, value=(0,0x100), alignment=1, endianity='=', **kw):
+        n_number.__init__(self, value, size=1, alignment=alignment, isSigned=False, endianity=endianity, **kw)
+class n_int8( n_number ):
     def readValue(self, patFinder, address):
-        if False == self.isSigned:
-            return struct.unpack(self.endianity + 'H', patFinder.readMemory(address, 2))[0]
-        else:
-            return struct.unpack(self.endianity + 'h', patFinder.readMemory(address, 2))[0]
-    def __init__(self, value=(0, 0x10000), isSigned=False, alignment=2, endianity='=', **kw):
-        NUMBER.__init__(self, value, size=2, alignment=alignment, isSigned=isSigned, endianity=endianity, **kw)
-
-class DWORD( NUMBER ):
+        return patFinder.readInt8(address)
+    def __init__(self, value=(0,0x100), alignment=1, endianity='=', **kw):
+        n_number.__init__(self, value, size=1, alignment=alignment, isSigned=True, endianity=endianity, **kw)
+class n_uint16( n_number ):
     def readValue(self, patFinder, address):
-        if False == self.isSigned:
-            return struct.unpack(self.endianity + 'L', patFinder.readMemory(address, 4))[0]
-        else:
-            return struct.unpack(self.endianity + 'l', patFinder.readMemory(address, 4))[0]
-    def __init__(self, value=(0, 0x100000000), isSigned=False, alignment=4, endianity='=', **kw):
-        NUMBER.__init__(self, value, size=4, alignment=alignment, isSigned=isSigned, endianity=endianity, **kw)
-
-class QWORD( NUMBER ):
+        return patFinder.readUInt16(address)
+    def __init__(self, value=(0, 0x10000), alignment=2, endianity='=', **kw):
+        n_number.__init__(self, value, size=2, alignment=alignment, isSigned=False, endianity=endianity, **kw)
+class n_int16( n_number ):
     def readValue(self, patFinder, address):
-        if False == self.isSigned:
-            return struct.unpack(self.endianity + 'Q', patFinder.readMemory(address, 8))[0]
-        else:
-            return struct.unpack(self.endianity + 'q', patFinder.readMemory(address, 8))[0]
-    def __init__(self, value=(0, 0x10000000000000000), isSigned=False, alignment=4, endianity='=', **kw):
-        NUMBER.__init__(self, value, size=8, alignment=alignment, isSigned=isSigned, endianity=endianity, **kw)
+        return patFinder.readInt16(address)
+    def __init__(self, value=(0, 0x10000), alignment=2, endianity='=', **kw):
+        n_number.__init__(self, value, size=2, alignment=alignment, isSigned=True, endianity=endianity, **kw)
+class n_uint32( n_number ):
+    def readValue(self, patFinder, address):
+        return patFinder.readUInt32(address)
+    def __init__(self, value=(0, 0x100000000), alignment=4, endianity='=', **kw):
+        n_number.__init__(self, value, size=4, alignment=alignment, isSigned=False, endianity=endianity, **kw)
+class n_int32( n_number ):
+    def readValue(self, patFinder, address):
+        return patFinder.readInt32(address)
+    def __init__(self, value=(0, 0x100000000), alignment=4, endianity='=', **kw):
+        n_number.__init__(self, value, size=4, alignment=alignment, isSigned=True, endianity=endianity, **kw)
+class n_uint64( n_number ):
+    def readValue(self, patFinder, address):
+        return patFinder.readUInt64(address)
+    def __init__(self, value=(0, 0x10000000000000000), alignment=4, endianity='=', **kw):
+        n_number.__init__(self, value, size=8, alignment=alignment, isSigned=False, endianity=endianity, **kw)
+class n_int64( n_number ):
+    def readValue(self, patFinder, address):
+        return patFinder.readInt64(address)
+    def __init__(self, value=(0, 0x10000000000000000), alignment=4, endianity='=', **kw):
+        n_number.__init__(self, value, size=8, alignment=alignment, isSigned=True, endianity=endianity, **kw)
 
 def IsPrintable(s, isUnicode=False):
     if 0 == len(s):
@@ -916,7 +908,7 @@ def IsPrintable(s, isUnicode=False):
                 return False
     return True
 
-class BUFFER( DATA_TYPE ):
+class n_buffer( DATA_TYPE ):
     def __init__(self, size, **keys):
         if isinstance(size, str):
             self.sizeInBytes = _genGetValProc(size)
@@ -941,7 +933,7 @@ class BUFFER( DATA_TYPE ):
     def isValid(self, *arg, **kw):
         yield True
 
-class STRING( DATA_TYPE ):
+class n_string( DATA_TYPE ):
     NULL_TERM = None
     def __init__(self, size=None, maxSize=0x1000, fixedValue=None, isPrintable=True, isUnicode=False, isCaseSensitive=True, **keys):
         if isinstance(fixedValue, (str, bytes)):
@@ -1024,14 +1016,14 @@ class STRING( DATA_TYPE ):
                     return
         yield True
 
-class ARRAY( DATA_TYPE ):
+class n_array( DATA_TYPE ):
     def __init__(self, count, varType, varArgs=None, varKw=None, isZeroSizeValid=True, minimalArrays=True, **kw):
         """
         count, varType, varArgs=None, varKw=None, isZeroSizeValid=True
 
         Multi occurrences of a SHAPE
-        Var type is a SHAPE type such as DWORD, NUMBER, STRING. Note this is not an instance
-        but the class type. The instance would be created by the ARRAY.
+        Var type is a SHAPE type such as n_uint32, n_number, n_string. Note this is not an instance
+        but the class type. The instance would be created by the n_array.
         If the init of the SHAPE type requires args / key words, one can set them using the:
             varArgs - List of args
             varKw - Dictunary args

@@ -2,12 +2,10 @@ from ctypes import c_void_p, c_uint32, c_buffer, byref
 from .Win32Structs import *
 
 def adjustDebugPrivileges():
-    access_token = c_void_p(0)
     privileges = TOKEN_PRIVILEGES()
 
-    OpenProcessToken( GetCurrentProcess(), win32con.TOKEN_QUERY | win32con.TOKEN_ADJUST_PRIVILEGES, byref(access_token) )
-    access_token = access_token.value
-    LookupPrivilegeValue( None, b"SeDebugPrivilege", byref(privileges.Luid) )
+    access_token = OpenProcessToken( GetCurrentProcess(), win32con.TOKEN_QUERY | win32con.TOKEN_ADJUST_PRIVILEGES)
+    LookupPrivilegeValue( None, "SeDebugPrivilege", byref(privileges.Luid) )
     privileges.PrivilegeCount = 1
     privileges.Attributes = 2
     AdjustTokenPrivileges(
@@ -40,7 +38,6 @@ def _enumProcessesOld():
     # Skip the first one
     processInfo = cast(addressof(buf) + offset, c_POINTER(SYSTEM_PROCESS_INFORMATION_DETAILD)).contents
     while True:
-        #print processInfo.UniqueProcessId, processInfo.ImageName.Buffer
         results.append((processInfo.ImageName.Buffer, processInfo.UniqueProcessId))
         if 0 == processInfo.NextEntryOffset:
             break
@@ -77,10 +74,10 @@ def enumProcesses():
                 continue
             raise e
         if process:
-            moduleName = c_buffer(0x2048)
+            moduleName = c_wchar_p('A' * 2048)
             try:
-                nameLen = GetProcessImageFileName(process, moduleName, sizeof(moduleName))
-                if nameLen <= 4:
+                name = GetProcessImageFileName(process, moduleName, len(moduleName.value))
+                if len(name) <= 4:
                     continue
             except WindowsError as e:
                 if 87 == e.winerror:
@@ -88,7 +85,7 @@ def enumProcesses():
                     continue
                 if 299 != e.winerror:
                     raise e
-            results.append((moduleName.value[:nameLen].decode('utf8'), processesIds[i]))
+            results.append((moduleName.value, processesIds[i]))
     return results
 
 def findProcessId(name):

@@ -26,7 +26,7 @@ from ctypes import c_char, c_void_p, c_int8, c_int16, c_int32, c_int64, c_uint8,
 from .Win32Structs import *
 from .Win32Utilities import *
 
-from ..Interfaces import ReadError
+from ..Interfaces import MemReaderInterface, ReadError
 from ..MemReaderBase import *
 from ..GUIDisplayBase import *
 from ..Utilities import *
@@ -88,9 +88,25 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
                                     memInfo[2],
                                     mappingHandle))
 
+        for name, (dataSize, packer) in MemReaderInterface.READER_DESC.items():
+            def readerCreator(dataSize, name):
+                ctype_container = getattr(ctypes, 'c_' + name.lower())
+                def readerMethod(self, address):
+                    address = self.remoteAddressToLocalAddress(address)
+                    return int(ctype_container.from_address(address).value)
+                return readerMethod
+            def localRederCreator(dataSize, name):
+                ctype_container = getattr(ctypes, 'c_' + name.lower())
+                def readerMethod(self, address):
+                    return int(ctype_container.from_address(address).value)
+                return readerMethod
+            setattr(SharedMemReader, 'read' + name, readerCreator(dataSize, name))
+            setattr(SharedMemReader, 'readLocal' + name, localReaderCreator(dataSize, name))
+
+
     def remoteAddressToLocalAddress(self, address):
         for mem in self.memMap:
-            if address >= mem.base and address < mem.end:
+            if mem.base <= address and address < mem.end:
                 return address + mem.delta
         raise ReadError(address)
 
@@ -112,37 +128,12 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
             memMap[mem.base] = ('%d' % mem.id, mem.size, 0xffffffff)
         return memMap
 
-    def getPointerSize(self):
-        return self._POINTER_SIZE
-
-    def getDefaultDataSize(self):
-        return self._DEFAULT_DATA_SIZE
-
-    def getEndianity(self):
-        return self._ENDIANITY
-
     def readMemory(self, address, length, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)
         val = (c_char * length).from_address(address)
         return val.raw
 
-    def readQword(self, address, isLocalAddress=False):
-        if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
-        return c_uint64.from_address(address).value
-    def readDword(self, address, isLocalAddress=False):
-        if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
-        return c_uint32.from_address(address).value
-    def readWord(self, address, isLocalAddress=False):
-        if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
-        return c_uint16.from_address(address).value
-    def readByte(self, address, isLocalAddress=False):
-        if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
-        return c_uint8.from_address(address).value
     def readAddr(self, address, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)
@@ -154,7 +145,7 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
     def isAddressValid(self, address, isLocalAddress=False):
         if not isLocalAddress:
             for mem in self.memMap:
-                if address >= mem.base and address < mem.end:
+                if mem.base <= address and address < mem.end:
                     return True
         else:
             for mem in self.memMap:
@@ -168,15 +159,15 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
 
         while True:
             if False == isUnicode:
-                c = self.readByte(addr + bytesCounter, isLocalAddress=isLocalAddress)
+                c = self.readUInt8(addr + bytesCounter, isLocalAddress=isLocalAddress)
                 bytesCounter += 1
             else:
-                c = self.readWord(addr + bytesCounter, isLocalAddress=isLocalAddress)
+                c = self.readUInt16(addr + bytesCounter, isLocalAddress=isLocalAddress)
                 bytesCounter += 2
             if 1 < c and c < 0x80:
                 result += chr(c)
             else:
                 return result
-            if None != maxSize and bytesCounter > maxSize:
+            if None != maxSize and maxSize <= bytesCounter:
                 return result
 

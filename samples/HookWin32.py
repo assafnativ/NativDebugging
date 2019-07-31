@@ -1,62 +1,81 @@
-from NativDebugging.Win32.MemReaderOverRPyC import createProcess
-
-notepad = createProcess(r'C:\Windows\System32\notepad.exe')
-rnd = notepad.NativDebugging
-RegisterClassProto = rnd.WINFUNCTYPE(
-        rnd.c_void_p, rnd.c_void_p)
-RegisterClass = RegisterClassProto(
-        ("RegisterClassW", rnd.user32),
-        ((1, "WndClass", None),))
-IsWindowVisible = rnd.WINFUNCTYPE(
-        rnd.c_uint32, rnd.c_void_p)(
-                ('IsWindowVisible', rnd.user32),
-                ((1, 'hWnd', None),))
-GetWindowThreadProcessId = rnd.WINFUNCTYPE(
-        rnd.c_uint32, rnd.c_void_p, rnd.c_void_p)(
-                ('GetWindowThreadProcessId', rnd.user32),
-                ((1, 'hWnd', None), (1, 'processId', None)))
-EnumWindows = rnd.WINFUNCTYPE(
-        rnd.c_uint32, rnd.c_void_p, rnd.c_void_p)(
-                ('EnumWindows', rnd.user32),
-                ((1, 'EnumFunc', None), (1, 'lParam', None)))
-GetWindowLongPtr = rnd.WINFUNCTYPE(
-        rnd.c_void_p, rnd.c_void_p, rnd.c_int32)(
-                ('GetWindowLongPtrW', rnd.user32),
-                ((1, 'hWnd', None), (1, 'index', -4)))
-WindowProcProto = rnd.WINFUNCTYPE(
-        rnd.c_void_p, rnd.c_void_p, rnd.c_uint32, rnd.c_void_p, rnd.c_void_p)
-
-@WindowProcProto
-def wndProcHook(hwnd, umsg, wParam, lParam):
-    print("HWND: %x send message %x (%x, %x)" % (hwnd, umsg, wParam, lParam))
-    return notepad.originalFunctions[wndProcAddr](hwnd, umsg, wParam, lParam)
-
-wndProcAddr = 0
-EnumWindowsCallback = rnd.WINFUNCTYPE(rnd.c_uint32, rnd.c_void_p, rnd.c_void_p)
-@EnumWindowsCallback
-def callback(handle, lParam):
-    global wndProcAddr
-    if not handle:
-        return 0xffffffff
-    windowProcess = rnd.c_void_p(0)
-    GetWindowThreadProcessId(handle, rnd.byref(windowProcess))
-    if windowProcess.value != rnd.os.getpid():
-        return 0xffffffff
-    windowVisible = IsWindowVisible(handle)
-    if not windowVisible:
-        return 0xffffffff
-    wndProcAddr = GetWindowLongPtr(handle, -4)
-    notepad.hook(wndProcAddr, WindowProcProto, wndProcHook)
-    print('HWND: %x, %x, %x' % (handle, windowVisible, wndProcAddr))
-    return 0xffffffff
-
-print("Notepad process id: %x" % (rnd.os.getpid()))
-EnumWindows(callback, 0)
-
-#@RegisterClassProto
-#def registerClassHook(wndClass):
-#    print("Registering class: %x" % wndClass.value)
-#    return notepad.originalFunctions[registerClass_addr](wndClass)
 #
-#registerClass_addr = notepad.getCTypeProcAddress(RegisterClass)
-#notepad.hook(registerClass_addr, RegisterClassProto, registerClassHook)
+#   HookWin32.py
+#
+#   Example of how to hook something on Windows
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+import os
+import time
+from builtins import bytes
+from NativDebugging.Win32.Debugger import create
+from NativDebugging.Win32.Win32Structs import *
+
+
+notepad = create(r'C:\Windows\System32\notepad.exe')
+notepad.pos = 0
+notepad.text = open(__file__, 'rb').read()
+if not isinstance(notepad.text[0], (int,)):
+    notepad.text = [ord(x) for x in notepad.text]
+notepad.text = [x for x in notepad.text if x != 0xd]
+
+def wndProcHook(self):
+    umsg = self.context.rdx
+    if 0x102 != umsg:
+        return
+    hwnd = self.context.rcx
+    wParam = self.context.r8
+    lParam = self.context.r9
+    wParam = (wParam & 0xffffffffffffff00) + self.text[notepad.pos]
+    self.context.r8 = wParam
+    self.setCurrentContext()
+    self.pos += 1
+
+def registerClassHook(self):
+    wndClassPtr = self.context.rcx
+    print("Registering class: %x" % wndClassPtr)
+    cbSize = self.readUInt32(wndClassPtr)
+    wndProc = self.readAddr(wndClassPtr + 8)
+    print("wndProc: %x" % wndProc)
+    classNamePtr = self.readAddr(wndClassPtr + 0x40)
+    if classNamePtr:
+        className = self.readString(classNamePtr, isUnicode=True)
+        print("Class Name: %s" % className)
+        if ('edit' == className.lower()):
+            notepad.bpx(wndProc, wndProcHook)
+    else:
+        print("No class name!")
+        self.dq(wndClassPtr)
+
+notepad.breakOnModuleLoad = True
+user32 = -1
+while True:
+    while notepad.isProcessRunning():
+        pass
+    user32 = notepad.getModuleBase('user32.dll')
+    if -1 != user32:
+        break
+    notepad.run()
+print("Found user32 at %x" % user32)
+
+registerClass_addr = notepad.findProcAddress('user32.dll', b'RegisterClassW')
+print("Hooking: %x" % registerClass_addr)
+notepad.bpx(registerClass_addr, registerClassHook)
+notepad.breakOnModuleLoad = False
+notepad.run()
+while True:
+    pass

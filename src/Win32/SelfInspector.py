@@ -21,11 +21,11 @@
 #
 
 # Imports
-from abc import ABCMeta, abstractmethod
 from .Win32Structs import *
 from .MemReaderBaseWin import *
 from .MemoryReader import MemoryReader
 from .DetoursWrapper import Detours
+from ..Interfaces import MemReaderInterface
 from ..Utilities import integer_types
 from builtins import range
 import struct
@@ -35,23 +35,19 @@ def attach():
 
 class SelfReader( MemoryReader, Detours ):
     def __init__(self):
-        MemReaderBase.__init__(self)
+        MemoryReader.__init__(self)
         Detours.__init__(self)
         self._POINTER_SIZE = struct.calcsize('P')
         self._DEFAULT_DATA_SIZE = 4
         self._process = GetCurrentProcess()
 
-    def readQword( self, address ):
-        return c_uint64.from_address(address).value
-
-    def readDword( self, address ):
-        return c_uint32.from_address(address).value
-
-    def readWord( self, address ):
-        return c_uint16.from_address(address).value
-
-    def readByte( self, address ):
-        return c_uint8.from_address(address).value
+        for name, (dataSize, packer) in MemReaderInterface.READER_DESC.items():
+            def readerCreator(dataSize, name):
+                ctype_container = getattr(ctypes, 'c_' + name.lower())
+                def readerMethod(self, addr):
+                    return int(ctype_container.from_address(addr).value)
+                return readerMethod
+            setattr(MemoryReader, 'read' + name, readerCreator(dataSize, name))
 
     def readAddr( self, address ):
         return c_void_p.from_address(address).value

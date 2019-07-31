@@ -43,7 +43,7 @@ names    = exportsInfo.NamesAddress + ntCopyAddr
 ordinals = exportsInfo.NameOrdinalsAddress + ntCopyAddr
 procs    = exportsInfo.FunctionsAddress + ntCopyAddr
 for i in range(numProcs):
-    ordinal = m.readWord(ordinals + (i * 2))
+    ordinal = m.readUInt16(ordinals + (i * 2))
     if i < numNames:
         name    = m.readAddr(names + (i * m.getPointerSize()))
         if 0 != name:

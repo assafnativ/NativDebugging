@@ -78,24 +78,6 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
             raise ReadError(address)
         return value
 
-    def readQword(self, address):
-        return struct.unpack('Q', self.readMemory(address, 8))[0]
-
-    def readDword(self, address):
-        return struct.unpack('L', self.readMemory(address, 4))[0]
-
-    def readWord(self, address):
-        return struct.unpack('H', self.readMemory(address, 2))[0]
-
-    def readByte(self, address):
-        return ord(self.readMemory(address, 1))
-
-    def readAddr(self, address):
-        if 4 == self._pointerSize:
-            return self.readDword(address)
-        else:
-            return self.readQword(address)
-
     def isAddressValid(self, address):
         if self.PLATFORM_X86 == self._platform:
             if (0 == (0xffff0000 & address)) or (0 != (0x80000000 & address)):
@@ -107,29 +89,6 @@ class ExternalMemoryReader( MemReaderBaseWin, GUIDisplayBase ):
             if (0xfffff80000000000 & address) or (0 == (0xffffffffffff0000 & address)):
                 return False
         return True
-
-    def readString( self, address, maxSize=None, isUnicode=False ):
-        result = ''
-        bytesCounter = 0
-        while True:
-            if False == isUnicode:
-                try:
-                    char = self.readByte(address + bytesCounter)
-                except WindowsError:
-                    return result
-                bytesCounter += 1
-            else:
-                try:
-                    char = self.readWord(address + bytesCounter)
-                except WindowsError:
-                    return result
-                bytesCounter += 2
-            if 1 < char and char < 0x80:
-                result += chr(char)
-            else:
-                return result
-            if None != maxSize and bytesCounter > maxSize:
-                return result
 
     def getSupportedPlatfroms( self ):
         return ExternalMemoryReader.SUPPORTED_PLATFORMS

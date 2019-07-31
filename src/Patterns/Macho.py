@@ -133,30 +133,30 @@ def EXTENDED_NAME_LENGTH(context):
     return context._parent._parent.size - context._parent.name_offset
 
 MACHO_DYLIB_COMMAND_PATTERN = [
-        SHAPE("name_offset",            0,  DWORD()),
-        SHAPE("timestamp",              0,  CTIME()),
-        SHAPE("current_version",        0,  DWORD()),
-        SHAPE("compatibility_version",  0,  DWORD()),
-        SHAPE("extended_name",          0,  SWITCH(IS_EXTENDED_NAME, {
-            True:  [SHAPE("name",       0,  STRING(size=EXTENDED_NAME_LENGTH, isPrintable=False))],
+        SHAPE("name_offset",            0,  n_uint32()),
+        SHAPE("timestamp",              0,  n_ctime()),
+        SHAPE("current_version",        0,  n_uint32()),
+        SHAPE("compatibility_version",  0,  n_uint32()),
+        SHAPE("extended_name",          0,  n_switch(IS_EXTENDED_NAME, {
+            True:  [SHAPE("name",       0,  n_string(size=EXTENDED_NAME_LENGTH, isPrintable=False))],
             False: []}))]
 
 MACHO_ENCRYPTION_INFO_COMMAND_PATTERN = [
-        SHAPE("cryptooff",  0,  DWORD()),
-        SHAPE("cryptsize",  0,  DWORD()),
-        SHAPE("cryptid",    0,  DWORD()) ]
+        SHAPE("cryptooff",  0,  n_uint32()),
+        SHAPE("cryptsize",  0,  n_uint32()),
+        SHAPE("cryptid",    0,  n_uint32()) ]
 
 MACHO_SOURCE_VERSION_COMMAND_PATTERN = [
-        SHAPE("version",    0,  QWORD()) ]
+        SHAPE("version",    0,  n_uint64()) ]
 
 MACHO_DATA_COMMAND_PATTERN = [
-        SHAPE("dataoff",    0,  DWORD()),
-        SHAPE("datasize",   0,  DWORD()) ]
+        SHAPE("dataoff",    0,  n_uint32()),
+        SHAPE("datasize",   0,  n_uint32()) ]
 
 MACHO_CMD_PATTERN = [
-        SHAPE("type",   0,  DWORD(list(MACHO_COMMANDS.keys()))),
-        SHAPE("size",   0,  DWORD()),
-        SHAPE("cmd_data", 0, SWITCH("type", {
+        SHAPE("type",   0,  n_uint32(list(MACHO_COMMANDS.keys()))),
+        SHAPE("size",   0,  n_uint32()),
+        SHAPE("cmd_data", 0, n_switch("type", {
             MACHO_COMMANDS_IDS["LC_LOAD_DYLIB"]     : MACHO_DYLIB_COMMAND_PATTERN,
             MACHO_COMMANDS_IDS["LC_LOAD_WEAK_DYLIB"]: MACHO_DYLIB_COMMAND_PATTERN,
             MACHO_COMMANDS_IDS["LC_REEXPORT_DYLIB"] : MACHO_DYLIB_COMMAND_PATTERN,
@@ -168,16 +168,16 @@ MACHO_CMD_PATTERN = [
             MACHO_COMMANDS_IDS["LC_ENCRYPTION_INFO"] : MACHO_ENCRYPTION_INFO_COMMAND_PATTERN,
             "default"   : MACHO_COMMAND_DEFAULT_PATTERN
             })),
-        SHAPE("extra_data", 0,  BUFFER(size=lambda context:context.size - 8 - context.SizeOfcmd_data))
+        SHAPE("extra_data", 0,  n_buffer(size=lambda context:context.size - 8 - context.SizeOfcmd_data))
         ]
 
 MACHO_HEADER_PATTERN = [
-        SHAPE("magic",      0,  DWORD(list(VALID_MAGICS.keys()))),
-        SHAPE("cputtype",   0,  DWORD(list(VALID_CPU_TYPES.keys()))),
-        SHAPE("cpusubtype", 0,  DWORD()),
-        SHAPE("filetype",   0,  DWORD(list(VALID_FILE_TYPES.keys()))),
-        SHAPE("ncmds",      0,  DWORD()),
-        SHAPE("sizeofcmds", 0,  DWORD()),
-        SHAPE("flags",      0,  FLAGS(FLAGS_DESC, size=4)),
-        SHAPE("cmds",       0,  ARRAY("ncmds", STRUCT, (MACHO_CMD_PATTERN,))) ]
+        SHAPE("magic",      0,  n_uint32(list(VALID_MAGICS.keys()))),
+        SHAPE("cputtype",   0,  n_uint32(list(VALID_CPU_TYPES.keys()))),
+        SHAPE("cpusubtype", 0,  n_uint32()),
+        SHAPE("filetype",   0,  n_uint32(list(VALID_FILE_TYPES.keys()))),
+        SHAPE("ncmds",      0,  n_uint32()),
+        SHAPE("sizeofcmds", 0,  n_uint32()),
+        SHAPE("flags",      0,  n_flags(FLAGS_DESC, size=4)),
+        SHAPE("cmds",       0,  n_array("ncmds", STRUCT, (MACHO_CMD_PATTERN,))) ]
 

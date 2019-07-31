@@ -2,9 +2,9 @@
 #   SharedMemReader.py
 #
 #   SharedMemReader - Attach and read shared memory on *nix platforms
-#   https://svn3.xp-dev.com/svn/nativDebugging/
-#   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
+#
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
-#
 
 import sys
 import struct
@@ -26,7 +25,7 @@ from ctypes import c_char, c_void_p, c_int8, c_int16, c_int32, c_int64, c_uint8,
 import subprocess
 from subprocess import Popen
 
-from ..Interfaces import ReadError
+from ..Interfaces import MemReaderInterface, ReadError
 from ..MemReaderBase import *
 from ..GUIDisplayBase import *
 from ..Utilities import *
@@ -83,6 +82,22 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
                 raise Exception("Attach to shared memory failed")
             self.memMap.append(SharedMemInfo(memInfo[0], mem, memInfo[1], memInfo[2]))
 
+
+        for name, (dataSize, packer) in MemReaderInterface.READER_DESC.items():
+            def readerCreator(dataSize, name):
+                ctype_container = getattr(ctypes, 'c_' + name.lower())
+                def readerMethod(self, address):
+                    address = self.remoteAddressToLocalAddress(address)
+                    return int(ctype_container.from_address(address).value)
+                return readerMethod
+            def localRederCreator(dataSize, name):
+                ctype_container = getattr(ctypes, 'c_' + name.lower())
+                def readerMethod(self, address):
+                    return int(ctype_container.from_address(address).value)
+                return readerMethod
+            setattr(SharedMemReader, 'read' + name, readerCreator(dataSize, name))
+            setattr(SharedMemReader, 'readLocal' + name, localReaderCreator(dataSize, name))
+
     def remoteAddressToLocalAddress(self, address):
         for mem in self.memMap:
             if address >= mem.base and address < mem.end:
@@ -113,22 +128,6 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
         val = (c_char * length).from_address(address)
         return val.raw
 
-    def readQword(self, address, isLocalAddress=False):
-        if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
-        return c_uint64.from_address(address).value
-    def readDword(self, address, isLocalAddress=False):
-        if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
-        return c_uint32.from_address(address).value
-    def readWord(self, address, isLocalAddress=False):
-        if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
-        return c_uint16.from_address(address).value
-    def readByte(self, address, isLocalAddress=False):
-        if not isLocalAddress:
-            address = self.remoteAddressToLocalAddress(address)
-        return c_uint8.from_address(address).value
     def readAddr(self, address, isLocalAddress=False):
         if not isLocalAddress:
             address = self.remoteAddressToLocalAddress(address)
@@ -154,10 +153,10 @@ class SharedMemReader( MemReaderBase, GUIDisplayBase ):
 
         while True:
             if False == isUnicode:
-                c = self.readByte(addr + bytesCounter, isLocalAddress=isLocalAddress)
+                c = self.readUInt8(addr + bytesCounter, isLocalAddress=isLocalAddress)
                 bytesCounter += 1
             else:
-                c = self.readWord(addr + bytesCounter, isLocalAddress=isLocalAddress)
+                c = self.readUInt16(addr + bytesCounter, isLocalAddress=isLocalAddress)
                 bytesCounter += 2
             if 1 < c and c < 0x80:
                 result += chr(c)

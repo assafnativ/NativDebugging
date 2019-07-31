@@ -1,11 +1,11 @@
 #
 #   DllInfo.py
 #
-#   PyPepper - Win32 debugger python module
-#   https://code.google.com/p/pypepper/
-#   Nativ.Assaf+pyPepper@gmail.com
-#   Copyright (C) 2011  Assaf Nativ
-#
+#   Dll description container
+#   https://github.com/assafnativ/NativDebugging
+#   Nativ.Assaf+debugging@gmail.com
+#   Copyright (C) 2019  Assaf Nativ
+
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -20,13 +20,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
+
 """
-File name:      BreakPoint.py
+File name:      DllInfo.py
 Define a class that contains all the information aboud a loaded dll.
-Author: Assaf
-Last date:
-        17.03.06
+Author: Assaf Nativ
 """
+
+import os
 
 class DllInfo:
     def __init__( self, \
@@ -34,7 +35,6 @@ class DllInfo:
                   baseAddress, \
                   dwDebugInfoFileOffset, \
                   lpImageName, \
-                  fUnicode, \
                   name ):
         """
         Constructor of the DllInfo class.
@@ -43,6 +43,6 @@ class DllInfo:
         self.baseAddress           = baseAddress
         self.dwDebugInfoFileOffset = dwDebugInfoFileOffset
         self.lpImageName           = lpImageName
-        self.fUnicode              = fUnicode
         self.name                  = name
+        self.baseName              = os.path.basename(name)
 
