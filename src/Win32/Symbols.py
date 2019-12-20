@@ -193,7 +193,7 @@ class PDBSymbols(object):
                 struct = self._getMapType(baseType, maxDepth-1)
 
                 def parseNode(patFinder, startAddress, context):
-                    isNil = patFinder.readByte(startAddress + (patFinder.getPointerSize() * 3) + 1)
+                    isNil = patFinder.readUInt8(startAddress + (patFinder.getPointerSize() * 3) + 1)
                     if isNil:
                         return [SHAPE('duummy', 0, ANYTHING())]
                     return [

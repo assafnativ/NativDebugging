@@ -18,8 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-from abc import ABCMeta
-from .Interfaces import MemReaderInterface, ReadError
+from future.utils import bind_method
 from .Utilities import *
 from .RecursiveFind import *
 from .DumpBase import *
@@ -29,20 +28,14 @@ if 'WindowsError' not in globals():
         pass
 
 class MemReaderBase( RecursiveFind, DumpBase ):
-    """ Few basic functions for memory reader, still abstruct """
-    __metaclass__ = ABCMeta
-
+    """ Few basic functions for memory reader, still abstract """
     def __init__(self):
-        self.solveAddr      = None
-        self.findInSymbols  = None
-        self.findSymbol     = None
-
-        self.dd = self.readNPrintDwords
-        self.db = self.readNPrintBin
-        self.dw = self.readNPrintWords
-        self.dq = self.readNPrintQwords
-        self.resolveOffsets = self.resolveOffsetsList
-        self.rol = self.resolveOffsetsList
+        for readerName, (dataSize, packer) in MemReaderInterface.READER_DESC.items():
+            def readerCreator(dataSize, packer):
+                def readerMethod(self, address):
+                    return struct.unpack(self._ENDIANITY + packer, self.readMemory(address, dataSize))[0]
+                return readerMethod
+            bind_method(MemReaderBase, 'read' + readerName, readerCreator(dataSize, packer))
 
     def resolveOffsetsList( self, start, l, isVerbose=False, isLookingForCycles=True ):
         """
@@ -88,23 +81,11 @@ class MemReaderBase( RecursiveFind, DumpBase ):
             print("Offsets path contains a cycle")
         return result
 
-    def readQword(self, address):
-        return struct.unpack(self._ENDIANITY + 'Q', self.readMemory(address, 8))[0]
-
-    def readDword(self, address):
-        return struct.unpack(self._ENDIANITY + 'L', self.readMemory(address, 4))[0]
-
-    def readWord(self, address):
-        return struct.unpack(self._ENDIANITY + 'H', self.readMemory(address, 2))[0]
-
-    def readByte(self, address):
-        return ord(self.readMemory(address, 1))
-
     def readAddr(self, address):
         if 4 == self._POINTER_SIZE:
-            return self.readDword(address)
+            return self.readUInt32(address)
         else:
-            return self.readQword(address)
+            return self.readUInt64(address)
 
     def readString( self, addr, maxSize=None, isUnicode=False ):
         result = ''
@@ -112,10 +93,10 @@ class MemReaderBase( RecursiveFind, DumpBase ):
 
         while True:
             if False == isUnicode:
-                c = self.readByte(addr + bytesCounter)
+                c = self.readUInt8(addr + bytesCounter)
                 bytesCounter += 1
             else:
-                c = self.readWord(addr + bytesCounter)
+                c = self.readUInt16(addr + bytesCounter)
                 bytesCounter += 2
             if 1 < c and c < 0x80:
                 result += chr(c)
@@ -133,38 +114,38 @@ class MemReaderBase( RecursiveFind, DumpBase ):
     def getEndianity(self):
         return self._ENDIANITY
 
-    def readNPrintQwords( self, addr, length=0x100, isNoBase=True, itemsInRow=4, endianity=None ):
+    def readNPrintUInt64( self, addr, length=0x100, isNoBase=True, itemsInRow=4, endianity=None ):
         """
-        Display memory as QWords tabls, does not return anything
+        Display memory as UInt64 tabls, does not return anything
         """
         if None == endianity:
             endianity = self.getEndianity()
         if isNoBase:
-            printAsQwordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow, endianity=endianity)
+            printAsUInt64Table(self.readMemory(addr, length), itemsInRow=itemsInRow, endianity=endianity)
         else:
-            printAsQwordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow, endianity=endianity)
+            printAsUInt64Table(self.readMemory(addr, length), addr, itemsInRow=itemsInRow, endianity=endianity)
 
-    def readNPrintDwords( self, addr, length=0x100, isNoBase=True, itemsInRow=8, endianity=None ):
+    def readNPrintUInt32( self, addr, length=0x100, isNoBase=True, itemsInRow=8, endianity=None ):
         """
-        Display memory as DWords tabls, does not return anything
+        Display memory as UInt32 tabls, does not return anything
         """
         if None == endianity:
             endianity = self.getEndianity()
         if isNoBase:
-            printAsDwordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow, endianity=endianity)
+            printAsUInt32Table(self.readMemory(addr, length), itemsInRow=itemsInRow, endianity=endianity)
         else:
-            printAsDwordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow, endianity=endianity)
+            printAsUInt32Table(self.readMemory(addr, length), addr, itemsInRow=itemsInRow, endianity=endianity)
 
-    def readNPrintWords( self, addr, length=0x100, isNoBase=True, itemsInRow=0x10, endianity=None ):
+    def readNPrintUInt16( self, addr, length=0x100, isNoBase=True, itemsInRow=0x10, endianity=None ):
         """
-        Display memory as Words tabls, does not return anything
+        Display memory as UInt16 tabls, does not return anything
         """
         if None == endianity:
             endianity = self.getEndianity()
         if isNoBase:
-            printAsWordsTable(self.readMemory(addr, length), itemsInRow=itemsInRow, endianity=endianity)
+            printAsUInt16Table(self.readMemory(addr, length), itemsInRow=itemsInRow, endianity=endianity)
         else:
-            printAsWordsTable(self.readMemory(addr, length), addr, itemsInRow=itemsInRow, endianity=endianity)
+            printAsUInt16Table(self.readMemory(addr, length), addr, itemsInRow=itemsInRow, endianity=endianity)
 
     def readNPrintBin( self, addr, length=0x100, isNoBase=True, itemsInRow=0x10 ):
         """

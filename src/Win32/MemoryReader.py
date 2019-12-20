@@ -19,7 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-from ..Interfaces import MemWriterInterface, ReadError
+from ..Interfaces import MemReaderInterface, MemWriterInterface, ReadError
 from .MemReaderBaseWin import *
 from ..GUIDisplayBase import *
 
@@ -28,6 +28,7 @@ from .InjectDll import *
 from .MemoryMap import *
 from .Win32Structs import *
 
+import ctypes
 import sys
 import struct
 
@@ -54,7 +55,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             cmd_line=None, \
             create_suspended=False, \
             create_info=None ):
-        MemReaderBase.__init__(self)
+        MemReaderBaseWin.__init__(self)
         self.REQUIRED_ACCESS = \
                 win32con.PROCESS_CREATE_THREAD | \
                 win32con.PROCESS_QUERY_INFORMATION | \
@@ -69,6 +70,37 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
                 create_suspended,
                 create_info )
 
+        for name, (dataSize, packer) in MemReaderInterface.READER_DESC.items():
+            def readerCreator(dataSize, name):
+                ctype_container = getattr(ctypes, 'c_' + name.lower())
+                def readerMethod(self, addr):
+                    result = ctype_container(0)
+                    bytes_read = c_size_t(0)
+                    read_result = ReadProcessMemory( self._process, addr, byref(result), dataSize, byref(bytes_read))
+                    if 0 == read_result:
+                        raise ReadError(addr)
+                    return int(result.value)
+                return readerMethod
+            def writerCreator(dataSize, packer, name):
+                ctype_container = getattr(ctypes, 'c_' + name.lower())
+                def writerMethod(self, addr, value):
+                    if isinstance(value, integer_types):
+                        value = struct.pack(self._ENDIANITY + packer, value)
+                    data_to_write = c_buffer(value, dataSize)
+                    bytes_written = c_size_t(0)
+                    WriteProcessMemory( self._process, addr, data_to_write, dataSize, byref(bytes_written) )
+                return writerMethod
+            def deprotectAndWriterCreator(dataSize, name):
+                def deprotectAndWriterMethod(self, addr, value):
+                    originalAttributes = self.deprotectMem(addr, dataSize)
+                    getattr(self, 'write' + name)(addr, value)
+                    self.setMemProtection(addr, dataSize, originalAttributes)
+                return deprotectAndWriterMethod
+
+            setattr(MemoryReader, 'read' + name, readerCreator(dataSize, name))
+            setattr(MemoryReader, 'write' + name, writerCreator(dataSize, packer, name))
+            setattr(MemoryReader, 'deprotectAndWrite' + name, deprotectAndWriterCreator(dataSize, name))
+
     def __del__( self ):
         self._closeProcess()
 
@@ -82,7 +114,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
 
     def readAddr( self, addr ):
         result = c_void_p(0)
-        bytes_read = c_uint32(0)
+        bytes_read = c_size_t(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), self._POINTER_SIZE, byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
@@ -90,41 +122,9 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
             return 0
         return result.value
 
-    def readQword( self, addr ):
-        result = c_uint64(0)
-        bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), 8, byref(bytes_read) )
-        if 0 == read_result:
-            raise ReadError(addr)
-        return result.value
-
-    def readDword( self, addr ):
-        result = c_uint32(0)
-        bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), 4, byref(bytes_read) )
-        if 0 == read_result:
-            raise ReadError(addr)
-        return result.value
-
-    def readWord( self, addr ):
-        result = c_uint32(0)
-        bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), 2, byref(bytes_read) )
-        if 0 == read_result:
-            raise ReadError(addr)
-        return result.value
-
-    def readByte( self, addr ):
-        result = c_uint32(0)
-        bytes_read = c_uint32(0)
-        read_result = ReadProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
-        if 0 == read_result:
-            raise ReadError(addr)
-        return result.value
-
     def readMemory( self, addr, length ):
         result = c_ARRAY(c_char, length)(b'\x00')
-        bytes_read = c_uint32(0)
+        bytes_read = c_size_t(0)
         read_result = ReadProcessMemory( self._process, addr, byref(result), sizeof(result), byref(bytes_read) )
         if 0 == read_result:
             raise ReadError(addr)
@@ -132,7 +132,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
 
     def readString( self, addr, maxSize=None, isUnicode=False ):
         result = ''
-        bytes_read = c_uint32(0)
+        bytes_read = c_size_t(0)
         char = c_uint32(0)
         bytesCounter = 0
 
@@ -158,63 +158,15 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
 
     def writeAddr( self, addr, data ):
         if 4 == self._POINTER_SIZE:
-            self.writeDword(addr, data)
+            self.writeUInt32(addr, data)
         elif 8 == self._POINTER_SIZE:
-            self.writeQword(addr, data)
+            self.writeUInt64(addr, data)
         else:
             raise Exception("Unknown pointer size")
 
-    def writeQword( self, addr, data ):
-        if isinstance(data, integer_types):
-            data = struct.pack('<Q', data)
-        data_to_write = c_buffer(data, 8)
-        bytes_written = c_uint32(0)
-        WriteProcessMemory( self._process, addr, data_to_write, 8, byref(bytes_written) )
-
-    def deprotectAndWriteQword( self, addr, data ):
-        originalAttributes = self.deprotectMem(addr, 8)
-        self.writeQword(addr, data)
-        self.setMemProtection(addr, 8, originalAttributes)
-
-    def writeDword( self, addr, data ):
-        if isinstance(data, integer_types):
-            data = struct.pack('<L', data)
-        data_to_write = c_buffer(data, 4)
-        bytes_written = c_uint32(0)
-        WriteProcessMemory( self._process, addr, data_to_write, 4, byref(bytes_written) )
-
-    def deprotectAndWriteDword( self, addr, data ):
-        originalAttributes = self.deprotectMem(addr, 4)
-        self.writeDword(addr, data)
-        self.setMemProtection(addr, 4, originalAttributes)
-
-    def writeWord( self, addr, data ):
-        if isinstance(data, integer_types):
-            data = struct.pack('<H', data)
-        data_to_write = c_buffer(data, 2)
-        bytes_written = c_uint32(0)
-        WriteProcessMemory( self._process, addr, data_to_write, 2, byref(bytes_written) )
-
-    def deprotectAndWriteWord( self, addr, data ):
-        originalAttributes = self.deprotectMem(addr, 2)
-        self.writeWord(addr, data)
-        self.setMemProtection(addr, 2, originalAttributes)
-
-    def writeByte( self, addr, data ):
-        if isinstance(data, integer_types):
-            data = struct.pack('<B', data)
-        data_to_write = c_buffer(data, 1)
-        bytes_written = c_uint32(0)
-        WriteProcessMemory( self._process, addr, data_to_write, 1, byref(bytes_written) )
-
-    def deprotectAndWriteByte( self, addr, data ):
-        originalAttributes = self.deprotectMem(addr, 1)
-        self.writeByte(addr, data)
-        self.setMemProtection(addr, 1, originalAttributes)
-
     def writeMemory( self, addr, data ):
         data_to_write = c_buffer(data)
-        bytes_written = c_uint32(0)
+        bytes_written = c_size_t(0)
         WriteProcessMemory( self._process, addr, data_to_write, len(data), byref(bytes_written) )
         return bytes_written.value
 
@@ -238,7 +190,7 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
         if addr <= self._minVAddress or addr > self._maxVAddress:
             return False
         result = c_uint32(0)
-        bytes_read = c_uint32(0)
+        bytes_read = c_size_t(0)
         returncode = ReadProcessMemory( self._process, addr, byref(result), 1, byref(bytes_read) )
         if 0 != returncode and 1 == bytes_read.value:
             return True
@@ -337,13 +289,13 @@ class MemoryReader( MemReaderBaseWin, MemWriterInterface, GUIDisplayBase, Inject
                 targetLength = len(target)
         if isinstance(target, integerTypes):
             if 4 == targetLength:
-                targetReader = self.readDword
+                targetReader = self.readUInt32
             elif 8 == targetLength:
-                targetReader = self.readQword
+                targetReader = self.readUInt64
             elif 1 == targetLength:
-                targetReader = self.readByte
+                targetReader = self.readUInt8
             elif 2 == targetLength:
-                targetReader = self.readWord
+                targetReader = self.readUInt16
             else:
                 raise Exception("Target length %s not supported with integer target" % repr(targetLength))
         else:

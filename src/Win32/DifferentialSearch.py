@@ -33,7 +33,7 @@ class DifferentialSearch( object ):
     READ_ALL_WRITABLE_MEMORY    = 1
     READ_ALL_READABLE_MEMORY    = 2
     READ_ALL_EXECUTABLE_MEMORY  = 4
-    READ_ALL_MEMORY             = 8
+    READ_ALL_MEMORY             = UInt8
     def __init__(self, memMap, reader, searchIn=READ_ALL_WRITABLE_MEMORY, atomSize=4, memory=None):
         self._memoryMap = memMap
         self._atomSize = atomSize

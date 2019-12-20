@@ -18,16 +18,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-from abc import ABCMeta, abstractmethod
 from .Interfaces import ReadError
 from struct import pack
 
 class DumpBase( object ):
-    """ Basic functions to save entier memory snapshot to file """
+    """ Basic functions to save entire memory snapshot to file """
     DUMP_TYPE_NATIV_DEBUGGING = 0
     DUMP_TYPE_RAW = 1
 
-    @abstractmethod
     def getMemoryMap(self):
         """ Return a dict with infromation about all memory regions.
             dict[baseAddress] = (name, regionSize, regionAttributes) """

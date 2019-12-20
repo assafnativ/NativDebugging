@@ -22,7 +22,7 @@ from __future__ import print_function
 from builtins import range
 from abc import ABCMeta
 from .Interfaces import MemReaderInterface, ReadError
-from .Utilities import makeQwordsList, makeDwordsList, integer_types
+from .Utilities import makeUInt64List, makeUInt32List, integer_types
 
 class RecursiveFind( MemReaderInterface ):
     """ Search for offsets using a recurisve method """
@@ -116,13 +116,13 @@ class RecursiveFind( MemReaderInterface ):
                 targetLength = 4
 
             if 8 == targetLength:
-                targetReader = self.readQword
+                targetReader = self.readUInt64
             elif 4 == targetLength:
-                targetReader = self.readDword
+                targetReader = self.readUInt32
             elif 2 == targetLength:
-                targetReader = self.readWord
+                targetReader = self.readUInt16
             elif 1 == targetLength:
-                targetReader = self.readByte
+                targetReader = self.readUInt8
             else:
                 raise Exception("Target length %s not supported with integer target" % repr(targetLength))
 

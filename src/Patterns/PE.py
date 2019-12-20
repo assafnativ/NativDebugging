@@ -81,95 +81,95 @@ DLL_CHARACTERISTICS_FALGS = {
     0x8000  : "TERMINAL_SERVER_AWARE" }
 
 ImageFileHeader = [
-        SHAPE("Machine",            0, WORD(list(VALID_MACHINE_TYPES.keys()))),
-        SHAPE("NumberOfSections",   0, WORD()),
-        SHAPE("TimeDateStamp",      0, CTIME()),
-        SHAPE("PointerToSymTable",  0, DWORD()),
-        SHAPE("NumberOfSymbols",    0, DWORD()),
-        SHAPE("OptionalHeaderSize", 0, WORD()),
-        SHAPE("Characteristics",    0, WORD()) ]
+        SHAPE("Machine",            0, c_uint16(list(VALID_MACHINE_TYPES.keys()))),
+        SHAPE("NumberOfSections",   0, c_uint16()),
+        SHAPE("TimeDateStamp",      0, n_ctime()),
+        SHAPE("PointerToSymTable",  0, c_uint32()),
+        SHAPE("NumberOfSymbols",    0, c_uint32()),
+        SHAPE("OptionalHeaderSize", 0, c_uint16()),
+        SHAPE("Characteristics",    0, c_uint16()) ]
 
 ImageSectionHeader = [
-        SHAPE("Name",           0, BUFFER(size=8)),
-        SHAPE("VirtualSize",    0, DWORD()),
-        SHAPE("VirtualAddress", 0, DWORD()),
-        SHAPE("RawDataSize",  0, DWORD()),
-        SHAPE("PointerToRawData", 0, DWORD()),
-        SHAPE("PointerToRelocations", 0, DWORD()),
-        SHAPE("PointerToLinenumbers", 0, DWORD()),
-        SHAPE("NumberOfRelocations", 0, WORD()),
-        SHAPE("NumberOfLinenumbers", 0, WORD()),
-        SHAPE("Characteristics", 0, DWORD()) ]
+        SHAPE("Name",           0, n_buffer(size=8)),
+        SHAPE("VirtualSize",    0, c_uint32()),
+        SHAPE("VirtualAddress", 0, c_uint32()),
+        SHAPE("RawDataSize",  0, c_uint32()),
+        SHAPE("PointerToRawData", 0, c_uint32()),
+        SHAPE("PointerToRelocations", 0, c_uint32()),
+        SHAPE("PointerToLinenumbers", 0, c_uint32()),
+        SHAPE("NumberOfRelocations", 0, c_uint16()),
+        SHAPE("NumberOfLinenumbers", 0, c_uint16()),
+        SHAPE("Characteristics", 0, c_uint32()) ]
 
 ImageDataDirectory = [
-        SHAPE("VirtualAddress",     0, DWORD()),
-        SHAPE("Size",               0, DWORD()) ]
+        SHAPE("VirtualAddress",     0, c_uint32()),
+        SHAPE("Size",               0, c_uint32()) ]
 
 ImageExportDirectory = [
-        SHAPE("Characteristics", 0, DWORD()),
-        SHAPE("TimeDateStamp", 0, CTIME()),
-        SHAPE("MajorVersion", 0, WORD()),
-        SHAPE("MinorVersion", 0, WORD()),
-        SHAPE("Name", 0, DWORD()),
-        SHAPE("Base", 0, DWORD()),
-        SHAPE("NumberOfFunctions", 0, DWORD()),
-        SHAPE("NumberOfNames", 0, DWORD()),
-        SHAPE("FunctionsAddress", 0, DWORD()),
-        SHAPE("NamesAddress", 0, DWORD()),
-        SHAPE("NameOrdinalsAddress", 0, DWORD())
+        SHAPE("Characteristics", 0, c_uint32()),
+        SHAPE("TimeDateStamp", 0, n_ctime()),
+        SHAPE("MajorVersion", 0, c_uint16()),
+        SHAPE("MinorVersion", 0, c_uint16()),
+        SHAPE("Name", 0, c_uint32()),
+        SHAPE("Base", 0, c_uint32()),
+        SHAPE("NumberOfFunctions", 0, c_uint32()),
+        SHAPE("NumberOfNames", 0, c_uint32()),
+        SHAPE("FunctionsAddress", 0, c_uint32()),
+        SHAPE("NamesAddress", 0, c_uint32()),
+        SHAPE("NameOrdinalsAddress", 0, c_uint32())
         ]
 
 ImageImportDescriptor = [
-        SHAPE("Characteristics", 0, DWORD()),
-        SHAPE("TimeDateStamp", 0, CTIME()),
-        SHAPE("ForwarderChain", 0, DWORD()),
-        SHAPE("Name", 0, DWORD()),
-        SHAPE("FirstThunk", 0, DWORD())
+        SHAPE("Characteristics", 0, c_uint32()),
+        SHAPE("TimeDateStamp", 0, n_ctime()),
+        SHAPE("ForwarderChain", 0, c_uint32()),
+        SHAPE("Name", 0, c_uint32()),
+        SHAPE("FirstThunk", 0, c_uint32())
         ]
 
 ImageDebugDirectory = [
-        SHAPE("Characteristics",  0, DWORD()),
-        SHAPE("TimeDateStamp",    0, CTIME()),
-        SHAPE("MajorVersion",     0, WORD()),
-        SHAPE("MinorVersion",     0, WORD()),
-        SHAPE("Type",             0, DWORD()),
-        SHAPE("DataSize",         0, DWORD()),
-        SHAPE("AddrOfRawData",    0, DWORD()),
-        SHAPE("PointerToRawData", 0, DWORD()) ]
+        SHAPE("Characteristics",  0, c_uint32()),
+        SHAPE("TimeDateStamp",    0, n_ctime()),
+        SHAPE("MajorVersion",     0, c_uint16()),
+        SHAPE("MinorVersion",     0, c_uint16()),
+        SHAPE("Type",             0, c_uint32()),
+        SHAPE("DataSize",         0, c_uint32()),
+        SHAPE("AddrOfRawData",    0, c_uint32()),
+        SHAPE("PointerToRawData", 0, c_uint32()) ]
 
 ResourceDirectoryString = [
-        SHAPE("Length", 0,  WORD()),
-        SHAPE("Data",   0,  STRING(size="Length", isUnicode=True)) ]
+        SHAPE("Length", 0,  c_uint16()),
+        SHAPE("Data",   0,  n_string(size="Length", isUnicode=True)) ]
 
 ResourceDataEntry = [
-        SHAPE("DataRVA",        0, DWORD()),
-        SHAPE("DataEntrySize",  0, DWORD()),
-        SHAPE("Codepage",       0, DWORD()),
-        SHAPE("Reserved",       0, DWORD(0)) ]
+        SHAPE("DataRVA",        0, c_uint32()),
+        SHAPE("DataEntrySize",  0, c_uint32()),
+        SHAPE("Codepage",       0, c_uint32()),
+        SHAPE("Reserved",       0, c_uint32(0)) ]
 
 ResourceDirectoryNameEntry = [
-        SHAPE("NameRVA",        0, DWORD()),
-        SHAPE("DataEntryRVA",   0, DWORD()),
+        SHAPE("NameRVA",        0, c_uint32()),
+        SHAPE("DataEntryRVA",   0, c_uint32()),
         ASSIGN("isDataEntry",       lambda pf, ctx: 0 == (ctx.DataEntryRVA & 0x80000000)),
         ASSIGN("subdirectoryRVA",   lambda pf, ctx: ctx.DataEntryRVA & 0x7fffffff) ]
 
 ResourceDirectoryIdEntry = [
-        SHAPE("Id",        0, DWORD()),
-        SHAPE("DataEntryRVA",   0, DWORD()),
+        SHAPE("Id",        0, c_uint32()),
+        SHAPE("DataEntryRVA",   0, c_uint32()),
         ASSIGN("isDataEntry",       lambda pf, ctx: 0 == (ctx.DataEntryRVA & 0x80000000)),
         ASSIGN("subdirectoryRVA",   lambda pf, ctx: ctx.DataEntryRVA & 0x7fffffff) ]
 
 ImageResourceDirectory = [
-        SHAPE("Characteristics",  0, DWORD()),
-        SHAPE("TimeDateStamp",    0, CTIME()),
-        SHAPE("MajorVersion",     0, WORD()),
-        SHAPE("MinorVersion",     0, WORD()),
-        SHAPE("NumOfNamedEntries", 0, WORD()),
-        SHAPE("NumOfIdEntries",   0, WORD()),
+        SHAPE("Characteristics",  0, c_uint32()),
+        SHAPE("TimeDateStamp",    0, n_ctime()),
+        SHAPE("MajorVersion",     0, c_uint16()),
+        SHAPE("MinorVersion",     0, c_uint16()),
+        SHAPE("NumOfNamedEntries", 0, c_uint16()),
+        SHAPE("NumOfIdEntries",   0, c_uint16()),
         SHAPE("NamedEntries",   0,
-            ARRAY("NumOfNamedEntries",  STRUCT, (ResourceDirectoryNameEntry,))),
+            n_array("NumOfNamedEntries",  n_struct, (ResourceDirectoryNameEntry,))),
         SHAPE("IdEntries",   0,
-            ARRAY("NumOfIdEntries",     STRUCT, (ResourceDirectoryIdEntry,)))]
+            n_array("NumOfIdEntries",     n_struct, (ResourceDirectoryIdEntry,)))]
 
 RESOURCE_TYPES = {
          1  : "CURSOR",
@@ -186,12 +186,12 @@ RESOURCE_TYPES = {
         16  : "VERSION" }
 
 ResourceVersionInfo = [
-        SHAPE("VersionLength",  0,  WORD()),
-        SHAPE("ValueLength",    0,  WORD()),
-        SHAPE("dataType",       0,  WORD([0,1])),
-        SHAPE("VsVersionInfoStr",   0,  STRING(fixedValue="VS_VERSION_INFO", isUnicode=True)),
-        SHAPE("Algin",          0,  DWORD(0)),
-        SHAPE("Vs_FixedFileInfo",   0,  DWORD(0xfeef04bd)) ]
+        SHAPE("VersionLength",  0,  c_uint16()),
+        SHAPE("ValueLength",    0,  c_uint16()),
+        SHAPE("dataType",       0,  c_uint16([0,1])),
+        SHAPE("VsVersionInfoStr",   0,  n_string(fixedValue="VS_VERSION_INFO", isUnicode=True)),
+        SHAPE("Algin",          0,  c_uint32(0)),
+        SHAPE("Vs_FixedFileInfo",   0,  c_uint32(0xfeef04bd)) ]
 
 def getAllResData(pe, offset=0, isDir=True):
     resAddr = None
@@ -229,97 +229,97 @@ def getAllResData(pe, offset=0, isDir=True):
             getAllResData(resAddr, pe, item.subdirectoryRVA, True)
 
 ImageOptionalHeader = [
-        SHAPE("Magic",              0,  WORD(list(VALID_PE_FORMATS.keys()))),
+        SHAPE("Magic",              0,  c_uint16(list(VALID_PE_FORMATS.keys()))),
         SHAPE("MajorLinkerVersion", 0,  BYTE()),
         SHAPE("MinorLinkerVersion", 0,  BYTE()),
-        SHAPE("CodeSize",         0,  DWORD()),
-        SHAPE("InitializedDataSize", 0, DWORD()),
-        SHAPE("UninitializedDataSize", 0, DWORD()),
-        SHAPE("EntryPointAddress", 0, DWORD()),
-        SHAPE("BaseOfCode",         0, DWORD()),
-        SHAPE("BaseOfDataImageBase", 0, SWITCH( "Magic",
+        SHAPE("CodeSize",         0,  c_uint32()),
+        SHAPE("InitializedDataSize", 0, c_uint32()),
+        SHAPE("UninitializedDataSize", 0, c_uint32()),
+        SHAPE("EntryPointAddress", 0, c_uint32()),
+        SHAPE("BaseOfCode",         0, c_uint32()),
+        SHAPE("BaseOfDataImageBase", 0, n_switch( "Magic",
             {
                 PE32_MAGIC  : [
-                    SHAPE("BaseOfData",         0, DWORD()),
-                    SHAPE("ImageBase",          0, DWORD()) ],
+                    SHAPE("BaseOfData",         0, c_uint32()),
+                    SHAPE("ImageBase",          0, c_uint32()) ],
                 PE32P_MAGIC : [
-                    SHAPE("ImageBase",          0, QWORD()) ],
+                    SHAPE("ImageBase",          0, c_uint64()) ],
                 "default" : [
-                    SHAPE("ImageBase",          0, QWORD()) ] }) ),
-        SHAPE("SectionAlignment",   0, DWORD()), #list(VALID_SECTION_ALGINMENTS.keys()))),
-        SHAPE("FileAlignment",      0, DWORD()),
-        SHAPE("MajorOSVersion", 0, WORD()),
-        SHAPE("MinorOSVersion", 0, WORD()),
-        SHAPE("MajorImageVer",  0, WORD()),
-        SHAPE("MinorImageVer",  0, WORD()),
-        SHAPE("MajorSubsystemVer", 0, WORD()),
-        SHAPE("MinorSubsystemVer", 0, WORD()),
-        SHAPE("Win32VersionValue",  0, DWORD()),
-        SHAPE("ImageSize",        0, DWORD()),
-        SHAPE("HeadersSize",      0, DWORD()),
-        SHAPE("CheckSum",           0, DWORD()),
-        SHAPE("Subsystem",          0, WORD(list(WINDOWS_SUBSYSTEMS.keys()))),
-        SHAPE("DllCharacteristics", 0, FLAGS(DLL_CHARACTERISTICS_FALGS, size=2)),
-        SHAPE("Stack", 0, SWITCH( lambda ctx: ctx.Magic,
+                    SHAPE("ImageBase",          0, c_uint64()) ] }) ),
+        SHAPE("SectionAlignment",   0, c_uint32()), #list(VALID_SECTION_ALGINMENTS.keys()))),
+        SHAPE("FileAlignment",      0, c_uint32()),
+        SHAPE("MajorOSVersion", 0, c_uint16()),
+        SHAPE("MinorOSVersion", 0, c_uint16()),
+        SHAPE("MajorImageVer",  0, c_uint16()),
+        SHAPE("MinorImageVer",  0, c_uint16()),
+        SHAPE("MajorSubsystemVer", 0, c_uint16()),
+        SHAPE("MinorSubsystemVer", 0, c_uint16()),
+        SHAPE("Win32VersionValue",  0, c_uint32()),
+        SHAPE("ImageSize",        0, c_uint32()),
+        SHAPE("HeadersSize",      0, c_uint32()),
+        SHAPE("CheckSum",           0, c_uint32()),
+        SHAPE("Subsystem",          0, c_uint16(list(WINDOWS_SUBSYSTEMS.keys()))),
+        SHAPE("DllCharacteristics", 0, n_flags(DLL_CHARACTERISTICS_FALGS, size=2)),
+        SHAPE("Stack", 0, n_switch( lambda ctx: ctx.Magic,
             {
                 PE32_MAGIC  : [
-                    SHAPE("StackReserveSize", 0, DWORD()),
-                    SHAPE("StackCommitSize",  0, DWORD()),
-                    SHAPE("HeapReserveSize",  0, DWORD()),
-                    SHAPE("HeapCommitSize",   0, DWORD()) ],
+                    SHAPE("StackReserveSize", 0, c_uint32()),
+                    SHAPE("StackCommitSize",  0, c_uint32()),
+                    SHAPE("HeapReserveSize",  0, c_uint32()),
+                    SHAPE("HeapCommitSize",   0, c_uint32()) ],
                 PE32P_MAGIC  : [
-                    SHAPE("StackReserveSize", 0, QWORD()),
-                    SHAPE("StackCommitSize",  0, QWORD()),
-                    SHAPE("HeapReserveSize",  0, QWORD()),
-                    SHAPE("HeapCommitSize",   0, QWORD()) ]
+                    SHAPE("StackReserveSize", 0, c_uint64()),
+                    SHAPE("StackCommitSize",  0, c_uint64()),
+                    SHAPE("HeapReserveSize",  0, c_uint64()),
+                    SHAPE("HeapCommitSize",   0, c_uint64()) ]
                 }) ),
-        SHAPE("LoaderFlags",        0, DWORD(0)),
-        SHAPE("NumOfRvaAndSizes", 0, DWORD()),
-        SHAPE("ExportDir",      0, STRUCT(ImageDataDirectory)),
-        SHAPE("ImportDir",      0, STRUCT(ImageDataDirectory)),
-        SHAPE("ResDir",         0, STRUCT(ImageDataDirectory)),
-        SHAPE("ExceptionDir",   0, STRUCT(ImageDataDirectory)),
-        SHAPE("SecurityDir",    0, STRUCT(ImageDataDirectory)),
-        SHAPE("BaserelocDir",   0, STRUCT(ImageDataDirectory)),
-        SHAPE("DebugDir",       0, STRUCT(ImageDataDirectory)),
-        SHAPE("ArchDir",        0, STRUCT(ImageDataDirectory)),
-        SHAPE("GlobalsDir",     0, STRUCT(ImageDataDirectory)),
-        SHAPE("TLSDir",         0, STRUCT(ImageDataDirectory)),
-        SHAPE("LoadConfDir",    0, STRUCT(ImageDataDirectory)),
-        SHAPE("BoundImportDir", 0, STRUCT(ImageDataDirectory)),
-        SHAPE("IATDir",         0, STRUCT(ImageDataDirectory)),
-        SHAPE("DelayImportDir", 0, STRUCT(ImageDataDirectory)),
-        SHAPE("CLRRuntimeDir",  0, STRUCT(ImageDataDirectory)),
-        SHAPE("ReservedDir",    0, STRUCT(ImageDataDirectory)) ]
+        SHAPE("LoaderFlags",        0, c_uint32(0)),
+        SHAPE("NumOfRvaAndSizes", 0, c_uint32()),
+        SHAPE("ExportDir",      0, n_struct(ImageDataDirectory)),
+        SHAPE("ImportDir",      0, n_struct(ImageDataDirectory)),
+        SHAPE("ResDir",         0, n_struct(ImageDataDirectory)),
+        SHAPE("ExceptionDir",   0, n_struct(ImageDataDirectory)),
+        SHAPE("SecurityDir",    0, n_struct(ImageDataDirectory)),
+        SHAPE("BaserelocDir",   0, n_struct(ImageDataDirectory)),
+        SHAPE("DebugDir",       0, n_struct(ImageDataDirectory)),
+        SHAPE("ArchDir",        0, n_struct(ImageDataDirectory)),
+        SHAPE("GlobalsDir",     0, n_struct(ImageDataDirectory)),
+        SHAPE("TLSDir",         0, n_struct(ImageDataDirectory)),
+        SHAPE("LoadConfDir",    0, n_struct(ImageDataDirectory)),
+        SHAPE("BoundImportDir", 0, n_struct(ImageDataDirectory)),
+        SHAPE("IATDir",         0, n_struct(ImageDataDirectory)),
+        SHAPE("DelayImportDir", 0, n_struct(ImageDataDirectory)),
+        SHAPE("CLRRuntimeDir",  0, n_struct(ImageDataDirectory)),
+        SHAPE("ReservedDir",    0, n_struct(ImageDataDirectory)) ]
 
 ImageNtHeaders = [
-        SHAPE("Signature", 0, STRING(fixedValue=b'PE\x00\x00')),
-        SHAPE("FileHeader", 0, STRUCT(ImageFileHeader)),
-        SHAPE("OptionalHeader", 0, STRUCT(ImageOptionalHeader)),
+        SHAPE("Signature", 0, n_string(fixedValue=b'PE\x00\x00')),
+        SHAPE("FileHeader", 0, n_struct(ImageFileHeader)),
+        SHAPE("OptionalHeader", 0, n_struct(ImageOptionalHeader)),
         SHAPE("Sections", 0, \
-                ARRAY(lambda ctx: ctx.FileHeader.NumberOfSections, STRUCT, [ImageSectionHeader])) ]
+                n_array(lambda ctx: ctx.FileHeader.NumberOfSections, n_struct, [ImageSectionHeader])) ]
 
 ImageDosHeader = [
-        SHAPE("e_magic", 0, STRING(fixedValue=b"MZ")),
-        SHAPE("e_cblp", 0, WORD()),
-        SHAPE("e_cp", 0, WORD()),
-        SHAPE("e_crlc", 0, WORD()),
-        SHAPE("e_cparhdr", 0, WORD()),
-        SHAPE("e_minalloc", 0, WORD()),
-        SHAPE("e_maxalloc", 0, WORD()),
-        SHAPE("e_ss", 0, WORD()),
-        SHAPE("e_sp", 0, WORD()),
-        SHAPE("e_csum", 0, WORD()),
-        SHAPE("e_ip", 0, WORD()),
-        SHAPE("e_cs", 0, WORD()),
-        SHAPE("e_lfarlc", 0, WORD()),
-        SHAPE("e_ovno", 0, WORD()),
-        SHAPE("e_res", 0, ARRAY(4, WORD, ())),
-        SHAPE("e_oemid", 0, WORD()),
-        SHAPE("e_oeminfo", 0, WORD()),
-        SHAPE("e_res2", 0, ARRAY(10, WORD, ())),
-        SHAPE("e_lfanew", 0, DWORD()),
-        SHAPE("PE", lambda ctx, addr: (addr + ctx.e_lfanew, ctx.e_lfanew), STRUCT(ImageNtHeaders))
+        SHAPE("e_magic", 0, n_string(fixedValue=b"MZ")),
+        SHAPE("e_cblp", 0, c_uint16()),
+        SHAPE("e_cp", 0, c_uint16()),
+        SHAPE("e_crlc", 0, c_uint16()),
+        SHAPE("e_cparhdr", 0, c_uint16()),
+        SHAPE("e_minalloc", 0, c_uint16()),
+        SHAPE("e_maxalloc", 0, c_uint16()),
+        SHAPE("e_ss", 0, c_uint16()),
+        SHAPE("e_sp", 0, c_uint16()),
+        SHAPE("e_csum", 0, c_uint16()),
+        SHAPE("e_ip", 0, c_uint16()),
+        SHAPE("e_cs", 0, c_uint16()),
+        SHAPE("e_lfarlc", 0, c_uint16()),
+        SHAPE("e_ovno", 0, c_uint16()),
+        SHAPE("e_res", 0, n_array(4, c_uint16, ())),
+        SHAPE("e_oemid", 0, c_uint16()),
+        SHAPE("e_oeminfo", 0, c_uint16()),
+        SHAPE("e_res2", 0, n_array(10, c_uint16, ())),
+        SHAPE("e_lfanew", 0, c_uint32()),
+        SHAPE("PE", lambda ctx, addr: (addr + ctx.e_lfanew, ctx.e_lfanew), n_struct(ImageNtHeaders))
         ]
 
 #def getImports(baseCtx):
@@ -330,6 +330,6 @@ ImageDosHeader = [
 #    numDescriptors = importsSize / IMPORT_DESCRIPTOR_SIZE
 #    for i in range(numDescriptors):
 #        importsPat.append(
-#                SHAPE("Import%06x" % i, 0, STRUCT(ImageImportDescriptor)))
+#                SHAPE("Import%06x" % i, 0, n_struct(ImageImportDescriptor)))
 
 

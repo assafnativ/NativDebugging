@@ -21,8 +21,9 @@
 #
 
 from builtins import bytes
+from future.utils import bind_method
 import io
-from ..Interfaces import MemWriterInterface, ReadError
+from ..Interfaces import MemReaderInterface, MemWriterInterface, ReadError
 from ..Utilities import integer_types
 from ..MemReaderBase import *
 from ..GUIDisplayBase import *
@@ -51,6 +52,22 @@ class FileReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
         self._file.seek(0, 2)
         self._file_size = self._file.tell()
 
+        for readerName, (dataSize, packer) in MemReaderInterface.READER_DESC.items():
+            def readerCreator(dataSize, packer):
+                def readerMethod(self, address):
+                    self._file.seek(address + self._ADDR_DELTA)
+                    return struct.unpack(self._ENDIANITY + packer, bytes(self._file.read(dataSize)))[0]
+                return readerMethod
+            def writerCreator(dataSize, packer):
+                def writerMethod(self, address, value):
+                    self._file.seek(address + self._ADDR_DELTA)
+                    if isinstance(value, integer_types):
+                        data = pack(self._ENDIANITY + packer, value)
+                    self._file.write(value)
+                return writerMethod
+            bind_method(FileReader, 'read'  + readerName, readerCreator(dataSize, packer))
+            bind_method(FileReader, 'write' + readerName, writerCreator(dataSize, packer))
+
     def __del__( self ):
         self._file.close()
 
@@ -62,22 +79,6 @@ class FileReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
             return unpack(self._ENDIANITY + 'Q', bytes(self._file.read(8)))[0]
         else:
             raise Exception("Unknown pointer size")
-
-    def readQword( self, addr ):
-        self._file.seek(addr + self._ADDR_DELTA)
-        return unpack(self._ENDIANITY + 'Q', bytes(self._file.read(8)))[0]
-
-    def readDword( self, addr ):
-        self._file.seek(addr + self._ADDR_DELTA)
-        return unpack(self._ENDIANITY + 'L', bytes(self._file.read(4)))[0]
-
-    def readWord( self, addr ):
-        self._file.seek(addr + self._ADDR_DELTA)
-        return unpack(self._ENDIANITY + 'H', bytes(self._file.read(2)))[0]
-
-    def readByte( self, addr ):
-        self._file.seek(addr + self._ADDR_DELTA)
-        return ord(self._file.read(1))
 
     def readMemory( self, addr, length ):
         self._file.seek(addr + self._ADDR_DELTA)
@@ -119,30 +120,6 @@ class FileReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
                 raise Exception("Unknown pointer size")
         self._file.write(data)
 
-    def writeQword( self, addr, data ):
-        self._file.seek(addr + self._ADDR_DELTA)
-        if isinstance(data, integer_types):
-            data = pack('<Q', data)
-        self._file.write(data)
-
-    def writeDword( self, addr, data ):
-        self._file.seek(addr + self._ADDR_DELTA)
-        if isinstance(data, integer_types):
-            data = pack('<L', data)
-        self._file.write(data)
-
-    def writeWord( self, addr, data ):
-        self._file.seek(addr + self._ADDR_DELTA)
-        if isinstance(data, integer_types):
-            data = pack('<H', data)
-        self._file.write(data)
-
-    def writeByte( self, addr, data ):
-        self._file.seek(addr + self._ADDR_DELTA)
-        if isinstance(data, integer_types):
-            data = chr(data)
-        self._file.write(data)
-
     def writeMemory( self, addr, data ):
         self._file.self(addr + self._ADDR_DELTA)
         self._file.write(data)
@@ -162,15 +139,6 @@ class FileReader( MemReaderBase, MemWriterInterface, GUIDisplayBase ):
                 print('{0:x} {1:24s} {2:s}'.format(opcode[0], opcode[3], opcode[2]))
         else:
             raise Exception("No disassembler module")
-
-    def getPointerSize(self):
-        return self._POINTER_SIZE
-
-    def getDefaultDataSize(self):
-        return self._DEFAULT_DATA_SIZE
-
-    def getEndianity(self):
-        return self._ENDIANITY
 
     def getLoadingAddress(self):
         return self._LOADING_ADDR

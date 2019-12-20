@@ -9,17 +9,17 @@ PDB2_SIGNATURE = "Microsoft C/C++ program database 2.00\r\n\032JG\0\0"
 PDB7_SIGNATURE = "Microsoft C/C++ MSF 7.00\r\n\x1ADS\0\0\0"
 
 PDB7_PATTERN = [
-        SHAPE("signature",      0,  STRING(fixedValue=PDB7_SIGNATURE)),
-        SHAPE("pageSize",       0,  DWORD()),
+        SHAPE("signature",      0,  n_string(fixedValue=PDB7_SIGNATURE)),
+        SHAPE("pageSize",       0,  n_uint32()),
         ASSERT(lambda reader,ctx:0==(ctx.pageSize&0xff)),
-        SHAPE("allocTablePtr",  0,  DWORD()),
-        SHAPE("numFilePages",   0,  DWORD()),
-        SHAPE("rootSize",       0,  DWORD()),
-        SHAPE("reserved",       0,  DWORD()),
-        SHAPE("rootIndex",      0,  DWORD()),
+        SHAPE("allocTablePtr",  0,  n_uint32()),
+        SHAPE("numFilePages",   0,  n_uint32()),
+        SHAPE("rootSize",       0,  n_uint32()),
+        SHAPE("reserved",       0,  n_uint32()),
+        SHAPE("rootIndex",      0,  n_uint32()),
         ASSIGN("numRootPages",  lambda reader,ctx:int(ceil(float(ctx.rootSize)/ctx.pageSize))),
         SHAPE("root", lambda ctx,addr:(addr + ctx.rootIndex*ctx.pageSize, ctx.rootIndex*ctx.pageSize),
-                ARRAY("numRootPages", DWORD, []))]
+                n_array("numRootPages", n_uint32, []))]
 
 class StreamReader(MemReaderBase, GUIDisplayBase):
     def __init__(self, fileReader, pages, pageSize, length=None):
@@ -48,14 +48,14 @@ class StreamReader(MemReaderBase, GUIDisplayBase):
         else:
             raise Exception("Unknown pointer size")
 
-    def readQword( self, addr ):
+    def readUInt64( self, addr ):
         return unpack(self._ENDIANITY + 'Q', self.readMemory(addr, 8))[0]
-    def readDword( self, addr ):
+    def readUInt32( self, addr ):
         return unpack(self._ENDIANITY + 'L', self.readMemory(addr, 4))[0]
-    def readWord( self, addr ):
+    def readUInt16( self, addr ):
         return unpack(self._ENDIANITY + 'H', self.readMemory(addr, 2))[0]
-    def readByte( self, addr ):
-        return self.fileReader.readByte(self.virtualAddrToPhy(addr))
+    def readUInt8( self, addr ):
+        return self.fileReader.readUInt8(self.virtualAddrToPhy(addr))
 
     def readMemory( self, addr, length ):
         bytesLeft = length
@@ -79,10 +79,10 @@ class StreamReader(MemReaderBase, GUIDisplayBase):
 
         while True:
             if False == isUnicode:
-                char = self.readByte(addr)
+                char = self.readUInt8(addr)
                 bytesCounter += 1
             else:
-                char = self.readWord(addr)
+                char = self.readUInt16(addr)
                 bytesCounter += 2
             if 1 < char and char < 0x80:
                 result += chr(char)
@@ -109,16 +109,16 @@ def getRootStream(fileReader):
     return StreamReader(fileReader, [x.Item for x in header.root], header.pageSize)
 
 PDB_ROOT_STREAM_PATTERN = [
-        SHAPE("numStreams",     0,  DWORD()),
+        SHAPE("numStreams",     0,  n_uint32()),
         SHAPE("streamSizes",    0,
-            ARRAY("numStreams", DWORD, [])) ]
+            n_array("numStreams", n_uint32, [])) ]
 
 def getStreams(rootStream):
-    numStreams = rootStream.readDword(0)
+    numStreams = rootStream.readUInt32(0)
     pos = 4
     streamsSizes = []
     for i in range(numStreams):
-        streamsSizes.append(rootStream.readDword(pos))
+        streamsSizes.append(rootStream.readUInt32(pos))
         pos += 4
     streams = []
     pageSize = rootStream.getPageSize()
@@ -129,7 +129,7 @@ def getStreams(rootStream):
         pages = []
         numPages = int(ceil(float(streamSize) / pageSize))
         for i in range(numPages):
-            pages.append(rootStream.readDword(pos))
+            pages.append(rootStream.readUInt32(pos))
             pos += 4
         streams.append(StreamReader(rootStream.fileReader, pages, pageSize, streamSize))
     return streams
@@ -144,12 +144,12 @@ def getDebugStream(rootStream):
     return getStreams(rootStream)[2]
 
 OFF_CB_PATTERN = [
-        SHAPE("off",    0,  DWORD()),
-        SHAPE("cb",     0,  DWORD()) ]
+        SHAPE("off",    0,  c_uint32()),
+        SHAPE("cb",     0,  c_uint32()) ]
 TYPE_PATTERN = [
-        SHAPE("length",     0,  WORD()),
-        SHAPE("typeData",   0,  STRING(size="length")),
-        SHAPE("data",       0,  SWITCH("typeData", {
+        SHAPE("length",     0,  c_uint16()),
+        SHAPE("typeData",   0,  n_string(size="length")),
+        SHAPE("data",       0,  n_switch("typeData", {
             "LF_ARGLIST"    : LF_ARGLIST_PATTERN,
             "LF_ARRAY"      : LF_ARRAY_PATTERN,
             "LF_ARRAY_ST"   : LF_ARRAYST_PATTERN,
@@ -168,18 +168,18 @@ TYPE_PATTERN = [
             "LF_VTSHAPE"    : LF_VTSHAPE_PATTERN }))]
 
 PDB_TYPES_STREAM_PATTERN = [
-        SHAPE("version",        0,  DWORD()),
-        SHAPE("headerSize",     0,  DWORD()),
-        SHAPE("tiMin",          0,  DWORD()),
-        SHAPE("tiMax",          0,  DWORD()),
-        SHAPE("followSize",     0,  DWORD()),
-        SHAPE("sn",             0,  WORD()),
-        SHAPE("padding",        0,  WORD()),
-        SHAPE("hashKey",        0,  DWORD()),
-        SHAPE("buckets",        0,  DWORD()),
-        SHAPE("hashVals",       0,  STRUCT(OFF_CB_PATTERN)),
-        SHAPE("tiOff",          0,  STRUCT(OFF_CB_PATTERN)),
-        SHAPE("hashAdj",        0,  STRUCT(OFF_CB_PATTERN)),
+        SHAPE("version",        0,  c_uint32()),
+        SHAPE("headerSize",     0,  c_uint32()),
+        SHAPE("tiMin",          0,  c_uint32()),
+        SHAPE("tiMax",          0,  c_uint32()),
+        SHAPE("followSize",     0,  c_uint32()),
+        SHAPE("sn",             0,  c_uint16()),
+        SHAPE("padding",        0,  c_uint16()),
+        SHAPE("hashKey",        0,  c_uint32()),
+        SHAPE("buckets",        0,  c_uint32()),
+        SHAPE("hashVals",       0,  n_struct(OFF_CB_PATTERN)),
+        SHAPE("tiOff",          0,  n_struct(OFF_CB_PATTERN)),
+        SHAPE("hashAdj",        0,  n_struct(OFF_CB_PATTERN)),
         SHAPE("types",          0,
-            ARRAY(lambda ctx:ctx.tiMax-ctx.tiMin, STRUCT, [TYPE_PATTERN]))]
+            n_array(lambda ctx:ctx.tiMax-ctx.tiMin, n_struct, [TYPE_PATTERN]))]
 

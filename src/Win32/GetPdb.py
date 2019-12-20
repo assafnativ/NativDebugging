@@ -187,5 +187,5 @@ def runMultiThreadBruteForce(filename, start, file_size, num_threads=10, is_verb
 #dbgId += m.readMemory(dbgIdAddr, 2)[::-1].encode('hex').upper(); dbgIdAddr += 2
 #dbgId += m.readMemory(dbgIdAddr, 2)[::-1].encode('hex').upper(); dbgIdAddr += 2
 #dbgId += m.readMemory(dbgIdAddr, 8).encode('hex').upper(); dbgIdAddr += 8
-#dbgId += '%X' % m.readByte(dbgIdAddr)
+#dbgId += '%X' % m.readUInt8(dbgIdAddr)
 #

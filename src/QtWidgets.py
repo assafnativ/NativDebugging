@@ -1,29 +1,23 @@
 #
-#   MemoryDispaly.py
+#   QtWidgest.py
 #
-#   MemoryDisplay for nativDebugging
-#
-#   win32MemReader - Remote process memory inspection python module
-#   https://svn3.xp-dev.com/svn/nativDebugging/
-#   Nativ.Assaf+debugging@gmail.com
-#   budowski@gmail.com
-#   Copyright (C) 2011  Assaf Nativ, Yaron Budowski
+#   QtWidgest for nativDebugging
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-
-
 
 try:
     from PyQt4 import QtGui
@@ -121,7 +115,7 @@ class MemoryVisualizer(QtGui.QWidget):
 
     def setPixelDimensions(self, width, height):
         self._pixel_width = width
-        self._pixel_height = height 
+        self._pixel_height = height
 
         # Refresh map
         self._colorMap()
@@ -148,7 +142,7 @@ class MemoryVisualizer(QtGui.QWidget):
             raise Exception("No update function")
         self._data  = self._updateCallback()
         self._colorMap()
- 
+
     #
     # Helper methods
     #
@@ -189,7 +183,7 @@ class MemoryVisualizer(QtGui.QWidget):
                 col * self._pixel_width,
                 row * self._pixel_height,
                 color)
-                
+               
 
             col = (col + 1) % self._items_per_row
 
@@ -217,7 +211,7 @@ class MemoryVisualizer(QtGui.QWidget):
             self._row_count += 1 # Half-empty row
 
 
- 
+
 class MemoryMap(QtGui.QWidget):
     """
     MemoryMap class
@@ -283,7 +277,7 @@ class MemoryMap(QtGui.QWidget):
                         updateCallback,
                         MemoryMap.DEFAULT_ZOOM,
                         MemoryMap.DEFAULT_ZOOM,
-                        color_map, 
+                        color_map,
                         MemoryMap.DEFAULT_BACKGROUND_COLOR,
                         MemoryMap.DEFAULT_LINE_SIZE,
                         self.offset_label,
@@ -427,9 +421,9 @@ class MemoryMap(QtGui.QWidget):
         elif (changeType == QtGui.QSlider.SliderValueChange):
             value = self.zoom_scrollbar.value()
             self.memory_visualizer.setPixelDimensions(value, value)
-    
+   
 
- 
+
 class ColorLegendItem(QtGui.QWidget):
     """
     ColorLegendItem class
@@ -505,13 +499,11 @@ class ColorLegend(QtGui.QWidget):
         self._removeItemsFromLegend()
         self._loadLegendItems(self._last_items_per_row)
 
- 
+
 
     #
     # Events
     #
-
-
     def resizeEvent(self, ev):
         items_per_row = self._calcItemsPerRow()
         if (items_per_row == self._last_items_per_row):
@@ -527,8 +519,6 @@ class ColorLegend(QtGui.QWidget):
     #
     # Helper methods
     #
-
-
     def _removeItemsFromLegend(self):
         # Clear previous items first
         column_count = self.grid_layout.columnCount()
@@ -695,7 +685,7 @@ class HexView(QtGui.QWidget):
         self.scrollbar.sliderChange = self._onSliderChange
 
 
-       
+      
         #
         # Horizontal Layout
         #
@@ -735,7 +725,7 @@ class HexView(QtGui.QWidget):
         self.connect(self.vertical_splitter, SIGNAL("splitterMoved(int, int)"), self.resizeEvent)
 
         self.vertical_layout.addWidget(self.vertical_splitter)
- 
+
         self.setLayout(self.vertical_layout)
 
         #
@@ -1129,7 +1119,7 @@ class HexView(QtGui.QWidget):
 
             current_color_range.sort(cmp = lambda x,y: cmp(x[0], y[0]))
             string_data_colors.append(current_color_range)
- 
+
             string_data.append(string_line.rstrip())
 
         return (address_data, (hex_data, hex_data_colors), (string_data, string_data_colors))
@@ -1147,7 +1137,7 @@ class HexView(QtGui.QWidget):
 
         text_box.setFontWeight(QtGui.QFont.Normal)
         text_box.setFontUnderline(False)
- 
+
     def _getAbsoluteColorAddresses(self):
         self._absolute_color_addresses = {}
         for (start_addr, size, color, name) in self._color_ranges:

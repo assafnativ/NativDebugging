@@ -19,73 +19,59 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-from abc import ABCMeta, abstractmethod
 from .Utilities import *
 
 class DebuggerInterface( object ):
     """ Pure Interface for Debugger """
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
     def __init__(self):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def __del__(self):
         """ Pure virtual """
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def attach(self):
         """ Pure virtual
         This function should set a new connection to a target process.
         Note: The signeture of the function change from platform to platform and from one implmentation to another. For example in one case it would take process id, and on another a process name. """
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def detach(self):
         """ Pure virtual
         Disconnecting from debugged process, or closing connection. Should be less aggrassive than __del__ """
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def run(self):
         """ Pure virtual
         Make debuggee run"""
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def breakpointSet(self, address):
         """ Pure virtual
         Set a breakpoint"""
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def breakpointsList(self):
         """ Pure virtual
         Show list of breakpoints """
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def breakpointRemove(self, index):
         """ Pure virtual
         Remove a specific breakpoint"""
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def breakpointDisable(self, index):
         """ Pure virtual
         Disable specific breakpoint"""
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def breakpointEnable(self, index):
         """ Pure virtual
         Enable specific breakpoint"""
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def contextShow(self):
         """ Pure virtual
         Show current context of debuggeee, should list all registers and current thread and stuff"""
@@ -94,14 +80,10 @@ class DebuggerInterface( object ):
 
 class GUIDisplayInterface( object ):
     """ Pure Interface for GUI display """
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
     def hexDisplay(self, address, length):
         """ Display hex dump """
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def mapDisplay(self, address, length, colorMap):
         """ Display visual bits map of memory """
         raise NotImplementedError("Pure function call")
@@ -114,59 +96,73 @@ class ReadError( Exception ):
 
 class MemReaderInterface( object ):
     """ Pure Interface for Debugger """
-    __metaclass__ = ABCMeta
+    READER_DESC = {
+            'UInt64' : (8, 'Q'),
+             'Int64' : (8, 'q'),
+            'UInt32' : (4, 'L'),
+             'Int32' : (4, 'L'),
+            'UInt16' : (2, 'H'),
+             'Int16' : (2, 'h'),
+            'UInt8'  : (1, 'B'),
+             'Int8'  : (1, 'b') }
 
-    @abstractmethod
     def readAddr(self, addr):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
-    def readQword(self, addr):
+    def readUInt64(self, addr):
+        raise NotImplementedError("Pure function call")
+    def readInt64(self, addr):
+        raise NotImplementedError("Pure function call")
+    def readUInt32(self, addr):
+        raise NotImplementedError("Pure function call")
+    def readInt32(self, addr):
+        raise NotImplementedError("Pure function call")
+    def readUInt16(self, addr):
+        raise NotImplementedError("Pure function call")
+    def readInt16(self, addr):
+        raise NotImplementedError("Pure function call")
+    def readUInt8(self, addr):
+        raise NotImplementedError("Pure function call")
+    def readInt8(self, addr):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
-    def readDword(self, addr):
-        raise NotImplementedError("Pure function call")
-
-    @abstractmethod
-    def readWord(self, addr):
-        raise NotImplementedError("Pure function call")
-
-    @abstractmethod
-    def readByte(self, addr):
-        raise NotImplementedError("Pure function call")
-
-    @abstractmethod
     def readMemory(self, addr, length):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def readString(self, addr, isUnicode):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def isAddressValid(self, addr):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def resolveOffsetsList(self, start, offsetsList):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def getPointerSize(self):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def getDefaultDataSize(self):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
     def getEndianity(self):
         """ Returns either '<' or '>' (same format as in the struct module)
         <: little-endian, std. size & alignment
         >: big-endian, std. size & alignment
         """
         raise NotImplementedError("Pure function call")
+
+    def dq(self, *args, **kwargs):
+        self.readNPrintUInt64(*args, **kwargs)
+    def dd(self, *args, **kwargs):
+        self.readNPrintUInt32(*args, **kwargs)
+    def dw(self, *args, **kwargs):
+        self.readNPrintUInt16(*args, **kwargs)
+    def db(self, *args, **kwargs):
+        self.readNPrintBin(*args, **kwargs)
+    def resolveOffset(self, *args, **kwargs):
+        self.resolveOffsetsList(*args, **kwargs)
+    def rol(self, *args, **kwargs):
+        self.resolveOffsetsList(*args, **kwargs)
 
 class WriteError( Exception ):
     def __init__(self, address):
@@ -175,29 +171,26 @@ class WriteError( Exception ):
 
 class MemWriterInterface( object ):
     """ Pure Interface for Debugger """
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
     def writeAddr(self, addr, value):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
-    def writeQword(self, addr, value):
+    def writeUInt64(self, addr, value):
+        raise NotImplementedError("Pure function call")
+    def writeInt64(self, addr, value):
+        raise NotImplementedError("Pure function call")
+    def writeUInt32(self, addr, value):
+        raise NotImplementedError("Pure function call")
+    def writeInt32(self, addr, value):
+        raise NotImplementedError("Pure function call")
+    def writeUInt16(self, addr, value):
+        raise NotImplementedError("Pure function call")
+    def writeInt16(self, addr, value):
+        raise NotImplementedError("Pure function call")
+    def writeUInt8(self, addr, value):
+        raise NotImplementedError("Pure function call")
+    def writeInt8(self, addr, value):
         raise NotImplementedError("Pure function call")
 
-    @abstractmethod
-    def writeDword(self, addr, value):
-        raise NotImplementedError("Pure function call")
-
-    @abstractmethod
-    def writeWord(self, addr, value):
-        raise NotImplementedError("Pure function call")
-
-    @abstractmethod
-    def writeByte(self, addr, value):
-        raise NotImplementedError("Pure function call")
-
-    @abstractmethod
     def writeMemory(self, addr, data):
         raise NotImplementedError("Pure function call")
 

@@ -2,9 +2,8 @@
 #   PtraceMemReader.py
 #
 #   PtraceMemReader - Attach and read memory on *nix platforms
-#   https://svn3.xp-dev.com/svn/nativDebugging/
-#   Nativ.Assaf+debugging@gmail.com
-#   Copyright (C) 2014  Assaf Nativ
+#   https://github.com/assafnativ/NativDebugging.git
+#   Nativ.Assaf@gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +17,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
-#
 
 import os
 from struct import pack
@@ -228,18 +226,18 @@ class PtraceMemReader( MemReaderBase ):
             leftOvers = length % 4
             endAddress = startAddress + length - leftOvers
             for address in range(startAddress, endAddress, 4):
-                result += struct.pack('L', self.readDword(addresss))
+                result += struct.pack('L', self.readUInt32(addresss))
             length = leftOvers
             startAddress = endAddress
         if 2 <= length:
-            result += strcut.pack('H', self.readWord(startAddress))
+            result += strcut.pack('H', self.readUInt16(startAddress))
             startAddress += 2
             length -= 2
         if 1 == length:
-            result += chr(self.readByte(startAddress))
+            result += chr(self.readUInt8(startAddress))
         return result
 
-    def readQword(self, address):
+    def readUInt64(self, address):
         if 8 == self._LONG_SIZE:
             return self.readLong(address)
         elif 4 == self._LONG_SIZE:
@@ -249,15 +247,35 @@ class PtraceMemReader( MemReaderBase ):
 
             # TODO : verify this for 32bit and endianiness
             return (ret_long1 << 32) | ret_long2
+    def readInt64(self, address):
+        val = self.readUInt64(address)
+        if 0x8000000000000000 <= val:
+            return -(0x10000000000000000 - val)
+        return val
 
-    def readDword(self, address):
+    def readUInt32(self, address):
         return self.readLong(address) & 0xFFFFFFFF
+    def readInt32(self, address):
+        val = self.readUInt32(address)
+        if 0x80000000 <= val:
+            return -(0x100000000 - val)
+        return val
 
-    def readWord(self, address):
+    def readUInt16(self, address):
         return self.readLong(address) & 0xFFFF
+    def readInt16(self, address):
+        val = self.readUInt16(address)
+        if 0x8000 <= val:
+            return -(0x10000 - val)
+        return val
 
-    def readByte(self, address):
+    def readUInt8(self, address):
         return self.readLong(address) & 0xFF
+    def readInt8(self, address):
+        val = self.readUInt8(address)
+        if 0x80 <= val:
+            return -(0x100 - val)
+        return val
 
     def readAddr(self, address, isLocalAddress=False):
         if self._LONG_SIZE != self._POINTER_SIZE:

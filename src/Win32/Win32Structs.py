@@ -37,6 +37,7 @@ win32con.DBG_CONTROL_C                  = 0x40010005
 win32con.DBG_CONTROL_BREAK              = 0x40010008
 win32con.INFINITE                       = 0xFFFFFFFF
 win32con.CONTEXT_i386                   = 0x00010000
+win32con.CONTEXT_AMD64                  = 0x00100000
 win32con.CONTEXT_CONTROL                = 0x00000001
 win32con.CONTEXT_INTEGER                = 0x00000002
 win32con.CONTEXT_SEGMENTS               = 0x00000004
@@ -67,31 +68,31 @@ STATUS_ABANDONED_WAIT_0          = 128
 STATUS_USER_APC                  = 192
 STATUS_TIMEOUT                   = 258
 STATUS_PENDING                   = 259
-STATUS_SEGMENT_NOTIFICATION      = 1073741829
-STATUS_GUARD_PAGE_VIOLATION      = -2147483647
-STATUS_DATATYPE_MISALIGNMENT     = -2147483646
-STATUS_BREAKPOINT                = -2147483645
-STATUS_SINGLE_STEP               = -2147483644
-STATUS_ACCESS_VIOLATION          = -1073741819
-STATUS_IN_PAGE_ERROR             = -1073741818
-STATUS_INVALID_HANDLE            = -1073741816
-STATUS_NO_MEMORY                 = -1073741801
-STATUS_ILLEGAL_INSTRUCTION       = -1073741795
-STATUS_NONCONTINUABLE_EXCEPTION  = -1073741787
-STATUS_INVALID_DISPOSITION       = -1073741786
-STATUS_ARRAY_BOUNDS_EXCEEDED     = -1073741684
-STATUS_FLOAT_DENORMAL_OPERAND    = -1073741683
-STATUS_FLOAT_DIVIDE_BY_ZERO      = -1073741682
-STATUS_FLOAT_INEXACT_RESULT      = -1073741681
-STATUS_FLOAT_INVALID_OPERATION   = -1073741680
-STATUS_FLOAT_OVERFLOW            = -1073741679
-STATUS_FLOAT_STACK_CHECK         = -1073741678
-STATUS_FLOAT_UNDERFLOW           = -1073741677
-STATUS_INTEGER_DIVIDE_BY_ZERO    = -1073741676
-STATUS_INTEGER_OVERFLOW          = -1073741675
-STATUS_PRIVILEGED_INSTRUCTION    = -1073741674
-STATUS_STACK_OVERFLOW            = -1073741571
-STATUS_CONTROL_C_EXIT            = -1073741510
+STATUS_SEGMENT_NOTIFICATION      = 0x40000005
+STATUS_GUARD_PAGE_VIOLATION      = 0x80000001
+STATUS_DATATYPE_MISALIGNMENT     = 0x80000002
+STATUS_BREAKPOINT                = 0x80000003
+STATUS_SINGLE_STEP               = 0x80000004
+STATUS_ACCESS_VIOLATION          = 0xc0000005
+STATUS_IN_PAGE_ERROR             = 0xc0000006
+STATUS_INVALID_HANDLE            = 0xc0000008
+STATUS_NO_MEMORY                 = 0xc0000017
+STATUS_ILLEGAL_INSTRUCTION       = 0xc000001d
+STATUS_NONCONTINUABLE_EXCEPTION  = 0xc0000025
+STATUS_INVALID_DISPOSITION       = 0xc0000026
+STATUS_ARRAY_BOUNDS_EXCEEDED     = 0xc000008c
+STATUS_FLOAT_DENORMAL_OPERAND    = 0xc000008d
+STATUS_FLOAT_DIVIDE_BY_ZERO      = 0xc000008e
+STATUS_FLOAT_INEXACT_RESULT      = 0xc000008f
+STATUS_FLOAT_INVALID_OPERATION   = 0xc0000090
+STATUS_FLOAT_OVERFLOW            = 0xc0000091
+STATUS_FLOAT_STACK_CHECK         = 0xc0000092
+STATUS_FLOAT_UNDERFLOW           = 0xc0000093
+STATUS_INTEGER_DIVIDE_BY_ZERO    = 0xc0000094
+STATUS_INTEGER_OVERFLOW          = 0xc0000095
+STATUS_PRIVILEGED_INSTRUCTION    = 0xc0000096
+STATUS_STACK_OVERFLOW            = 0xc00000fd
+STATUS_CONTROL_C_EXIT            = 0xc000013a
 win32con.EXCEPTION_ACCESS_VIOLATION          = STATUS_ACCESS_VIOLATION
 win32con.EXCEPTION_DATATYPE_MISALIGNMENT     = STATUS_DATATYPE_MISALIGNMENT
 win32con.EXCEPTION_BREAKPOINT                = STATUS_BREAKPOINT
@@ -145,29 +146,34 @@ win32con.FILE_MAP_EXECUTE                    = 0x20
 
 
 from ctypes import c_char, c_wchar, c_int64, c_int32, c_int16, c_int8, c_uint64, c_uint32, c_uint16, c_uint8, c_size_t, c_void_p, c_char_p, c_wchar_p, c_buffer
-from ctypes import create_string_buffer, byref, cast, addressof, sizeof, windll, WinDLL, Structure, Union, WINFUNCTYPE
+from ctypes import create_string_buffer, create_unicode_buffer, byref, cast, addressof, sizeof, windll, WinDLL, Structure, Union, WINFUNCTYPE
+from ctypes import wintypes as wt
 from ctypes import wstring_at, string_at
 from ctypes import ARRAY as c_ARRAY
 from ctypes import POINTER as c_POINTER
 from ctypes import WinError
 
-def ErrorIfZero(res, *arg):
-    if res == 0:
+def ErrorIfZero(res, func, args):
+    if not res:
         raise WinError()
     return res
 
-def ErrorIfNotZero(res, *arg):
+def ErrorIfNotZero(res, func, args):
     if res != 0:
         raise WinError(res)
     return res
 
-def ErrorIfMinous1(result):
-    if result == -1 or result == 0xffffffff:
-        raise WinError()
-    else:
-        return result
+def HResultErrorCheck(res, func, args):
+    if 0 < res:
+        raise RuntimeError(res)
+    return res
 
-def NtStatusCheck(ntStatus, *arg):
+def ErrorIfMinous1(res, func, args):
+    if res == -1 or res == 0xffffffff:
+        raise WinError()
+    return res
+
+def NtStatusCheck(ntStatus, func, args):
     if ntStatus < 0 or ntStatus > 0x80000000:
         raise WinError()
     return ntStatus
@@ -179,6 +185,10 @@ TRUE = c_char(bytes([int(True)]))
 FALSE = c_char(bytes([int(False)]))
 void_NULL = c_void_p( win32con.NULL )
 pchar_NULL = c_char_p( win32con.NULL )
+_IN_     = 1
+_OUT_    = 2
+_DEFAULT_ZERO_ = 4
+_IN_OUT_ = _IN_ | _OUT_
 
 ntdll    = windll.ntdll
 kernel32 = windll.kernel32
@@ -188,240 +198,223 @@ dbghelp  = windll.dbghelp
 psapi    = windll.psapi
 advapi32 = windll.advapi32
 
-try:
-    IsWow64Process = kernel32.IsWow64Process
-    IsWow64Process.argtypes = [
-                    c_void_p,
-                    c_void_p ]
-    IsWow64Process.restype = ErrorIfZero
-except AttributeError as e:
+IsWow64Process_proto = WINFUNCTYPE(wt.BOOL, wt.HANDLE, c_POINTER(wt.BOOL))
+if hasattr(kernel32, 'IsWow64Process'):
+    IsWow64Process = IsWow64Process_proto(
+            ('IsWow64Process', kernel32),
+            ((_IN_, 'hProcess', None), (_OUT_, 'Wow64Process')))
+    def IsWow64Process_errCheck(res, func, args):
+        if not res:
+            raise WinError()
+        return args[1].value
+    IsWow64Process.errcheck = IsWow64Process_errCheck
+else:
     IsWow64Process = FakeRrturnFalse
 
-OpenProcess = kernel32.OpenProcess
-OpenProcess.argtypes = [
-    c_uint32,     # DWORD dwDesiredAccess
-    c_int32,      # BOOL bInheritHandle
-    c_uint32 ]    # DWORD dwProcessId
-OpenProcess.restype = c_void_p
+OpenProcess_proto = WINFUNCTYPE(wt.HANDLE, wt.DWORD, wt.BOOL, wt.DWORD)
+OpenProcess = OpenProcess_proto(
+        ('OpenProcess', kernel32),
+        ((_IN_, 'dwDesiredAccess'), (_IN_, 'bInheritHandle', False), (_IN_, 'dwProcessId')))
 OpenProcess.errcheck = ErrorIfZero
 
-GetCurrentProcess = kernel32.GetCurrentProcess
-GetCurrentProcess.argtypes = []
-GetCurrentProcess.restype = c_void_p
+GetCurrentProcess_proto = WINFUNCTYPE(wt.HANDLE)
+GetCurrentProcess = GetCurrentProcess_proto(('GetCurrentProcess', kernel32))
 GetCurrentProcess.errcheck = ErrorIfZero
 
-GetCurrentThread = kernel32.GetCurrentThread
-GetCurrentThread.argtypes = []
-GetCurrentThread.restype = c_void_p
+GetCurrentThread_proto = WINFUNCTYPE(wt.HANDLE)
+GetCurrentThread = GetCurrentThread_proto(('GetCurrentThread', kernel32))
 GetCurrentThread.errcheck = ErrorIfZero
 
-OpenProcessToken = advapi32.OpenProcessToken
-OpenProcessToken.argtypes = [
-    c_void_p,   # HANDLE ProcessHandle
-    c_uint32,     # DWORD DesiredAccess
-    c_void_p ]  # PHANDLE TokenHandle
-OpenProcessToken.restype = ErrorIfZero
+OpenProcessToken_proto = WINFUNCTYPE(wt.BOOL, wt.HANDLE, wt.DWORD, c_POINTER(wt.HANDLE))
+OpenProcessToken = OpenProcessToken_proto(
+        ('OpenProcessToken', advapi32),
+        ((_IN_, 'ProcessHandle', None), (_IN_, 'DesiredAccess'), (_OUT_, 'TokenHandle')))
+def OpenProcessToken_errcheck(res, func, args):
+    if not res:
+        raise WinError()
+    return args[2].value
+OpenProcessToken.errcheck = OpenProcessToken_errcheck
 
-AdjustTokenPrivileges = advapi32.AdjustTokenPrivileges
-AdjustTokenPrivileges.argtypes = [
-    c_void_p,   # HANDLE TokenHandle
-    c_int32,    # BOOL DisableAllPrivileges
-    c_void_p,   # PTOKEN_PRIVILEGES NewState
-    c_uint32,   # DWORD BufferLength
-    c_void_p,   # PTOKEN_PRIVILEGES PreviousState
-    c_void_p ]  # PDWORD ReturnLength
-AdjustTokenPrivileges.restype = ErrorIfZero
+class LUID( Structure ):
+    _fields_ = [
+            ('LowPart',         c_uint32),
+            ('HighPart',        c_uint32)]
+class TOKEN_PRIVILEGES( Structure ):
+    _fields_ = [
+            ('PrivilegeCount',  c_uint32),
+            ('Luid',            LUID),
+            ('Attributes',      c_uint32) ]
 
-EnumProcessModules = psapi.EnumProcessModules
-EnumProcessModules.argtypes = [
-    c_void_p,   # HANDLE hProcess
-    c_void_p,   # HMODULE* lphModule
-    c_uint32,   # DWORD cb
-    c_void_p ]  # LPDWORD lpcbNeeded
-EnumProcessModules.restype = c_uint32
+AdjustTokenPrivileges_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        wt.BOOL,
+        c_POINTER(TOKEN_PRIVILEGES),
+        wt.DWORD,
+        c_POINTER(TOKEN_PRIVILEGES),
+        c_POINTER(wt.DWORD))
+AdjustTokenPrivileges = AdjustTokenPrivileges_proto(
+        ('AdjustTokenPrivileges', advapi32), (
+            (_IN_, 'TokenHandle'),
+            (_IN_, 'DisableAllPrivileges'),
+            (_IN_OUT_, 'NewState'),
+            (_IN_, 'BufferLength'),
+            (_IN_OUT_, 'PreviousState'),
+            (_IN_OUT_, 'ReturnLength')))
+AdjustTokenPrivileges.errcheck = ErrorIfZero
 
-try:
-    EnumProcessModules = kernel32.K32EnumProcessModules
-    EnumProcessModules.argtypes = [
-        c_void_p,   # HANDLE hProcess
-        c_void_p,   # HMODULE* lphModule
-        c_uint32,   # DWORD cb
-        c_void_p ]  # LPDWORD lpcbNeeded
-    EnumProcessModules.restype = c_uint32
-except AttributeError as e:
-    pass
+EnumProcessModules_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_void_p,
+        wt.DWORD,
+        c_POINTER(wt.DWORD))
+if hasattr(kernel32, 'K32EnumProcessModules'):
+    EnumProcessModules = EnumProcessModules_proto(('K32EnumProcessModules', kernel32), (
+                (_IN_, 'hProcess'),
+                (_IN_, 'lphModule'),
+                (_IN_, 'cb'),
+                (_IN_OUT_, 'lpcbNeeded')))
+else:
+    EnumProcessModules = EnumProcessModules_proto(('EnumProcessModules', psapi), (
+                (_IN_, 'hProcess'),
+                (_IN_, 'lphModule'),
+                (_IN_, 'cb'),
+                (_IN_OUT_, 'lpcbNeeded')))
+EnumProcessModules.errcheck = ErrorIfZero
 
-try:
-    EnumProcessModulesEx = psapi.EnumProcessModulesEx
-    EnumProcessModulesEx.argtypes = [
-        c_void_p,   # HANDLE hProcess
-        c_void_p,   # HMODULE* lphModule
-        c_uint32,   # DWORD cb
-        c_void_p,   # LPDWORD lpcbNeeded
-        c_uint32]   # DWORD dwFilterFlag
-    EnumProcessModulesEx.restype = ErrorIfZero
-except AttributeError as e:
-    EnumProcessModulesEx = None
+EnumProcessModulesEx_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_POINTER(wt.HMODULE),
+        wt.DWORD,
+        c_POINTER(wt.DWORD),
+        wt.DWORD)
+if hasattr(kernel32, 'K32EnumProcessModules'):
+    EnumProcessModulesEx = EnumProcessModulesEx_proto(
+            ('K32EnumProcessModulesEx', kernel32), (
+                (_IN_, 'hProcess'),
+                (_IN_OUT_, 'lphModule'),
+                (_IN_, 'cb'),
+                (_IN_OUT_, 'lpcbNeeded'),
+                (_IN_, 'dwFilterFlag')))
+else:
+    EnumProcessModulesEx = EnumProcessModulesEx_proto(
+            ('EnumProcessModulesEx', psapi), (
+                (_IN_, 'hProcess'),
+                (_IN_OUT_, 'lphModule'),
+                (_IN_, 'cb'),
+                (_IN_OUT_, 'lpcbNeeded'),
+                (_IN_, 'dwFilterFlag')))
+EnumProcessModulesEx.errcheck = ErrorIfZero
 
-try:
-    EnumProcessModulesEx = kernel32.K32EnumProcessModulesEx
-    EnumProcessModulesEx.argtypes = [
-        c_void_p,   # HANDLE hProcess
-        c_void_p,   # HMODULE* lphModule
-        c_uint32,   # DWORD cb
-        c_void_p,   # LPDWORD lpcbNeeded
-        c_uint32]   # DWORD dwFilterFlag
-    EnumProcessModulesEx.restype = ErrorIfZero
-except AttributeError as e:
-    pass
+EnumProcesses_proto = WINFUNCTYPE(
+        wt.BOOL,
+        c_void_p,
+        wt.DWORD,
+        c_POINTER(wt.DWORD))
+EnumProcesses = EnumProcesses_proto(('EnumProcesses', psapi), (
+            (_IN_, 'lpidProcess'),
+            (_IN_, 'cb'),
+            (_IN_OUT_, 'lpcbNeeded')))
+EnumProcesses.errcheck = ErrorIfZero
 
-EnumProcesses = psapi.EnumProcesses
-EnumProcesses.argtypes = [
-    c_void_p,
-    c_uint32,
-    c_void_p]
-EnumProcesses.restype = ErrorIfZero
+GetProcessImageFileName_proto = WINFUNCTYPE(
+        wt.DWORD,
+        wt.HANDLE,
+        wt.LPWSTR,
+        wt.DWORD)
+GetProcessImageFileName = GetProcessImageFileName_proto(('GetProcessImageFileNameW', psapi), (
+        (_IN_, 'hProcess'),
+        (_IN_, 'lpImageFileName'),
+        (_IN_, 'nSize')))
+def GetProcessImageFileName_errcheck(res, func, args):
+    if not res:
+        raise WinError()
+    return args[1].value[:res]
+GetProcessImageFileName.errcheck = GetProcessImageFileName_errcheck
 
-GetProcessImageFileName = psapi.GetProcessImageFileNameA
-GetProcessImageFileName.argtypes = [
-        c_void_p,   # HANDLE hProcess
-        c_void_p,   # lpImageFileName
-        c_uint32 ]  # DWORD nSize
-GetProcessImageFileName.restype = ErrorIfZero
+GetModuleBaseName_proto = WINFUNCTYPE(
+        wt.DWORD,
+        wt.HANDLE,
+        wt.HMODULE,
+        wt.LPWSTR,
+        wt.DWORD)
+GetModuleBaseName = GetModuleBaseName_proto(('GetModuleBaseNameW', psapi), (
+        (_IN_, 'hProcess'),
+        (_IN_, 'hModule'),
+        (_IN_, 'lpBaseName'),
+        (_IN_, 'nSize')))
+def GetModuleBaseName_errcheck(res, func, args):
+    if not res:
+        raise WinError()
+    return args[2].value
+GetModuleBaseName.errcheck = GetModuleBaseName_errcheck
 
-GetModuleBaseName = psapi.GetModuleBaseNameA
-GetModuleBaseName.argtypes = [
-    c_void_p,   # HANDLE hProcess
-    c_void_p,   # HMODULE hModule
-    c_void_p,   # LPTSTR lpBaseName
-    c_uint32 ]  # DWORD nSize
-GetModuleBaseName.restype = ErrorIfZero
-
-GetModuleFileName = kernel32.GetModuleFileNameW
-GetModuleFileName.argtypes = [
-    c_void_p,   # HMODULE hModule
-    c_void_p,   # LPTSTR lpFilename
-    c_void_p ]  # DWORD nSize
-GetModuleFileName.restype = ErrorIfZero
-
-GetModuleInformation = psapi.GetModuleInformation
-GetModuleInformation.argtypes = [
-    c_void_p,   # HANDLE hProcess
-    c_void_p,   # HMODULE hModule
-    c_void_p,   # LPMODULEINFO lpmodinfo
-    c_uint32 ]  # DWORD cb
-GetModuleInformation.restype = ErrorIfZero
-
-GetProcessHeaps = kernel32.GetProcessHeaps
-GetProcessHeaps.argtypes = [
-    c_uint32,   # DWORD NumberOfHeaps
-    c_void_p ]  # PHANDLE ProcessHeaps
-GetProcessHeaps.restype = c_uint32
-
-HeapQueryInformation = kernel32.HeapQueryInformation
-HeapQueryInformation.argtypes = [
-    c_void_p,   # HANDLE HeapHandle
-    c_int32,    # HEAP_INFORMATION_CLASS HeapInformationClass
-    c_void_p,   # PVOID HeapInformation
-    c_uint64,   # SIZE_T HeapInformationLength
-    c_void_p ]  # PSIZE_T ReturnLength
-HeapQueryInformation.restype = ErrorIfZero
-
-HeapWalk = kernel32.HeapWalk
-HeapWalk.argtypes = [
-    c_void_p,   # HANDLE hHeap
-    c_void_p ]  # LPPROCESS_HEAP_ENTRY lpEntry
-HeapWalk.restype = c_uint32
-
-LookupPrivilegeValue = advapi32.LookupPrivilegeValueA
-LookupPrivilegeValue.argtypes = [
-    c_char_p,   # LPCTSTR lpSystemName
-    c_char_p,   # LPCTSTR lpName
-    c_void_p ]  # PLUID lpLuid
-LookupPrivilegeValue.restype = ErrorIfZero
-
-ReadProcessMemory = kernel32.ReadProcessMemory
-ReadProcessMemory.argtypes = [
-    c_int32,    # hProcess // handle to the process
-    c_void_p,   # lpBaseAddress // base of memory area
-    c_void_p,   # lpBuffer // data buffer
-    c_uint32,   # nSize // number of bytes to read
-    c_void_p]   # lpNumberOfBytesWritten // number of bytes write
-ReadProcessMemory.restype = c_uint32
-
-WriteProcessMemory = kernel32.WriteProcessMemory
-WriteProcessMemory.argtypes = [
-    c_int32,      # hProcess // handle to the process
-    c_uint32,     # lpBaseAddress // base of memory area
-    c_void_p,     # lpBuffer // data buffer
-    c_uint32,     # nSize // number of bytes to read
-    c_void_p]     # lpNumberOfBytesRead // number of bytes read
-WriteProcessMemory.restype = ErrorIfZero
-
-QueryWorkingSet = psapi.QueryWorkingSet
-QueryWorkingSet.argtypes = [
-    c_void_p,   # HANDLE hProcess
-    c_void_p,   # PVOID pv
-    c_uint32]   # DWORD cb
-QueryWorkingSet.restype = c_uint32
-
-VirtualProtectEx = kernel32.VirtualProtectEx
-VirtualProtectEx.argtypes = [
-    c_void_p,   # HANDLE
-    c_void_p,   # Address
-    c_uint32,   # SIZE
-    c_uint32,   # Protection
-    c_void_p ]  # Old protection
-VirtualProtectEx.restype = ErrorIfZero
-
-VirtualQueryEx = kernel32.VirtualQueryEx
-VirtualQueryEx.argtypes = [
-    c_int32,    # HANDLE hProces
-    c_void_p,   # LPCVOID lpAddress
-    c_void_p,   # PMEMORY_BASIC_INFORMATION lpBuffer
-    c_uint32 ]  # SIZE_T dwLength
-VirtualQueryEx.restype = ErrorIfZero
-
-# VirtualAllocEx
-VirtualAllocEx = kernel32.VirtualAllocEx
-VirtualAllocEx.argtypes = [
-        c_uint32,       # HANDLE hProcess
-        c_void_p,       # LPVOID lpAddress
-        c_uint32,       # SIZE_T dwSize
-        c_uint32,       # DWORD flAllocationType
-        c_uint32 ]      # DWORD flProtect
-VirtualAllocEx.restype = c_void_p
-
-# WriteProcessMemory
-WriteProcessMemory = kernel32.WriteProcessMemory
-WriteProcessMemory.argtypes = [
-        c_uint32,       # HANDLE hProcess
-        c_void_p,       # LPVOID lpBaseAddress
-        c_char_p,       # LPCVOID lpBuffer
-        c_uint32,       # SIZE_T nSize
-        c_void_p ]      # SIZE_T* lpNumberOfBytesWritten
-WriteProcessMemory.restype = ErrorIfZero
-
-CloseHandle = kernel32.CloseHandle
-CloseHandle.argtypes = [ c_int32 ]
-CloseHandle.restype = ErrorIfZero
+GetModuleFileName_proto = WINFUNCTYPE(
+        wt.DWORD,
+        wt.HMODULE,
+        wt.LPWSTR,
+        wt.DWORD)
+GetModuleFileName = GetModuleFileName_proto(('GetModuleFileNameW', kernel32), (
+        (_IN_, 'hModule'),
+        (_IN_, 'lpFilename'),
+        (_IN_, 'nSize')))
+GetModuleFileName.errcheck = GetModuleBaseName_errcheck
+GetModuleFileNameEx_proto = WINFUNCTYPE(
+        wt.DWORD,
+        wt.DWORD,
+        wt.HMODULE,
+        wt.LPWSTR,
+        wt.DWORD)
+GetModuleFileNameEx = GetModuleFileNameEx_proto(('GetModuleFileNameExW', psapi), (
+                (_IN_, 'hProcess'),
+                (_IN_, 'hModule'),
+                (_IN_, 'lpFilename'),
+                (_IN_, 'nSize')))
+GetModuleFileNameEx.errcheck = GetModuleBaseName_errcheck
 
 class MODULEINFO( Structure ):
     _fields_ = [
             ('lpBaseOfDll',     c_void_p),
             ('SizeOfImage',     c_uint32),
             ('EntryPoint',      c_void_p) ]
+GetModuleInformation_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        wt.HMODULE,
+        c_POINTER(MODULEINFO),
+        wt.DWORD)
+GetModuleInformation = GetModuleInformation_proto(('GetModuleInformation', psapi), (
+        (_IN_, 'hProcess'),
+        (_IN_, 'hModule'),
+        (_IN_, 'lpmodinfo'),
+        (_IN_, 'cb')))
+GetModuleInformation.errcheck = ErrorIfZero
 
-class LUID( Structure ):
-    _fields_ = [
-            ('LowPart',         c_uint32),
-            ('HighPart',        c_uint32)]
+GetProcessHeaps_proto = WINFUNCTYPE(
+        wt.DWORD,
+        wt.DWORD,
+        c_POINTER(wt.HANDLE))
+GetProcessHeaps = GetProcessHeaps_proto(('GetProcessHeaps', kernel32), (
+        (_IN_, 'NumberOfHeaps'),
+        (_IN_, 'ProcessHeaps')))
+GetProcessHeaps.errcheck = ErrorIfZero
 
-class TOKEN_PRIVILEGES( Structure ):
-    _fields_ = [
-            ('PrivilegeCount',  c_uint32),
-            ('Luid',            LUID),
-            ('Attributes',      c_uint32) ]
+HeapQueryInformation_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        wt.DWORD,
+        c_void_p,
+        c_size_t,
+        c_POINTER(c_size_t))
+HeapQueryInformation = HeapQueryInformation_proto(('HeapQueryInformation', kernel32), (
+        (_IN_, 'HeapHandle'),
+        (_IN_, 'HeapInformationClass'),
+        (_IN_, 'HeapInformation'),
+        (_IN_, 'HeapInformationLength'),
+        (_IN_, 'ReturnLength')))
+HeapQueryInformation.errcheck = ErrorIfZero
 
 class PROCESS_HEAP_ENTRY( Structure ):
     _fields_ = [
@@ -434,6 +427,127 @@ class PROCESS_HEAP_ENTRY( Structure ):
             ('more_info2',      c_uint32),
             ('more_info3',      c_uint32),
             ('more_info4',      c_uint32) ]
+HeapWalk_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_POINTER(PROCESS_HEAP_ENTRY))
+HeapWalk = HeapWalk_proto(('HeapWalk', kernel32), (
+        (_IN_, 'hHeap'),
+        (_IN_, 'lpEntry')))
+HeapWalk.errcheck = ErrorIfZero
+
+LookupPrivilegeValue_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.LPCWSTR,
+        wt.LPCWSTR,
+        c_POINTER(LUID))
+LookupPrivilegeValue = LookupPrivilegeValue_proto(('LookupPrivilegeValueW', advapi32), (
+            (_IN_,  'lpSystemName'),
+            (_IN_,  'lpName'),
+            (_IN_,  'lpLuid')))
+LookupPrivilegeValue.errcheck = ErrorIfZero
+
+ReadProcessMemory_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_void_p,
+        c_void_p,
+        c_size_t,
+        c_POINTER(c_size_t))
+ReadProcessMemory = ReadProcessMemory_proto(('ReadProcessMemory', kernel32), (
+        (_IN_, 'hProcess'),
+        (_IN_, 'lpBaseAddress'),
+        (_IN_, 'lpBuffer'),
+        (_IN_, 'nSize'),
+        (_IN_, 'lpNumberOfBytesWritten')))
+ReadProcessMemory.errcheck = ErrorIfZero
+
+WriteProcessMemory_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_void_p,
+        c_void_p,
+        c_size_t,
+        c_POINTER(c_size_t))
+WriteProcessMemory = WriteProcessMemory_proto(('WriteProcessMemory', kernel32), (
+        (_IN_, 'hProcess'),
+        (_IN_, 'lpBaseAddress'),
+        (_IN_, 'lpBuffer'),
+        (_IN_, 'nSize'),
+        (_IN_, 'lpNumberOfBytesRead')))
+WriteProcessMemory.errcheck = ErrorIfZero
+
+QueryWorkingSet_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_void_p,
+        wt.DWORD)
+QueryWorkingSet = QueryWorkingSet_proto(('QueryWorkingSet', psapi), (
+            (_IN_,  'hProcess'),
+            (_IN_,  'pv'),
+            (_IN_,  'cb')))
+QueryWorkingSet.errcheck = ErrorIfZero
+
+VirtualProtectEx_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_void_p,
+        c_size_t,
+        wt.DWORD,
+        c_POINTER(wt.DWORD))
+VirtualProtectEx = VirtualProtectEx_proto(('VirtualProtectEx', kernel32), (
+        (_IN_,  'hProcess'),
+        (_IN_,  'lpAddress'),
+        (_IN_,  'dwSize'),
+        (_IN_,  'flNewProtect'),
+        (_IN_,  'lpfOldProtect')))
+VirtualProtectEx.errcheck = ErrorIfZero
+
+class MEMORY_BASIC_INFORMATION(Structure):
+    _fields_ = [("BaseAddress",         c_void_p),
+                ("AllocationBase",      c_void_p),
+                ("AllocationProtect",   c_uint32),
+                ("RegionSize",          c_size_t),
+                ("State",               c_uint32),
+                ("Protect",             c_uint32),
+                ("Type",                c_uint32)]
+VirtualQueryEx_proto = WINFUNCTYPE(
+        c_size_t,
+        wt.HANDLE,
+        c_void_p,
+        c_POINTER(MEMORY_BASIC_INFORMATION),
+        c_size_t)
+VirtualQueryEx = VirtualQueryEx_proto(('VirtualQueryEx', kernel32), (
+            (_IN_,  'hProces'),
+            (_IN_,  'lpAddress'),
+            (_IN_,  'lpBuffer'),
+            (_IN_,  'dwLength')))
+VirtualQueryEx.errcheck = ErrorIfZero
+
+VirtualAllocEx_proto = WINFUNCTYPE(
+        c_void_p,
+        wt.HANDLE,
+        c_void_p,
+        c_size_t,
+        wt.DWORD,
+        wt.DWORD)
+VirtualAllocEx = VirtualAllocEx_proto(('VirtualAllocEx', kernel32), (
+            (_IN_,  'hProcess'),
+            (_IN_,  'lpAddress'),
+            (_IN_,  'dwSize'),
+            (_IN_,  'flAllocationType'),
+            (_IN_,  'flProtect')))
+def VirtualAllocEx_errcheck(res, func, args):
+    if not res.value:
+        raise WinError
+    return res
+VirtualAllocEx.errcheck = VirtualAllocEx_errcheck
+
+CloseHandle_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE)
+CloseHandle = CloseHandle_proto(('CloseHandle', kernel32), ((_IN_, 'hObject'),))
+CloseHandle.errcheck = ErrorIfZero
 
 class UNICODE_STRING( Structure ):
     _fields_ = [
@@ -508,33 +622,50 @@ class SYSTEM_PROCESS_INFORMATION_DETAILD( Structure ):
             ('PrivatePageCount',    c_uint32),
             ('Reserved6',           c_uint64*6) ]
 
-DuplicateHandle = kernel32.DuplicateHandle
-DuplicateHandle.argtypes = [
-    c_void_p,     #  __in   HANDLE hSourceProcessHandle,
-    c_void_p,     #  __in   HANDLE hSourceHandle,
-    c_void_p,     #  __in   HANDLE hTargetProcessHandle,
-    c_void_p,     #  __out  LPHANDLE lpTargetHandle,
-    c_uint32,     #  __in   DWORD dwDesiredAccess,
-    c_int32,      #  __in   BOOL bInheritHandle,
-    c_uint32 ]    #  __in   DWORD dwOptions
-DuplicateHandle.restype = ErrorIfZero
+DuplicateHandle_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE, wt.HANDLE, wt.HANDLE,
+        c_POINTER(wt.HANDLE),
+        wt.DWORD,
+        wt.BOOL,
+        wt.DWORD)
+DuplicateHandle = DuplicateHandle_proto(('DuplicateHandle', kernel32), (
+            (_IN_, 'hSourceProcessHandle'),
+            (_IN_, 'hSourceHandle'),
+            (_IN_, 'hTargetProcessHandle'),
+            (_IN_, 'lpTargetHandle'),
+            (_IN_, 'dwDesiredAccess'),
+            (_IN_, 'bInheritHandle'),
+            (_IN_, 'dwOption')))
+DuplicateHandle.errcheck = ErrorIfZero
 
-NtQueryObject = ntdll.NtQueryObject
-NtQueryObject.argtypes = [
-    c_void_p,   #  __in_opt   HANDLE Handle,
-    c_uint32,   #  __in       OBJECT_INFORMATION_CLASS ObjectInformationClass,
-    c_void_p,   #  __out_opt  PVOID ObjectInformation,
-    c_uint32,   #  __in       ULONG ObjectInformationLength,
-    c_void_p ]  #  __out_opt  PULONG ReturnLength
-NtQueryObject.restype = c_uint32
+NtQueryObject_proto = WINFUNCTYPE(
+        c_uint32,
+        wt.HANDLE,
+        c_uint32,
+        c_void_p,
+        c_uint32,
+        c_POINTER(c_uint32))
+NtQueryObject = NtQueryObject_proto(('NtQueryObject', ntdll), (
+            (_IN_, 'Handle'),
+            (_IN_, 'ObjectInformationClass'),
+            (_IN_, 'ObjectInformation'),
+            (_IN_, 'ObjectInformationLength'),
+            (_IN_, 'ReturnLengt')))
+NtQueryObject.errcheck = NtStatusCheck
 
-NtQuerySystemInformation = ntdll.NtQuerySystemInformation
-NtQuerySystemInformation.argtypes = [
-    c_void_p,   #  __in       SYSTEM_INFORMATION_CLASS SystemInformationClass,
-    c_void_p,   #  __inout    PVOID SystemInformation,
-    c_uint32,     #  __in       ULONG SystemInformationLength,
-    c_void_p ]  #  __out_opt  PULONG ReturnLength
-NtQuerySystemInformation.restype = c_uint32
+NtQuerySystemInformation_proto = WINFUNCTYPE(
+        c_uint32,
+        c_uint32,
+        c_void_p,
+        c_uint32,
+        c_POINTER(c_uint32))
+NtQuerySystemInformation = NtQuerySystemInformation_proto(('NtQuerySystemInformation', ntdll), (
+            (_IN_, 'SystemInformationClass'),
+            (_IN_, 'SystemInformation'),
+            (_IN_, 'SystemInformationLength'),
+            (_IN_, 'ReturnLengt')))
+NtQuerySystemInformation.errcheck = NtStatusCheck
 
 class PROCESS_BASIC_INFORMATION( Structure ):
     _fields_ = [
@@ -545,22 +676,20 @@ class PROCESS_BASIC_INFORMATION( Structure ):
             ('UniqueProcessId', c_void_p),
             ('InheritedFromUniqueProcessId', c_void_p)]
 
-NtQueryInformationProcess = ntdll.NtQueryInformationProcess
-NtQueryInformationProcess.argtypes = [
-        c_void_p,   # _In_       HANDLE ProcessHandle
-        c_void_p,   # _In_       PROCESSINFOCLASS ProcessInformationClass
-        c_void_p,   # _Out_      PVOID ProcessInformation
-        c_uint32,   # _In_       ULONG ProcessInformationLength
-        c_void_p ]  # _Out_opt_  PULONG ReturnLength
-NtQueryInformationProcess.restype = NtStatusCheck
-
-GetModuleFileNameEx = psapi.GetModuleFileNameExA
-GetModuleFileNameEx.argtypes = [
-        c_void_p,   #  __in      HANDLE hProcess,
-        c_uint32,   #  __in_opt  HMODULE hModule,
-        c_void_p,   #  __out     LPTSTR lpFilename,
-        c_uint32 ]  #  __in      DWORD nSize
-GetModuleFileNameEx.restype = ErrorIfZero
+NtQueryInformationProcess_proto = WINFUNCTYPE(
+        c_uint32,
+        wt.HANDLE,
+        c_void_p,
+        c_void_p,
+        c_uint32,
+        c_POINTER(c_uint32))
+NtQueryInformationProcess = NtQueryInformationProcess_proto(('NtQueryInformationProcess', ntdll), (
+                (_IN_, 'ProcessHandl'),
+                (_IN_, 'ProcessInformationClas'),
+                (_IN_, 'ProcessInformatio'),
+                (_IN_, 'ProcessInformationLengt'),
+                (_IN_, 'ReturnLengt')))
+NtQueryInformationProcess.errcheck = NtStatusCheck
 
 class SYSTEM_HANDLE( Structure ):
     _fields_ = [
@@ -583,51 +712,69 @@ class SYSTEM_HANDLE_INFORMATION( Structure ):
 
 SYMOPT_DEBUG = 0x80000000
 
-SymGetOptions = dbghelp.SymGetOptions
-SymGetOptions.argtypes = []
-SymGetOptions.restype = c_uint32
+SymGetOptions_proto = WINFUNCTYPE(wt.DWORD)
+SymGetOptions = SymGetOptions_proto(('SymGetOptions', dbghelp), ())
+SymSetOptions_proto = WINFUNCTYPE(wt.DWORD, wt.DWORD)
+SymSetOptions = SymSetOptions_proto(('SymSetOptions', dbghelp), ((_IN_, 'SymOptions'),))
 
-SymSetOptions = dbghelp.SymSetOptions
-SymSetOptions.argtypes = [ c_uint32 ]
-SymSetOptions.restype = c_uint32
+SymInitialize_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        wt.LPCWSTR,
+        wt.BOOL)
+SymInitialize = SymInitialize_proto(('SymInitialize', dbghelp), (
+            (_IN_,  'hProcess'),
+            (_IN_,  'UserSearchPath'),
+            (_IN_,  'fInvadeProcess')))
+SymInitialize.errcheck = ErrorIfZero
 
-SymInitialize = dbghelp.SymInitialize
-SymInitialize.argtypes = [
-        c_void_p,   # HANDLE hProcess
-        c_char_p,   # PCTSTR UserSearchPath
-        c_uint32 ]  # BOOL fInvadeProcess
-SymInitialize.restype = ErrorIfZero
-
-SYM_FIND_FILE_IN_PATCH_CALLBACK = WINFUNCTYPE(
-                                        c_char_p, # PCTSTR fileName
+SYM_FIND_FILE_IN_PATH_CALLBACK = WINFUNCTYPE(
+                                        wt.LPCWSTR, # PCTSTR fileName
                                         c_void_p) # PVOID context
-SymFindFileInPath = dbghelp.SymFindFileInPath
-SymFindFileInPath.argtypes = [
-        c_void_p,   # HANDLE hProcess
-        c_char_p,   # PCTSTR SearchPath
-        c_char_p,   # PCTSTR FileName
-        c_void_p,   # PVOID id
-        c_uint32,   # DWORD two
-        c_uint32,   # DWORD three
-        c_uint32,   # DWORD flags
-        c_void_p,   # PTSTR FilePath
-        c_void_p,   # SYM_FIND_FILE_IN_PATCH_CALLBACK,  # PFINDFILEINPATHCALLBACK callback
-        c_void_p ]  # PVOID contex
-SymFindFileInPath.restype = ErrorIfZero
+SymFindFileInPath_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        wt.LPCWSTR, wt.LPCWSTR,
+        c_void_p,
+        wt.DWORD, wt.DWORD, wt.DWORD,
+        wt.LPWSTR,
+        c_void_p,
+        c_void_p)
+SymFindFileInPath = SymFindFileInPath_proto(('SymFindFileInPathW', dbghelp), (
+            (_IN_,  'hProcess'),
+            (_IN_,  'SearchPath'),
+            (_IN_,  'FileName'),
+            (_IN_,  'id'),
+            (_IN_,  'two'),
+            (_IN_,  'three'),
+            (_IN_,  'flags'),
+            (_IN_,  'FilePath'),
+            (_IN_,  'callback'), # SYM_FIND_FILE_IN_PATH_CALLBACK
+            (_IN_,  'context')))
+SymFindFileInPath.errcheck = ErrorIfZero
 
 win32con.SSRVOPT_DWORD      = 0x02 # The id parameter is a DWORD.
 win32con.SSRVOPT_DWORDPTR   = 0x04 # The id parameter is a pointer to a DWORD.
 win32con.SSRVOPT_GUIDPTR    = 0x08 # The id parameter is a pointer to a GUID.
 
-SymLoadModule64 = dbghelp.SymLoadModule64
-SymLoadModule64.argtypes = [
-        c_void_p,   # HANDLE hProcess
-        c_void_p,   # HANDLE hFile
-        c_char_p,   # PCSTR ImageNmae
-        c_char_p,   # PCSTR ModuleName
-        c_uint64,   # DWORD64 BaseOfDll
-        c_uint32 ]  # SizeOfDll
-SymLoadModule64.restype = c_uint64
+SymLoadModuleEx_proto = WINFUNCTYPE(
+        c_uint64,
+        wt.HANDLE, wt.HANDLE,
+        wt.LPCWSTR, wt.LPCWSTR,
+        c_uint64,
+        wt.DWORD,
+        c_void_p,
+        wt.DWORD)
+SymLoadModuleEx = SymLoadModuleEx_proto(('SymLoadModuleExW', dbghelp), (
+            (_IN_,  'hProcess'),
+            (_IN_,  'hFile'),
+            (_IN_,  'ImageNmae'),
+            (_IN_,  'ModuleName'),
+            (_IN_,  'BaseOfDll'),
+            (_IN_,  'DllSize'),
+            (_IN_,  'Data', None),
+            (_IN_,  'Flags', 0)))
+SymLoadModuleEx.errcheck = ErrorIfZero
 
 class SYMBOL_INFO( Structure ):
     _fields_ = [
@@ -650,24 +797,33 @@ class SYMBOL_INFO( Structure ):
 
 SYM_ENUMERATESYMBOLS_CALLBACK = WINFUNCTYPE( c_uint32, c_POINTER(SYMBOL_INFO), c_uint32, c_void_p )
 
-SymEnumSymbols = dbghelp.SymEnumSymbols
-SymEnumSymbols.argtypes = [
-        c_void_p,   # HANDLE hProcess
-        c_uint64,   # ULONG64 BaseOfDll
-        c_char_p,   # PCTSTR Mask
-        SYM_ENUMERATESYMBOLS_CALLBACK, # PSYM_ENUMERATESYMBOLS_CALLBACK EnumSymbolsCallback
-        c_void_p ]  # PVOID UserContext
-SymEnumSymbols.restype = ErrorIfZero
+SymEnumSymbols_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_uint64,
+        wt.LPCWSTR,
+        c_void_p, # SYM_ENUMERATESYMBOLS_CALLBACK
+        c_void_p)
+SymEnumSymbols = SymEnumSymbols_proto(('SymEnumSymbols', dbghelp), (
+            (_IN_,  'hProcess'),
+            (_IN_,  'BaseOfDll'),
+            (_IN_,  'Mask'),
+            (_IN_,  'EnumSymbolsCallback'), # SYM_ENUMERATESYMBOLS_CALLBACK
+            (_IN_,  'UserContext')))
+SymEnumSymbols.errcheck = ErrorIfZero
 
-SymUnloadModule64 = dbghelp.SymUnloadModule64
-SymUnloadModule64.argtypes = [
-        c_void_p,   # HANDLE hProcess
-        c_uint64 ]  # DWORD64 BaseOfDll
-SymUnloadModule64.restype = ErrorIfZero
+SymUnloadModule64_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_uint64)
+SymUnloadModule64 = SymUnloadModule64_proto(('SymUnloadModule64', dbghelp), (
+            (_IN_,  'hProcess'),
+            (_IN_,  'BaseOfDll')))
+SymUnloadModule64.errcheck = ErrorIfZero
 
-SymCleanup = dbghelp.SymCleanup
-SymCleanup.argtypes = [ c_void_p ] # HANDLE hProcess
-SymCleanup.restype = ErrorIfZero
+SymCleanup_proto = WINFUNCTYPE(wt.BOOL, wt.HANDLE)
+SymCleanup = SymCleanup_proto(('SymCleanup', dbghelp), ((_IN_, 'hProcess'),))
+SymCleanup.errcheck = ErrorIfZero
 
 class STARTUPINFO( Structure ):
     _fields_ = [
@@ -697,38 +853,63 @@ class PROCESS_INFORMATION( Structure ):
         ('dwProcessId', c_uint32),
         ('dwThreadId',  c_uint32) ]
 
-CreateProcess = kernel32.CreateProcessW
-CreateProcess.argtypes = [
-    c_wchar_p,  # lpApplicationName // name of executable module
-    c_wchar_p,  # lpCommandLine     // command line string
-    c_void_p,   # lpProcessAttributes   // SD
-    c_void_p,   # lpThreadAttributes    // SD
-    c_char,     # bInheritHandles   // handle inheritance option
-    c_uint32,   # dwCreationFlags   // creation flags
-    c_void_p,   # lpEnvironment     // new environment block
-    c_wchar_p,  # lpCurrentDirectory    // current directory name
-    c_void_p,   # lpStartupInfo     // startup information
-    c_void_p ]  # lpProcessInformation  // process information
-CreateProcess.restype = ErrorIfZero
+class SECURITY_ATTRIBUTES(Structure):
+    _fields_ = [("Length", c_uint32),
+                ("SecDescriptor", c_void_p),
+                ("InheritHandle", c_uint32)]
 
-ResumeThread = kernel32.ResumeThread
-ResumeThread.argtypes = [c_uint32]
-ResumeThread.restype = ErrorIfMinous1
+CreateProcess_proto = WINFUNCTYPE(
+        wt.BOOL,
+        c_void_p,
+        c_void_p,
+        c_POINTER(SECURITY_ATTRIBUTES),
+        c_POINTER(SECURITY_ATTRIBUTES),
+        wt.BOOL,
+        wt.DWORD,
+        c_void_p,
+        c_void_p,
+        c_POINTER(STARTUPINFO),
+        c_POINTER(PROCESS_INFORMATION))
+CreateProcess = CreateProcess_proto(('CreateProcessW', kernel32), (
+            (_IN_, 'lpApplicationName'),
+            (_IN_, 'lpCommandLine'),
+            (_IN_, 'lpProcessAttributes'),
+            (_IN_, 'lpThreadAttributes'),
+            (_IN_, 'bInheritHandles'),
+            (_IN_, 'dwCreationFlags'),
+            (_IN_, 'lpEnvironment'),
+            (_IN_, 'lpCurrentDirectory'),
+            (_IN_, 'lpStartupInfo'),
+            (_IN_, 'lpProcessInformation')))
+CreateProcess.errcheck = ErrorIfZero
 
-CreateRemoteThread = kernel32.CreateRemoteThread
-CreateRemoteThread.argtypes = [
-        c_void_p,       # HANDLE hProcess
-        c_void_p,       # LPSECURITY_ATTRIBUTES lpThreadAttributes
-        c_uint32,       # SIZE_T dwStackSize
-        c_void_p,       # LPTHREAD_START_ROUTINE lpStartAddress
-        c_void_p,       # LPVOID lpParameter
-        c_uint32,       # DWORD dwCreationFlags
-        c_void_p ]      # LPDWORD lpThreadId
-CreateRemoteThread.restype = ErrorIfZero
+ResumeThread_proot = WINFUNCTYPE(
+        wt.DWORD, wt.HANDLE)
+ResumeThread = ResumeThread_proot(('ResumeThread', kernel32), ((_IN_, 'hThread'),))
+ResumeThread.errcheck = ErrorIfMinous1
+
+CreateRemoteThread_proto = WINFUNCTYPE(
+        wt.HANDLE,
+        wt.HANDLE,
+        c_POINTER(SECURITY_ATTRIBUTES),
+        c_size_t,
+        c_void_p,
+        c_void_p,
+        wt.DWORD,
+        c_POINTER(wt.DWORD))
+CreateRemoteThread = CreateRemoteThread_proto(('CreateRemoteThread', kernel32), (
+            (_IN_,  'hProcess'),
+            (_IN_,  'lpThreadAttributes'),
+            (_IN_,  'dwStackSize'),
+            (_IN_,  'lpStartAddress'),
+            (_IN_,  'lpParameter'),
+            (_IN_,  'dwCreationFlags'),
+            (_IN_,  'lpThreadId')))
+CreateRemoteThread.errcheck = ErrorIfZero
 
 class EXCEPTION_RECORD( Structure ):
     _fields_ = [
-        ('ExceptionCode',           c_int32 ),
+        ('ExceptionCode',           c_uint32 ),
         ('ExceptionFlags',          c_uint32 ),
         ('pExceptionRecord',        c_void_p ),
         ('ExceptionAddress',        c_void_p ),
@@ -742,36 +923,22 @@ class EXCEPTION_DEBUG_INFO( Structure ):
 
 class CREATE_THREAD_DEBUG_INFO( Structure ):
     _fields_ = [
-        ('hThread',             c_int32 ),
-        ('lpThreadLocalBase',   c_uint32 ),
-        ('lpStartAddress',      c_uint32 ) ]
+        ('hThread',             c_void_p ),
+        ('lpThreadLocalBase',   c_void_p ),
+        ('lpStartAddress',      c_void_p ) ]
 
 class CREATE_PROCESS_DEBUG_INFO( Structure ):
     _fields_ = [
-        ('hFile',                   c_int32 ),
-        ('hProcess',                c_int32 ),
-        ('hThread',                 c_int32 ),
-        ('lpBaseOfImage',           c_uint32 ),
+        ('hFile',                   c_void_p ),
+        ('hProcess',                c_void_p ),
+        ('hThread',                 c_void_p ),
+        ('lpBaseOfImage',           c_void_p ),
         ('dwDebugInfoFileOffset',   c_uint32 ),
         ('nDebugInfoSize',          c_uint32 ),
-        ('lpThreadLocalBase',       c_uint32 ),
-        ('lpStartAddress',          c_uint32 ),
-        ('lpImageName',             c_uint32 ),
+        ('lpThreadLocalBase',       c_void_p ),
+        ('lpStartAddress',          c_void_p ),
+        ('lpImageName',             c_void_p ),
         ('fUnicode',                c_uint16 ) ]
-
-class MEMORY_BASIC_INFORMATION(Structure):
-    _fields_ = [("BaseAddress",         c_void_p),
-                ("AllocationBase",      c_void_p),
-                ("AllocationProtect",   c_uint32),
-                ("RegionSize",          c_size_t),
-                ("State",               c_uint32),
-                ("Protect",             c_uint32),
-                ("Type",                c_uint32)]
-
-class SECURITY_ATTRIBUTES(Structure):
-    _fields_ = [("Length", c_uint32),
-                ("SecDescriptor", c_void_p),
-                ("InheritHandle", c_uint32)]
 
 class EXIT_THREAD_DEBUG_INFO( Structure ):
     _fields_ = [
@@ -783,11 +950,11 @@ class EXIT_PROCESS_DEBUG_INFO( Structure ):
 
 class LOAD_DLL_DEBUG_INFO( Structure ):
     _fields_ = [
-        ('hFile',                   c_uint32),
-        ('lpBaseOfDll',             c_uint32),
+        ('hFile',                   c_void_p),
+        ('lpBaseOfDll',             c_void_p),
         ('dwDebugInfoFileOffset',   c_uint32),
         ('nDebugInfoSize',          c_uint32),
-        ('lpImageName',             c_uint32),
+        ('lpImageName',             c_void_p),
         ('fUnicode',                c_uint16)]
 
 class UNLOAD_DLL_DEBUG_INFO( Structure ):
@@ -795,7 +962,7 @@ class UNLOAD_DLL_DEBUG_INFO( Structure ):
 
 class OUTPUT_DEBUG_STRING_INFO( Structure ):
     _fields_ = [
-        ('lpDebugStringData',   c_char_p),
+        ('lpDebugStringData',   c_void_p),
         ('fUnicode',            c_uint16),
         ('nDebugStringLength',  c_uint16) ]
 
@@ -819,30 +986,41 @@ class DEBUG_EVENT( Structure ):
         ('dwThreadId',          c_uint32),
         ('u',                   DEBUG_EVENT_u) ]
 
-ContinueDebugEvent = kernel32.ContinueDebugEvent
-ContinueDebugEvent.argtypes = [
-    c_uint32,     # dwProcessId // process to continue
-    c_uint32,     # dwThreadId // thread to continue
-    c_uint32 ]    # dwContinueStatus // continuation status
-ContinueDebugEvent.restype = ErrorIfZero
+ContinueDebugEvent_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.DWORD, wt.DWORD, wt.DWORD)
+ContinueDebugEvent = ContinueDebugEvent_proto(('ContinueDebugEvent', kernel32), (
+            (_IN_, 'dwProcessId'),
+            (_IN_, 'dwThreadId'),
+            (_IN_, 'dwContinueStatus')))
+ContinueDebugEvent.errcheck = ErrorIfZero
 
-WaitForDebugEvent = kernel32.WaitForDebugEvent
-WaitForDebugEvent.argtypes = [
-    c_void_p,   # lpDebugEvent // debug event information
-    c_uint32]   # dwMilliseconds // time-out value
-WaitForDebugEvent.restype = ErrorIfZero
+WaitForDebugEvent_proto = WINFUNCTYPE(
+        wt.BOOL,
+        c_POINTER(DEBUG_EVENT),
+        wt.DWORD)
+WaitForDebugEvent = WaitForDebugEvent_proto(('WaitForDebugEvent', kernel32), (
+            (_IN_, 'lpDebugEvent'),
+            (_IN_, 'dwMilliseconds')))
+WaitForDebugEvent.errcheck = ErrorIfZero
 
-GetThreadContext = kernel32.GetThreadContext
-GetThreadContext.argtypes = [
-    c_void_p,   # hThread // handle to thread with context
-    c_void_p]   # lpContext // context structure
-GetThreadContext.restype = ErrorIfZero
+GetThreadContext_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_void_p)
+GetThreadContext = GetThreadContext_proto(('GetThreadContext', kernel32), (
+            (_IN_, 'hThread'),
+            (_IN_, 'lpContext')))
+GetThreadContext.errcheck = ErrorIfZero
 
-SetThreadContext = kernel32.SetThreadContext
-SetThreadContext.argtypes = [
-    c_void_p,   # hThread // handle to thread
-    c_void_p]   # *lpContext // context structure
-SetThreadContext.restype = ErrorIfZero
+SetThreadContext_proot = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_void_p)
+SetThreadContext = SetThreadContext_proot(('SetThreadContext', kernel32), (
+            (_IN_, 'hThread'),
+            (_IN_, '*lpContext')))
+SetThreadContext.errcheck = ErrorIfZero
 
 class FLOATING_SAVE_AREA( Structure ):
     _fields_ = [
@@ -856,7 +1034,7 @@ class FLOATING_SAVE_AREA( Structure ):
         ('RegisterArea',    c_ARRAY( c_char, 80 )),
         ('Cr0NpxState',     c_uint32) ]
 
-class CONTEXT( Structure ):
+class CONTEXT_x86( Structure ):
     _fields_ = [
 ###     ('data',    c_ARRAY(c_uint32, 1000) )]
         ('ContextFlags',    c_uint32),
@@ -885,41 +1063,90 @@ class CONTEXT( Structure ):
     ('segss',       c_uint32),
     ('ExtendedRegisters',   c_ARRAY( c_char, 512 )) ]
 
-FlushInstructionCache = kernel32.FlushInstructionCache
-FlushInstructionCache.argtypes = [
-    c_void_p,   # hProcess // handle to the process
-    c_void_p,   # lpBaseAddress // A pointer to the base of the region to be flushed
-    c_uint32 ]  # dwSize // The size of the region to be flushed
-FlushInstructionCache.restype = ErrorIfZero
+class CONTEXT_x86_64( Structure ):
+    _fields_ = [
+        ('P1Home',  c_uint64),
+        ('P2Home',  c_uint64),
+        ('P3Home',  c_uint64),
+        ('P4Home',  c_uint64),
+        ('P5Home',  c_uint64),
+        ('P6Home',  c_uint64),
+        ('ContextFlags',    c_uint32),
+        ('MxCsr',           c_uint32),
+        ('segcs',   c_uint16),
+        ('segds',   c_uint16),
+        ('seges',   c_uint16),
+        ('segfs',   c_uint16),
+        ('seggs',   c_uint16),
+        ('segss',   c_uint16),
+        ('eflags',  c_uint32),
+        ('dr0',     c_uint64),
+        ('dr1',     c_uint64),
+        ('dr2',     c_uint64),
+        ('dr3',     c_uint64),
+        ('dr6',     c_uint64),
+        ('dr7',     c_uint64),
+        ('rax',     c_uint64),
+        ('rcx',     c_uint64),
+        ('rdx',     c_uint64),
+        ('rbx',     c_uint64),
+        ('rsp',     c_uint64),
+        ('rbp',     c_uint64),
+        ('rsi',     c_uint64),
+        ('rdi',     c_uint64),
+        ('r8',      c_uint64),
+        ('r9',      c_uint64),
+        ('r10',     c_uint64),
+        ('r11',     c_uint64),
+        ('r12',     c_uint64),
+        ('r13',     c_uint64),
+        ('r14',     c_uint64),
+        ('r15',     c_uint64),
+        ('rip',     c_uint64),
+        ('FloatingPointData',   c_ARRAY(c_uint64, 80)),
+        ('VectorRegister',      c_ARRAY(c_uint64, 52)),
+        ('VectorControl',       c_uint64),
+        ('DebugControl',        c_uint64),
+        ('LastBranchToRip',     c_uint64),
+        ('LastBranchFromRip',   c_uint64),
+        ('LastExceptionToRip',  c_uint64),
+        ('LastExceptionFromRip',c_uint64)]
 
-GetModuleHandle = kernel32.GetModuleHandleA
-GetModuleHandle.argtypes = [ c_char_p ]  # lpModuleName // module name
-GetModuleHandle.restype = c_void_p
+FlushInstructionCache_proto = WINFUNCTYPE(
+        wt.BOOL,
+        wt.HANDLE,
+        c_void_p,
+        c_size_t)
+FlushInstructionCache = FlushInstructionCache_proto(('FlushInstructionCache', kernel32), (
+            (_IN_, 'hProcess'),
+            (_IN_, 'lpBaseAddress'),
+            (_IN_, 'dwSize')))
+FlushInstructionCache.errcheck = ErrorIfZero
+
+GetModuleHandle_proto = WINFUNCTYPE(wt.HMODULE, wt.LPCWSTR)
+GetModuleHandle = GetModuleHandle_proto(('GetModuleHandleW', kernel32), ((_IN_, 'lpModuleName'),))
 GetModuleHandle.errcheck = ErrorIfZero
 
-LoadLibrary = kernel32.LoadLibraryW
-LoadLibrary.argtypes = [ c_wchar_p ]
-LoadLibrary.restype = c_void_p
+LoadLibrary_proto = WINFUNCTYPE(wt.HMODULE, wt.LPCWSTR)
+LoadLibrary = LoadLibrary_proto(('LoadLibraryW', kernel32), ((_IN_, 'lpLibFileName'),))
 LoadLibrary.errcheck = ErrorIfZero
 
-GetProcAddress = kernel32.GetProcAddress
-GetProcAddress.argtypes = [
-    c_void_p,    # hModule // handle to DLL module
-    c_char_p ]  # lpProcName // function name
-GetProcAddress.restype = c_void_p
+GetProcAddress_proto = WINFUNCTYPE(c_void_p, wt.HMODULE, wt.LPCSTR)
+GetProcAddress = GetProcAddress_proto(('GetProcAddress', kernel32), (
+            (_IN_, 'hModule'),
+            (_IN_, 'lpProcName')))
 GetProcAddress.errcheck = ErrorIfZero
 
-DebugActiveProcess = kernel32.DebugActiveProcess
-DebugActiveProcess.argtypes = [ c_uint32 ]  # dwProcessId // process to be debugged
-DebugActiveProcess.restype = ErrorIfZero
+DebugActiveProcess_proto = WINFUNCTYPE(wt.BOOL, wt.DWORD)
+DebugActiveProcess = DebugActiveProcess_proto(('DebugActiveProcess', kernel32), ((_IN_, 'dwProcessId'),))
+DebugActiveProcess.errcheck = ErrorIfZero
 
-DebugActiveProcessStop = kernel32.DebugActiveProcessStop
-DebugActiveProcessStop.argtypes = [ c_uint32 ]  # dwProcessId // process to stop debugging
-DebugActiveProcessStop.restyp = ErrorIfZero
+DebugActiveProcessStop = DebugActiveProcess_proto(('DebugActiveProcessStop', kernel32), ((_IN_, 'dwProcessId'),))
+DebugActiveProcessStop.errcheck = ErrorIfZero
 
-GetProcessId = kernel32.GetProcessId
-GetProcessId.argtypes = [ c_void_p ] # handle
-GetProcessId.restype = ErrorIfZero
+GetProcessId_proto = WINFUNCTYPE(wt.DWORD, wt.HANDLE)
+GetProcessId = GetProcessId_proto(('GetProcessId', kernel32), ((_IN_, 'Process'),))
+GetProcessId.errcheck = ErrorIfZero
 
 class SYSTEM_INFO( Structure ):
     _fields_ = [
@@ -934,39 +1161,60 @@ class SYSTEM_INFO( Structure ):
             ('dwAllocationGranularity',     c_uint32),
             ('wProcessorLevel',             c_uint32),
             ('wProcessorRevision',          c_uint32) ]
-GetSystemInfo = kernel32.GetSystemInfo
-GetSystemInfo.argtypes = [ c_void_p ] # LPSYSTEM_INFO
-GetSystemInfo.restype = None
+GetSystemInfo_proto = WINFUNCTYPE(c_uint32, c_POINTER(SYSTEM_INFO))
+GetSystemInfo = GetSystemInfo_proto(('GetSystemInfo', kernel32), ((_IN_, 'lpSystemInfo'),))
 
-OpenFileMapping = kernel32.OpenFileMappingA
-OpenFileMapping.argtypes = [
-          c_uint32, # dwDesiredAccess
-          c_uint32, # bInheritHandle
-          c_char_p ] # lpName
-OpenFileMapping.restype = ErrorIfZero
+OpenFileMapping_proto = WINFUNCTYPE(wt.HANDLE, wt.DWORD, wt.BOOL, wt.LPCSTR)
+OpenFileMapping = OpenFileMapping_proto(('OpenFileMappingA', kernel32), (
+            (_IN_, 'dwDesiredAccess'),
+            (_IN_, 'bInheritHandle'),
+            (_IN_, 'lpName')))
+OpenFileMapping.errcheck = ErrorIfZero
 
-MapViewOfFile = kernel32.MapViewOfFile
-MapViewOfFile.argtypes = [
-          c_void_p, # HANDLE hFileMappingObject
-          c_uint32, # DWORD dwDesiredAccess
-          c_uint32, # DWORD dwFileOffsetHigh
-          c_uint32, # DWORD dwFileOffsetLow
-          c_uint32 ] # SIZE_T dwNumberOfBytesToMap
-MapViewOfFile.restype = c_void_p
+MapViewOfFile_proto = WINFUNCTYPE(
+            c_void_p,
+            wt.HANDLE,
+            wt.DWORD, wt.DWORD, wt.DWORD,
+            c_size_t)
+MapViewOfFile = MapViewOfFile_proto(('MapViewOfFile', kernel32), (
+            (_IN_,  'hFileMappingObject'),
+            (_IN_,  'dwDesiredAccess'),
+            (_IN_,  'dwFileOffsetHigh'),
+            (_IN_,  'dwFileOffsetLow'),
+            (_IN_,  'dwNumberOfBytesToMap')))
+MapViewOfFile.errcheck = ErrorIfZero
 
-# Symbols
-CoInitialize = ole32.CoInitialize
-CoInitialize.argtypes = [ c_void_p ]
-CoInitialize.restype = c_int32
+GetFinalPathNameByHandle_proto = WINFUNCTYPE(
+        wt.DWORD,
+        wt.HANDLE,
+        wt.LPWSTR,
+        wt.DWORD,
+        wt.DWORD)
+GetFinalPathNameByHandle = GetFinalPathNameByHandle_proto(('GetFinalPathNameByHandleW', kernel32), (
+            (_IN_,  'hFile'),
+            (_IN_,  'lpszFilePath'),
+            (_IN_,  'cchFilePath'),
+            (_IN_,  'dwFlags')))
+GetFinalPathNameByHandle.errcheck = ErrorIfZero
 
-CoCreateInstance = ole32.CoCreateInstance
-CoCreateInstance.argtypes = [
+CoInitialize_proto = WINFUNCTYPE(wt.LONG, c_void_p)
+CoInitialize = CoInitialize_proto(('CoInitialize', ole32), ((_IN_, 'pvReserved', None),))
+CoInitialize.errcheck = HResultErrorCheck
+
+CoCreateInstance_proto = WINFUNCTYPE(
+        wt.LONG,
         c_void_p,
-        c_uint32,
-        c_uint32,
         c_void_p,
-        c_void_p ]
-CoCreateInstance.restype = c_int32
+        wt.DWORD,
+        c_void_p,
+        c_void_p)
+CoCreateInstance = CoCreateInstance_proto(('CoCreateInstance', ole32), (
+        (_IN_, 'rclsid'),
+        (_IN_, 'pUnkOuter'),
+        (_IN_, 'dwClsContext'),
+        (_IN_, 'riid'),
+        (_IN_, 'ppv')))
+CoCreateInstance.errcheck = HResultErrorCheck
 
 SymTagEnum = [
     'SymTagNull', # 0
@@ -1064,3 +1312,19 @@ SymBaseType = [
     "HRESULT"]      # 31
 SymBaseTypeTag = dict(zip(range(len(SymBaseType)), SymBaseType))
 SymBaseType = dict(zip(SymBaseType, range(len(SymBaseType))))
+
+class WNDCLASSEX( Structure ):
+    _fields_ = [
+        ('cbSize',          c_uint32),
+        ('style',           c_uint32),
+        ('lpfnWndProc',     c_void_p),
+        ('cbClsExtra',      c_int32),
+        ('cbWndExtra',      c_int32),
+        ('hInstance',       wt.HINSTANCE),
+        ('hIcon',           c_void_p),
+        ('hCursor',         c_void_p),
+        ('hbrBackground',   c_void_p),
+        ('lpszMenuName',    c_void_p),
+        ('lpszClassName',   c_void_p),
+        ('hIconSm',         c_void_p)]
+
