@@ -368,7 +368,7 @@ class SHAPE_INTERFACE(object):
         return 0
     def getName(self):
         return self.__class__.__name__
-    def GetValidRange(self, start, lastAddress=0, context=None):
+    def getValidRange(self, start, lastAddress=0, context=None):
         return [(lastAddress,0)]
     def isValid(self, patFinder, address, offset, context):
         """ Pure virtual """
