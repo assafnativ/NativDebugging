@@ -32,6 +32,7 @@ requires = [
         'rpyc',
         'distorm3',
         "pywin32;platform_system=='Windows'",
+        "pyelftools",
         'QtWidgets']
 
 from setuptools import setup

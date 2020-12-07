@@ -1,2 +1,3 @@
 __all__ = [
-        "FileReader" ]
+        "FileReader",
+        "ELFReader" ]

@@ -113,12 +113,12 @@ class PtraceMemReader( MemReaderBase ):
         # attach to process
         ret = self.ptrace(self.PTRACE_ATTACH, self.pid, 0, 0)
         if 0 != ret:
-            print 'ret = %d (0x%x)' % (ret,ret)
+            print('ret = %d (0x%x)' % (ret,ret))
             raise Exception('error - could not ptrace attach to pid : %d' % self.pid)
 
         self.isAttached = True
 
-        print 'reading memory regions...'
+        print('reading memory regions...')
         self.readMemoryRegions()
 
 
@@ -134,10 +134,10 @@ class PtraceMemReader( MemReaderBase ):
                 found.append(reg)
 
                 if verbose:
-                    print '\n%s' % str(reg)
+                    print('\n%s' % str(reg))
 
         if verbose:
-            print 'found %d matches for pathStr = %s' % (len(found),pathStr)
+            print('found %d matches for pathStr = %s' % (len(found),pathStr))
 
         return found
 
@@ -175,7 +175,7 @@ class PtraceMemReader( MemReaderBase ):
 
                 self.memMap.append(MemInfo(start, end, permissions, offset, dev, inode, pathName))
 
-        print '\t read %d regions for pid %d' % (len(self.memMap),self.pid)
+        print('\t read %d regions for pid %d' % (len(self.memMap),self.pid))
 
     def getMemoryMap(self):
         memMap = {}
